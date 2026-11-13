@@ -1,0 +1,32 @@
+/* Keep mobile content reachable; never squeeze a whole long question into a fixed viewport. */
+@media (max-width: 900px), (max-height: 600px) {
+  html.player-mode, body.player-mode {
+    height: auto !important; min-height: 100%; overflow-y: auto !important;
+    overflow-x: clip; -webkit-overflow-scrolling: touch;
+  }
+  body.player-mode #app {
+    height: auto !important; min-height: 100svh; min-height: 100dvh;
+    overflow: visible; width: 100%; max-width: 100%;
+  }
+  .player-toolbar { flex-wrap: wrap; height: auto; min-width: 0; }
+  .player-toolbar .nav-actions { flex-wrap: wrap; min-width: 0; }
+  .player-main { flex: none; min-height: 0; height: auto; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .player-heading { flex-wrap: wrap; align-items: start; }
+  .player-identity { flex: 1 1 140px; min-width: 0; }
+  .player-heading .room-title { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .player-hud { flex-wrap: wrap; gap: 8px; max-width: 100%; }
+  .player-mode .student-layout { display: block; flex: none; height: auto; min-height: 0; }
+  .player-mode .player-question-card { display: flex; flex-direction: column; height: auto; min-height: 0; overflow: visible; }
+  .player-mode .question-scroll { flex: none; overflow: visible; height: auto; max-height: none; scrollbar-gutter: auto; }
+  .player-mode .game-scene { width: 100%; flex: none; min-width: 0; }
+  .player-mode .scene-world { flex: none; height: 132px; min-height: 132px; }
+  .player-mode .scene-caption { height: auto; overflow-wrap: anywhere; }
+  .player-mode .option { min-height: 48px; white-space: normal; }
+  .player-mode .feedback, .player-mode .feedback p { max-width: 100%; overflow-wrap: anywhere; }
+  .player-mode .player-sidebar.is-open { height: auto; max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; }
+  .player-mode .toast { max-width: calc(100vw - 24px); font-size: 13px; }
+}
+@media (max-width: 360px) {
+  .player-mode .option-list { grid-template-columns: 1fr; }
+  .player-toolbar .btn { padding: 7px; font-size: 11px; }
+}
