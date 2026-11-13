@@ -1,3 +1,4 @@
+import {createRoundMetrics,recordCardAnswer,updateRoundMetrics,roundReport} from './round-metrics.js';
 import { DurableObject } from 'cloudflare:workers';
 import {
   MODES, MAX_PLAYERS, MAX_ROOM_MINUTES, cleanText, createQuestion,
@@ -36,7 +37,7 @@ export default {
           const stub = env.ROOMS.get(id);
           const hostToken = randomId(24);
           const result = await stub.fetch('https://room.internal/init', {
-            method: 'POST', body: JSON.stringify({ pin, hostToken, title, mode, questions })
+            method: 'POST', body: JSON.stringify({ pin, hostToken, title, mode, questions, reportOwner:env.__REPORT_CONTEXT?.owner||null, sourceList:env.__REPORT_CONTEXT?.source||null })
           });
           if (result.status === 409) continue;
           return result;
@@ -61,30 +62,76 @@ export class QuizRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.room = null;
+    this._serial=Promise.resolve();
     this.ctx.blockConcurrencyWhile(async () => {
       this.room = (await this.ctx.storage.get('room')) || null;
     });
   }
-  async save() { await this.ctx.storage.put('room', this.room); }
+  ensureRoundMetrics() {
+    if(this.room?.startedAt && !this.room.roundMetrics)this.room.roundMetrics=createRoundMetrics(this.room,{partial:true});
+  }
+  async save() {
+    this.ensureRoundMetrics();
+    if(this.room.roundMetrics)updateRoundMetrics(this.room.roundMetrics,this.room);
+    await this.ctx.storage.put('room',this.room);
+    await this.publishReport();await this.scheduleAnalyticsAlarm();
+  }
+  async publishReport(force=false) {
+    const r=this.room,m=r?.roundMetrics;
+    if(!m||!r.reportOwner||!this.env.TEACHER_LIBRARY)return;
+    if(r.reportPublished?.id===m.id&&r.reportPublished.revision>=m.revision)return;
+    const now=Date.now();
+    if(!force&&(r.reportRetryAt>now||m.status!=='finished'&&now-(r.reportLastAttempt||0)<15000))return;
+    const snapshot=roundReport(m),owner=r.reportOwner;
+    r.reportLastAttempt=now;
+    // Persist the outbox before the network call. Delivery may be retried with the same round/revision.
+    await this.ctx.storage.put('room',r);
+    try {
+      const response=await this.env.TEACHER_LIBRARY.get(this.env.TEACHER_LIBRARY.idFromName('teachers')).fetch('https://library.internal/',{
+        method:'POST',body:JSON.stringify({action:'record-round',payload:{owner,report:snapshot}})
+      });
+      if(!response.ok)throw new Error('Report archive unavailable.');
+      await response.json();
+      if(this.room?.roundMetrics?.id===snapshot.id){
+        const old=this.room.reportPublished;
+        this.room.reportPublished={id:snapshot.id,revision:Math.max(old?.id===snapshot.id?old.revision:0,snapshot.revision)};
+        this.room.reportRetryAt=0;await this.ctx.storage.put('room',this.room);
+      }
+    } catch {
+      if(this.room?.roundMetrics?.id===snapshot.id){this.room.reportRetryAt=now+30000;await this.ctx.storage.put('room',this.room);}
+    }
+  }
+  async scheduleAnalyticsAlarm() {
+    const r=this.room;if(!r)return;const now=Date.now(),times=[r.createdAt+ROOM_LIFETIME];
+    if(r.status==='playing'&&r.endsAt!=null)times.push(r.endsAt);
+    if(r.reportOwner&&r.roundMetrics&&(r.reportPublished?.id!==r.roundMetrics.id||r.reportPublished.revision<r.roundMetrics.revision))
+      times.push(r.reportRetryAt||Math.max(now+250,(r.reportLastAttempt||0)+15000));
+    await this.ctx.storage.setAlarm(Math.max(now+250,Math.min(...times)));
+  }
   valid() { return this.room && Date.now() - this.room.createdAt < ROOM_LIFETIME; }
 
-  async fetch(request) {
+  exclusive(work){const operation=this._serial.then(work,work);this._serial=operation.catch(()=>{});return operation;}
+  fetch(request){return this.exclusive(()=>this._fetch(request));}
+  async _fetch(request) {
     const path = new URL(request.url).pathname;
     try {
       if (path === '/init') {
         if (request.method !== 'POST') return failure('Method not allowed.', 405);
         if (this.valid()) return failure('Room PIN already in use.', 409);
+        if(this.room){await this._alarm();if(this.room)return failure('Previous room report is still being archived.',409);}
         const data = await bodyOf(request);
         this.room = {
           pin: data.pin, hostToken: data.hostToken, title: data.title, mode: data.mode,
-          questions: data.questions, createdAt: Date.now(), status: 'lobby',
+          questions: data.questions, reportOwner:data.reportOwner||null, sourceList:data.sourceList||null, createdAt: Date.now(), status: 'lobby',
           players: {}, startedAt: null, endsAt: null, remainingMs: null, lastPassiveAt: null
         };
         await this.save();
-        await this.ctx.storage.setAlarm(this.room.createdAt + ROOM_LIFETIME);
+        await this.scheduleAnalyticsAlarm();
         return json({ pin: this.room.pin, hostToken: this.room.hostToken });
       }
       if (!this.valid()) return failure('This game room no longer exists.', 404);
+      this.ensureRoundMetrics();
+      if(settleTime(this.room)){await this.save();this.broadcast();}
       if (path.endsWith('/join')) {
         if (request.method !== 'POST') return failure('Method not allowed.', 405);
         if (this.room.status === 'finished') return failure('This game has already finished.', 409);
@@ -128,7 +175,10 @@ export class QuizRoom extends DurableObject {
       startedAt: room.startedAt, endsAt: room.endsAt, remainingMs: room.remainingMs,
       players, online: this.onlineIds()
     };
-    if (connection.role === 'host') return { ...shared, isHost: true };
+    if (connection.role === 'host') return { ...shared, isHost: true,
+      cardReport:roundReport(room.roundMetrics),
+      reportArchived:!!room.reportOwner&&room.reportPublished?.id===room.roundMetrics?.id&&room.reportPublished?.revision>=room.roundMetrics?.revision
+    };
     const me = room.players[connection.playerId];
     if (!me) return { type: 'error', error: 'You are no longer in this room.' };
     return {
@@ -184,7 +234,9 @@ export class QuizRoom extends DurableObject {
   async act(ws, att, msg) {
     const room = this.room;
     if (!room) throw new Error('Room unavailable.');
+    this.ensureRoundMetrics();
     const changedByTimer = settleTime(room);
+    if(changedByTimer){await this.save();this.broadcast();}
     if (msg.type === 'ping' || msg.type === 'sync') {
       if (changedByTimer) { await this.save(); this.broadcast(); }
       else this.send(ws, this.snapshotFor(att));
@@ -193,12 +245,18 @@ export class QuizRoom extends DurableObject {
     if (msg.type === 'start') {
       this.requireHost(att);
       if (!['lobby', 'finished'].includes(room.status)) throw new Error('This game is already running.');
+      if(room.roundMetrics?.status==='finished'&&room.reportOwner){
+        await this.publishReport(true);
+        if(room.reportPublished?.id!==room.roundMetrics.id||room.reportPublished.revision<room.roundMetrics.revision)
+          throw new Error('The previous round report is still being saved. Retry before starting another round.');
+      }
       const minutes = Math.max(3, Math.min(MAX_ROOM_MINUTES, Math.floor(Number(msg.minutes) || 10)));
       for (const [id, p] of Object.entries(room.players)) {
         room.players[id] = newPlayer(id, p.token, p.name, room.questions);
       }
       room.status = 'playing'; room.startedAt = Date.now(); room.endsAt = Date.now() + minutes * 60_000;
-      room.lastPassiveAt = Date.now(); room.remainingMs = null;
+      room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null;
+      room.roundMetrics=createRoundMetrics(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
     } else if (msg.type === 'pause') {
       this.requireHost(att);
       if (room.status !== 'playing') throw new Error('The game is not running.');
@@ -211,7 +269,7 @@ export class QuizRoom extends DurableObject {
     } else if (msg.type === 'end') {
       this.requireHost(att);
       if (room.status === 'lobby') throw new Error('Start the game first.');
-      room.status = 'finished';
+      room.status = 'finished';room.finishedAt=Date.now();
     } else if (msg.type === 'answer') {
       const p = this.requireStudent(att);
       if (room.status !== 'playing') throw new Error('The game is not active.');
@@ -234,6 +292,7 @@ export class QuizRoom extends DurableObject {
         selected: selection
       };
       if (!correct && room.mode === 'battle') p.hp = Math.max(10, p.hp - 5);
+      recordCardAnswer(room.roundMetrics,{playerId:p.id,sequence:p.answered,cardIndex:p.current.index,optionIndex:p.current.order[selection],correct});
     } else if (msg.type === 'chest') {
       const p = this.requireStudent(att);
       if (room.mode !== 'treasure' || !p.pendingChests) throw new Error('No chest to open.');
@@ -256,7 +315,8 @@ export class QuizRoom extends DurableObject {
     await this.save();
     this.broadcast();
   }
-  async webSocketMessage(ws, raw) {
+  webSocketMessage(ws,raw){return this.exclusive(()=>this._webSocketMessage(ws,raw));}
+  async _webSocketMessage(ws, raw) {
     try {
       if (typeof raw !== 'string' || raw.length > 3000) throw new Error('Invalid message.');
       const msg = JSON.parse(raw);
@@ -275,11 +335,19 @@ export class QuizRoom extends DurableObject {
     try { ws.close(); } catch { /* already closed */ }
     this.broadcast();
   }
-  async alarm() {
-    for (const ws of this.ctx.getWebSockets()) {
-      try { ws.close(4000, 'Room expired'); } catch { /* already disconnected */ }
+  alarm(){return this.exclusive(()=>this._alarm());}
+  async _alarm() {
+    if(!this.room)return;
+    this.ensureRoundMetrics();const now=Date.now(),expired=now>=this.room.createdAt+ROOM_LIFETIME;
+    if(expired&&['playing','paused'].includes(this.room.status)){this.room.status='finished';this.room.finishedAt=now;}
+    else settleTime(this.room,now);
+    await this.save();this.broadcast();
+    if(!expired)return;
+    const r=this.room,m=r.roundMetrics;
+    if(r.reportOwner&&m&&(r.reportPublished?.id!==m.id||r.reportPublished.revision<m.revision)){
+      await this.ctx.storage.setAlarm(now+60000);return;
     }
-    this.room = null;
-    await this.ctx.storage.deleteAll();
+    for(const ws of this.ctx.getWebSockets()){try{ws.close(4000,'Room expired');}catch{}}
+    this.room=null;await this.ctx.storage.deleteAll();
   }
 }

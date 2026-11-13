@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "quizdock-classroom-arcade",
-  "main": "src/worker.js",
+  "name": "quizdock",
+  "main": "src/library-worker.js",
   "compatibility_date": "2026-11-12",
   "assets": {
     "directory": "./public",
@@ -15,6 +15,10 @@
       {
         "name": "ROOMS",
         "class_name": "QuizRoom"
+      },
+      {
+        "name": "TEACHER_LIBRARY",
+        "class_name": "TeacherLibrary"
       }
     ]
   },
@@ -23,6 +27,12 @@
       "tag": "v1",
       "new_sqlite_classes": [
         "QuizRoom"
+      ]
+    },
+    {
+      "tag": "v2-teacher-library",
+      "new_sqlite_classes": [
+        "TeacherLibrary"
       ]
     }
   ],

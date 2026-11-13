@@ -1,5 +1,8 @@
 import { importCsv, TEMPLATE, DEMO } from './csv.js';
 import { createGameAnimations } from './animations.js';
+import {imageMarkup,installImageFallback} from './list-images.js';
+import {sortedCards,reportCSV} from './report-model.js';
+installImageFallback();
 
 const MODES = {
   treasure: { name: 'Treasure Quest', icon: '🧰', tagline: 'Open mystery chests and raid rivals.', instruction: 'Answer correctly to unlock one of three mystery chests.' },
@@ -22,7 +25,7 @@ function toast(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 4100);
 }
 function nav() {
-  return `<header><div class="brand"><span class="brand-mark">⚡</span><span>QuizDock</span></div><div class="nav-actions">${session
+  return `<header><div class="brand"><span class="brand-mark">⚡</span><span>QuizDock</span></div><div class="nav-actions"><a class="btn ghost tiny-btn" href="/library.html">My lists</a><a class="btn ghost tiny-btn" href="/reports.html">Reports</a>${session
     ? `<button type="button" class="btn ghost tiny-btn" data-action="leave">← Leave room</button>`
     : `<button type="button" class="btn ghost" data-action="focus-join">Join a game</button><button type="button" class="btn mint" data-action="focus-create">Host a game</button>`}</div></header>`;
 }
@@ -33,7 +36,7 @@ function homeMarkup() {
   return `${nav()}<main class="container">
     <section class="hero"><div class="hero-copy"><div class="eyebrow">Class is in session. Game on.</div>
       <h1>Your classroom.<br><em>Your arcade.</em></h1>
-      <p>Upload a CSV, pick a game, and watch your students jump into the action. No student accounts. No premade question library. Just learning that feels like play.</p>
+      <p>Upload a CSV, pick a game, and watch your students jump into the action. No student accounts. Your own saved question library. Just learning that feels like play.</p>
       <div class="hero-actions"><button class="btn primary big" data-action="focus-create">✦ Create a game</button><button class="btn ghost big" data-action="focus-join">Join with a PIN ↗</button></div>
       <div class="muted small">✦ Built for classroom-sized live sessions · Up to 45 players</div>
     </div><div class="hero-art" aria-hidden="true">
@@ -52,7 +55,7 @@ function homeMarkup() {
         <p class="muted small">Ready? Create a private classroom PIN and share it with your students.</p>
         <div style="margin:20px 0;padding:18px;border:1px solid #3d4672;border-radius:15px;background:#111831"><div class="muted small">Selected game</div><h3 style="margin:7px 0">${modeInfo(draft.mode).icon} ${modeInfo(draft.mode).name}</h3><p class="muted small">${modeInfo(draft.mode).instruction}</p></div>
         <button type="button" data-action="create" class="btn primary wide big" ${draft.questions.length ? '' : 'disabled'}>Create game room →</button>
-        <p class="notice">Teacher controls are protected by a private session token. For this first version, no teacher login is required.</p>
+        <p class="notice">Sign in to My lists to host games and save private round reports. Students still join with a PIN.</p>
         <div style="border-top:1px solid var(--border);margin:23px 0 19px"></div>
         <h3>Joining as a student?</h3><p class="muted small" style="margin:9px 0 15px">Enter your teacher's six-digit room PIN.</p>
         <form id="join-form"><label class="field-label" for="join-pin">Game PIN</label><input id="join-pin" class="field" required pattern="[0-9]{6}" inputmode="numeric" maxlength="6" placeholder="123456" value="${safe(new URLSearchParams(location.search).get('join') || '')}" />
@@ -65,6 +68,13 @@ function homeMarkup() {
 function leaderboard(state, compact = false) {
   if (!state?.players?.length) return `<div class="waiting"><div class="waiting-emoji">🪑</div><p class="muted">No players yet. Share the PIN to invite your class.</p></div>`;
   return `<div class="table-wrap"><table class="rank-table"><thead><tr><th>Rank</th><th>Player</th><th class="num">${state.mode === 'treasure' ? 'Coins' : state.mode === 'factory' ? 'Cash' : 'Points'}</th>${compact?'':'<th class="num">Correct</th>'}</tr></thead><tbody>${state.players.slice(0, compact ? 7 : 45).map((p,i)=> `<tr data-player-id="${attr(p.id)}"><td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td>${safe(p.name)} ${state.me?.id===p.id?'(you)':''}</td><td class="num"><b>${scorefmt(p.score)}</b></td>${compact?'':`<td class="num">${p.correct}/${p.answered}</td>`}</tr>`).join('')}</tbody></table></div>`;
+}
+function cardReportPanel(s) {
+  const r=s.cardReport;if(!r)return '';
+  const missed=sortedCards(r.cards,'missed',1).filter(c=>c.incorrect>0).slice(0,4);
+  const mastered=sortedCards(r.cards,'correct',1).filter(c=>c.correct>0).slice(0,4);
+  const rows=(cards,key)=>cards.map(c=>`<p>${c.number}. ${safe(c.prompt)}<small>${c[key]} ${key} / ${c.attempts} attempts · ${c.uniqueStudents} players</small></p>`).join('')||'<p class="muted">No matching answers recorded.</p>';
+  return `<section class="card live-card-panel"><h3>Card-level results</h3><p class="muted small">${r.summary.correct} correct · ${r.summary.incorrect} incorrect · ${r.summary.cardsAnswered}/${r.cards.length} cards answered${r.partial?' · Partial tracking':''}</p><div class="live-card-columns"><div><h3>Most missed</h3>${rows(missed,'incorrect')}</div><div><h3>Most correct</h3>${rows(mastered,'correct')}</div></div><div class="live-report-tools"><button class="btn ghost tiny-btn" data-action="round-csv">Export card results · CSV</button><a class="btn mint tiny-btn" href="/reports.html?round=${attr(r.id)}" target="_blank" rel="noopener">Open detailed report</a></div><p class="notice">${s.reportArchived?'This snapshot is saved to your teacher account.':'Answers are saved in this game room; the private report archive is syncing.'} Repeated attempts and distinct player sessions are counted separately.</p></section>`;
 }
 function teacherMarkup() {
   const s = room;
@@ -85,6 +95,7 @@ function teacherMarkup() {
       </section>
       <section class="card"><h3>👋 Students in the room</h3><p class="muted small" style="margin-top:7px">${online.size} connected · ${s.players.length} joined</p><div class="people">${s.players.map(p=> `<span class="person ${online.has(p.id)?'':'offline'}">${online.has(p.id)?'🟢':'⚪'} ${safe(p.name)}</span>`).join('') || '<span class="muted">Waiting for the first student…</span>'}</div></section>
       </div><div class="card"><h3>🏆 Live leaderboard</h3><p class="muted small" style="margin:8px 0 15px">Scores update as students play.</p>${leaderboard(s)}</div></div>
+    ${cardReportPanel(s)}
     <p class="notice">Tip: Keep this teacher tab open while your class plays. If you reload it, the same private session will reconnect.</p>
   </main>${footer()}`;
 }
@@ -105,7 +116,7 @@ function gameQuestion(s) {
   const p = s.me, q = p.question;
   if (!q) return '<p class="muted">Preparing your next question…</p>';
   const fb = p.feedback;
-  return `<div class="eyebrow">Question ${q.number} of ${s.questionCount}</div><h2 class="quiz-title">${safe(q.text)}</h2>
+  return `<div class="eyebrow">Question ${q.number} of ${s.questionCount}</div>${imageMarkup(q)}<h2 class="quiz-title">${safe(q.text)}</h2>
     <div class="option-list">${q.options.map((ans,i)=> `<button class="option ${fb && fb.correctAnswers.includes(ans)?'correct-opt':''} ${fb && fb.selected===i && !fb.correct?'wrong-opt':''}" data-action="answer" data-key="${attr(q.key)}" data-choice="${i}" ${fb||awaitingResponse?'disabled':''}><span class="letter">${'ABCD'[i]}</span>${safe(ans)}</button>`).join('')}</div>
     ${fb ? `<div class="feedback ${fb.correct?'good':'bad'}"><b>${fb.correct?'✓ Correct answer!':'✗ Not quite!'}</b><p>${safe(fb.reward)}</p>${fb.correct?'':`<p style="margin-top:5px">Correct: ${safe(fb.correctAnswers.join(' / '))}</p>`}</div>
       ${p.pendingChests ? `<div class="center" style="margin:17px 0;font-weight:800">Pick your treasure chest!</div><div class="chests">${[0,1,2].map(i=> `<button class="chest" data-action="chest" data-index="${i}"><span>🧰</span>Chest ${i+1}</button>`).join('')}</div>` : `<button style="margin-top:16px" class="btn mint wide big" data-action="next">Next question →</button>`}` : `<p class="notice">Tap the answer you think is correct.</p>`}
@@ -237,6 +248,7 @@ document.addEventListener('click',e => {
   else if(action==='copy-pin')copyText(room.pin);
   else if(action==='copy-link')copyText(`${location.origin}/?join=${room.pin}`);
   else if(action==='export')exportResults();
+  else if(action==='round-csv'&&session?.role==='host'&&room?.cardReport)download(`QuizDock-round-${room.cardReport.id}.csv`,reportCSV(room.cardReport));
   else if(action==='start')send({type:'start',minutes:draft.minutes});
   else if(action==='pause'||action==='resume')send({type:action});
   else if(action==='end') {if(confirm('End the game for all players?'))send({type:'end'});}
