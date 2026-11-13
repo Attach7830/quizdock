@@ -1,0 +1,43 @@
+/* Original CSS game scenes. Effects are driven by authoritative state changes. */
+.game-scene { position:relative; isolation:isolate; overflow:hidden; margin:0 0 22px; border:1px solid #536084; border-radius:17px; background:linear-gradient(150deg,#172a40,#121c35); }
+.scene-toolbar { position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px; }
+.scene-kicker { font-size:10px;letter-spacing:1.6px;font-weight:900;text-transform:uppercase;color:#b6c9e5; }
+.motion-toggle { border:1px solid #536584;border-radius:99px;padding:5px 9px;background:#18253d;color:#d5e3f7;font-size:10px;white-space:nowrap; }
+.motion-toggle:focus-visible { outline:3px solid var(--mint);outline-offset:2px; }
+.motion-toggle:disabled { opacity:.8; }
+.scene-world { position:relative;overflow:hidden;height:140px;margin:0 12px; }
+.scene-caption { position:relative;z-index:2;display:flex;align-items:center;justify-content:center;min-height:48px;padding:9px 14px;margin:0;background:#111c2c90;text-align:center;font-size:12px;font-weight:700;color:#d8e5f5;line-height:1.4;overflow-wrap:anywhere; }
+.scene-halo { position:absolute;left:50%;top:10%;width:180px;height:160px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,#f8cf5144,transparent 68%); }
+.scene-island { position:absolute;left:50%;bottom:9px;width:200px;height:27px;transform:translateX(-50%);border-radius:50%;background:#c8914f45;box-shadow:0 8px 0 #0b172a; }
+.scene-chest { position:absolute;left:calc(50% - 53px);bottom:25px;width:106px;height:73px;filter:drop-shadow(0 9px 5px #0005); }
+.scene-lid { position:absolute;z-index:2;left:-3px;top:-3px;width:112px;height:32px;border:4px solid #ffce6b;border-radius:14px 14px 4px 4px;background:repeating-linear-gradient(0deg,#a66a34 0 8px,#824427 8px 10px);transform-origin:12px 100%; }
+.scene-lid::before,.scene-lid::after { content:'';position:absolute;top:0;height:100%;width:9px;background:#f4ba52; }.scene-lid::before { left:16px; }.scene-lid::after { right:16px; }
+.scene-box { position:absolute;bottom:0;width:106px;height:48px;border:4px solid #f9c567;border-radius:3px 3px 9px 9px;background:repeating-linear-gradient(0deg,#97592e 0 12px,#784326 12px 14px); }
+.scene-box i { position:absolute;z-index:3;left:40px;top:-8px;width:20px;height:25px;border-radius:5px;background:#ffdc7d;box-shadow:0 2px 0 #97592e; }.scene-box i::after { content:'';position:absolute;left:8px;top:8px;width:5px;height:9px;border-radius:50%;background:#734c28; }
+.scene-star { position:absolute;color:#ffdc83; }.star-a { left:22%;top:23px;font-size:26px; }.star-b { right:20%;bottom:30px;font-size:31px; }
+.game-scene[data-mode=fishing] { background:linear-gradient(155deg,#1c455b,#13253b); }
+.scene-sun { position:absolute;right:14%;top:10px;width:32px;height:32px;border-radius:50%;background:#ffd98a;box-shadow:0 0 30px #ffd98a25; }
+.scene-water { position:absolute;z-index:2;bottom:-29px;left:-10%;width:120%;height:70px;border-radius:50% 40% 0 0;background:#2b8aab;opacity:.65; }.water-back { z-index:0;bottom:-18px;left:-20%;background:#37b8c4;opacity:.35; }
+.scene-line { position:absolute;left:54%;top:-4px;width:2px;height:86px;background:#b6deed;transform-origin:top; }.scene-line i { position:absolute;bottom:-10px;left:-11px;width:13px;height:17px;border:3px solid #b6deed;border-top:0;border-radius:0 0 15px 15px; }
+.scene-fish { position:absolute;z-index:3;left:54%;bottom:30px;width:61px;height:34px;border-radius:60% 45% 45% 60%;background:#ffca67;box-shadow:inset -6px -5px 0 #ed9650;opacity:0; }.scene-fish::before { content:'';position:absolute;left:-20px;top:2px;border-top:15px solid transparent;border-bottom:15px solid transparent;border-left:23px solid #ffbe61; }.scene-fish::after { content:'';position:absolute;right:10px;top:8px;width:8px;height:8px;border-radius:50%;background:#153248;box-shadow:1px -1px 0 3px #fff2ce; }.scene-fish i { position:absolute;left:18px;bottom:3px;width:17px;height:13px;border-radius:5px 5px 12px;background:#ec9050; }
+.scene-ripple { position:absolute;z-index:3;left:calc(54% - 33px);bottom:23px;width:66px;height:13px;border:2px solid #a7f2ec;border-radius:50%;opacity:0; }.scene-reeds { position:absolute;left:8%;bottom:20px;color:#78d5af;font-size:38px; }
+.game-scene[data-mode=battle] { background:linear-gradient(150deg,#30264e,#141d35); }
+.arena-floor { position:absolute;left:10%;bottom:7px;width:80%;height:38px;border:1px solid #9984d855;border-radius:50%;background:#8564bd18; }
+.arena-fighter { position:absolute;bottom:32px;width:47px;height:58px;border-radius:19px 19px 10px 10px;border:3px solid #7eefe1;background:#287c8e;box-shadow:inset -8px -3px 0 #20526e,0 8px 18px #0005; }.fighter-you { left:calc(26% - 23px); }.fighter-rival { left:calc(74% - 23px);border-color:#ffb0c7;background:#ae577f;box-shadow:inset -8px -3px 0 #703a68,0 8px 18px #0005; }
+.arena-fighter i { position:absolute;left:7px;right:7px;top:12px;height:13px;border-radius:7px;background:#153047;border:2px solid #8edee5; }.fighter-rival i { border-color:#ffc2d3; }.arena-fighter b { position:absolute;top:64px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:1.3px;color:#c2d6f3; }
+.arena-orb { position:absolute;left:26%;bottom:57px;width:19px;height:19px;border-radius:50%;background:#abfff0;box-shadow:0 0 15px 7px #5ce5ff77;opacity:0; }.arena-impact { position:absolute;left:calc(74% - 19px);bottom:43px;width:38px;height:38px;border-radius:50%;border:4px solid #ffc97b;opacity:0; }
+.game-scene[data-mode=factory] { background:linear-gradient(150deg,#243b40,#17263b); }
+.factory-machine { position:absolute;left:calc(38% - 44px);bottom:30px;width:88px;height:76px;border:3px solid #8cd7cd;border-radius:11px;background:#357278;box-shadow:inset -10px 0 0 #295264; }
+.factory-chimney { position:absolute;left:11px;top:-22px;width:22px;height:21px;border:3px solid #88c4c4;border-bottom:0;border-radius:4px 4px 0 0;background:#47777e; }
+.factory-light { position:absolute;right:9px;top:10px;width:8px;height:8px;border-radius:50%;background:#b1fac8;box-shadow:0 0 12px #b1fac866; }
+.factory-gear { position:absolute;display:grid;place-items:center;color:#c0e2d8;font-family:system-ui,sans-serif;font-size:45px;line-height:1;width:47px;height:47px;transform-origin:50% 50%; }.gear-a { left:3px;top:19px; }.gear-b { left:39px;top:28px;font-size:31px;width:33px;height:33px;color:#ffd888; }
+.factory-belt { position:absolute;left:21%;right:15%;bottom:15px;height:17px;border:3px solid #7ba2b1;border-radius:12px;background:repeating-linear-gradient(90deg,#223a4d 0 10px,#5a7e8e 10px 15px); }
+.factory-crate { position:absolute;left:56%;bottom:33px;width:24px;height:24px;border:2px solid #ffdb99;background:#c38d51;border-radius:3px; }.factory-crate::after { content:'';position:absolute;left:8px;top:0;height:100%;width:5px;background:#ffdb99; }.crate-b { left:67%;width:19px;height:19px; }
+.factory-smoke { position:absolute;left:calc(38% - 29px);bottom:126px;width:22px;height:13px;border-radius:50%;background:#c7e0e5;opacity:0; }
+.scene-particle { position:absolute;z-index:5;top:70px;color:#ffdc73;font-size:20px;pointer-events:none; }.scene-particle:nth-of-type(3n) { color:#8de7d8; }.scene-particle:nth-of-type(3n+1) { color:#d2c1ff; }
+.scene-score { position:absolute;z-index:6;left:50%;top:27px;display:block;width:max-content;max-width:95%;padding:7px 13px;border:1px solid #a2f1cd;border-radius:99px;color:#ceffe8;background:#133e39;font-size:20px;font-weight:900;pointer-events:none;white-space:nowrap;box-shadow:0 5px 20px #0004; }.scene-score.score-spent { border-color:#f4cf9c;background:#503e35;color:#ffe2bd; }
+.game-scene[data-status=paused] .scene-world,.game-scene[data-status=finished] .scene-world { opacity:.55; }
+@media(max-width:600px) { .scene-world { height:118px; }.scene-toolbar { padding:9px 10px; }.scene-kicker { font-size:9px;letter-spacing:1px; }.scene-caption { font-size:11px; }.game-scene { margin-bottom:18px; } }
+@media(prefers-reduced-motion:reduce) { .game-scene *, .scene-particle, .scene-score { animation:none!important;transition:none!important; } }
+/* Keep answer labels readable while their buttons are disabled for feedback. */
+.option, .chest { color:var(--text); }

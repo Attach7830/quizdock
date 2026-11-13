@@ -1,4 +1,5 @@
 import { importCsv, TEMPLATE, DEMO } from './csv.js';
+import { createGameAnimations } from './animations.js';
 
 const MODES = {
   treasure: { name: 'Treasure Quest', icon: '🧰', tagline: 'Open mystery chests and raid rivals.', instruction: 'Answer correctly to unlock one of three mystery chests.' },
@@ -8,6 +9,7 @@ const MODES = {
 };
 const $ = selector => document.querySelector(selector);
 const root = $('#app');
+const animations = createGameAnimations();
 const draft = { title: 'Spanish Review', mode: 'treasure', questions: [], source: '', minutes: 10 };
 let session = null, room = null, socket = null, reconnectTimer = null, toastTimer = null, awaitingResponse = false;
 const safe = value => String(value ?? '').replace(/[&<>"']/g, s => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[s]));
@@ -62,7 +64,7 @@ function homeMarkup() {
 }
 function leaderboard(state, compact = false) {
   if (!state?.players?.length) return `<div class="waiting"><div class="waiting-emoji">🪑</div><p class="muted">No players yet. Share the PIN to invite your class.</p></div>`;
-  return `<div class="table-wrap"><table class="rank-table"><thead><tr><th>Rank</th><th>Player</th><th class="num">${state.mode === 'treasure' ? 'Coins' : state.mode === 'factory' ? 'Cash' : 'Points'}</th>${compact?'':'<th class="num">Correct</th>'}</tr></thead><tbody>${state.players.slice(0, compact ? 7 : 45).map((p,i)=> `<tr><td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td>${safe(p.name)} ${state.me?.id===p.id?'(you)':''}</td><td class="num"><b>${scorefmt(p.score)}</b></td>${compact?'':`<td class="num">${p.correct}/${p.answered}</td>`}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="rank-table"><thead><tr><th>Rank</th><th>Player</th><th class="num">${state.mode === 'treasure' ? 'Coins' : state.mode === 'factory' ? 'Cash' : 'Points'}</th>${compact?'':'<th class="num">Correct</th>'}</tr></thead><tbody>${state.players.slice(0, compact ? 7 : 45).map((p,i)=> `<tr data-player-id="${attr(p.id)}"><td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td>${safe(p.name)} ${state.me?.id===p.id?'(you)':''}</td><td class="num"><b>${scorefmt(p.score)}</b></td>${compact?'':`<td class="num">${p.correct}/${p.answered}</td>`}</tr>`).join('')}</tbody></table></div>`;
 }
 function teacherMarkup() {
   const s = room;
@@ -123,8 +125,10 @@ function studentMarkup() {
 }
 function formatTime(ms) { const s = Math.ceil(Math.max(0, Number(ms) || 0) / 1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 function paint() {
+  animations.beforePaint();
   root.innerHTML = !session ? homeMarkup() : session.role === 'host' ? teacherMarkup() : studentMarkup();
   refreshClock();
+  animations.afterPaint(room, session?.role);
 }
 function refreshClock() {
   for (const el of document.querySelectorAll('[data-countdown]')) {
