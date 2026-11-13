@@ -1,5 +1,6 @@
 import { importCsv, TEMPLATE, DEMO } from './csv.js';
 import { createGameAnimations } from './animations.js';
+import { createPlayerViewport } from './player-viewport.js';
 import {imageMarkup,installImageFallback} from './list-images.js';
 import {sortedCards,reportCSV} from './report-model.js';
 installImageFallback();
@@ -13,6 +14,8 @@ const MODES = {
 const $ = selector => document.querySelector(selector);
 const root = $('#app');
 const animations = createGameAnimations();
+const playerViewport = createPlayerViewport(toast);
+let roundSetupKey = null, nextMode = null;
 const draft = { title: 'Spanish Review', mode: 'treasure', questions: [], source: '', minutes: 10 };
 let session = null, room = null, socket = null, reconnectTimer = null, toastTimer = null, awaitingResponse = false;
 const safe = value => String(value ?? '').replace(/[&<>"']/g, s => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[s]));
@@ -25,6 +28,7 @@ function toast(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 4100);
 }
 function nav() {
+  if (session?.role === 'student') return `<header class="player-toolbar"><div class="brand"><span class="brand-mark" aria-hidden="true">⚡</span><span>QuizDock</span></div><div class="nav-actions"><button type="button" class="btn ghost tiny-btn player-stats-button" data-player-action="stats" aria-controls="player-stats" aria-expanded="false">Stats</button><button type="button" class="btn ghost tiny-btn" data-player-action="fullscreen" aria-pressed="false">Fullscreen</button><button type="button" class="btn ghost tiny-btn" data-action="leave">Leave</button></div></header>`;
   return `<header><div class="brand"><span class="brand-mark">⚡</span><span>QuizDock</span></div><div class="nav-actions"><a class="btn ghost tiny-btn" href="/library.html">My lists</a><a class="btn ghost tiny-btn" href="/reports.html">Reports</a>${session
     ? `<button type="button" class="btn ghost tiny-btn" data-action="leave">← Leave room</button>`
     : `<button type="button" class="btn ghost" data-action="focus-join">Join a game</button><button type="button" class="btn mint" data-action="focus-create">Host a game</button>`}</div></header>`;
@@ -80,6 +84,8 @@ function teacherMarkup() {
   const s = room;
   if (!s) return `${nav()}<main class="container"><div class="card waiting"><div class="waiting-emoji">📡</div><h2>Connecting to your room…</h2><p class="muted">Check your connection if this persists.</p></div></main>`;
   const status = s.status;
+  const setupKey = `${s.pin}:${s.startedAt || 0}:${status}`;
+  if (roundSetupKey !== setupKey) { roundSetupKey = setupKey; nextMode = s.mode; draft.minutes = s.durationMinutes || draft.minutes; }
   const online = new Set(s.online || []);
   const time = status === 'playing' ? Math.max(0, s.endsAt-Date.now()) : status === 'paused' ? s.remainingMs : 0;
   return `${nav()}<main class="container">
@@ -87,7 +93,7 @@ function teacherMarkup() {
       <div class="code-block"><div><div class="muted tiny">SHARE THIS GAME PIN</div><div class="room-pin">${s.pin}</div></div><button class="btn ghost tiny-btn" data-action="copy-pin">📋 Copy</button></div></div>
     <div class="teacher-grid"><div class="grid">
       <section class="card"><h3>🎮 Game controls</h3><p class="muted small" style="margin-top:7px">Students join at <b>${safe(location.host)}</b> with the PIN above. <button class="link-btn" data-action="copy-link">Copy join link</button></p>
-      ${status==='lobby'||status==='finished'? `<div class="control-row"><label class="small bold">Game length<select class="field" id="duration">${[3,5,8,10,15,20,30].map(n=> `<option value="${n}" ${draft.minutes===n?'selected':''}>${n} min</option>`).join('')}</select></label><button class="btn mint big" data-action="start" ${s.players.length?'':'disabled'}>▶ ${status==='finished'?'Play again':'Start game'}</button></div>`:''}
+      ${status==='lobby'||status==='finished'? `<div class="round-setup"><h3>${status==='finished'?'Next game · same room':'Set up this game'}</h3><p class="muted small">${status==='finished'?'Everyone stays connected. Keep this game type or choose another. Scores reset; the previous report stays saved.':'Choose a game type and duration for this room.'}</p><div class="control-row"><label class="small bold mode-field">Game type<select class="field" id="next-mode">${Object.entries(MODES).map(([id,m])=>`<option value="${id}" ${nextMode===id?'selected':''}>${m.name}</option>`).join('')}</select></label><label class="small bold">Game length<select class="field" id="duration">${[3,5,8,10,15,20,30].map(n=> `<option value="${n}" ${draft.minutes===n?'selected':''}>${n} min</option>`).join('')}</select></label><button class="btn mint big" data-action="start" ${s.players.length?'':'disabled'}>▶ ${status==='finished'?'Start next game':'Start game'}</button></div><p class="notice">Same PIN ${s.pin} · Same question set · ${s.players.length} players${status==='finished'?` · Next round ${(s.roundNumber || 1)+1}`:''}</p></div>`:''}
       ${status==='playing'? `<div class="control-row"><div style="flex:1"><div class="muted small">Time remaining</div><div class="timer" data-countdown>${formatTime(time)}</div></div><button class="btn ghost" data-action="pause">Ⅱ Pause</button><button class="btn danger" data-action="end">■ End game</button></div>`:''}
       ${status==='paused'? `<div class="control-row"><div class="timer" data-countdown>${formatTime(time)}</div><button class="btn mint" data-action="resume">▶ Resume</button><button class="btn danger" data-action="end">■ End game</button></div>`:''}
       ${status==='finished'? `<div class="feedback good"><b>🏆 Game complete!</b><p>${s.players[0]?`${safe(s.players[0].name)} finished in first place with ${scorefmt(s.players[0].score)} ${s.mode==='treasure'?'coins':s.mode==='factory'?'cash':'points'}.`:'No players competed.'}</p></div><div style="margin-top:13px"><button class="btn ghost tiny-btn" data-action="export">↓ Export student results</button></div>`:''}
@@ -124,22 +130,24 @@ function gameQuestion(s) {
 }
 function studentMarkup() {
   const s = room;
-  if (!s) return `${nav()}<main class="container"><div class="card waiting"><div class="waiting-emoji">📡</div><h2>Connecting to the game…</h2></div></main>`;
-  return `${nav()}<main class="container"><div class="room-header"><div><div class="eyebrow">Student arcade</div><h1 class="room-title">${safe(s.title)}</h1><div style="margin-top:10px">${statusMarkup(s.status)} <span class="muted small" style="margin-left:8px">PIN ${s.pin}</span></div></div>
-    <div><div class="muted small">Playing as</div><h3>🧑‍🚀 ${safe(s.me?.name)}</h3>${s.status==='playing'?'<div class="timer" data-countdown>'+formatTime(s.endsAt-Date.now())+'</div>':''}</div></div>
-    <div class="student-layout"><section class="card">${s.status==='playing'?gameQuestion(s): s.status==='lobby'?`<div class="waiting"><div class="waiting-emoji">🚀</div><h2>You're in!</h2><p class="muted">Waiting for your teacher to start the game.</p><p class="notice">${s.players.length} players have joined so far.</p></div>`:
+  if (!s) return `${nav()}<main class="player-main"><div class="card waiting"><div class="waiting-emoji">📡</div><h2>Connecting to the game…</h2></div></main>`;
+  const playerScore = s.players.find(p=>p.id===s.me?.id)?.score || 0;
+  return `${nav()}<main class="player-main"><div class="player-heading"><div class="player-identity"><h1 class="room-title" title="${attr(s.title)}">${safe(s.title)}</h1><div class="player-meta"><span>${safe(s.me?.name)}</span><span>PIN ${s.pin}</span><span>Round ${s.roundNumber || (s.startedAt?1:0) || 1}</span></div></div><div class="player-hud"><span class="player-score" title="Your score">${scorefmt(playerScore)} <small>${s.mode==='treasure'?'coins':s.mode==='factory'?'cash':'pts'}</small></span>${s.status==='playing'||s.status==='paused'?`<span class="timer" data-countdown aria-label="Time remaining">${formatTime(s.status==='paused'?s.remainingMs:s.endsAt-Date.now())}</span>`:statusMarkup(s.status)}</div></div>
+    <div class="student-layout"><section class="card player-question-card" aria-label="Game and questions"><div class="question-scroll" tabindex="0" aria-label="Question and answer area">${s.status==='playing'?gameQuestion(s): s.status==='lobby'?`<div class="waiting"><div class="waiting-emoji">🚀</div><h2>You're in!</h2><p class="muted">Waiting for your teacher to start the game.</p><p class="notice">${s.players.length} players have joined so far.</p></div>`:
       s.status==='paused'?`<div class="waiting"><div class="waiting-emoji">⏸️</div><h2>Game paused</h2><p class="muted">Your teacher will resume shortly.</p></div>`:
-      `<div class="waiting"><div class="waiting-emoji">🏆</div><h2>Game over!</h2><p class="muted">${s.players[0]?.id===s.me?.id?'You finished in first place!':`Winner: ${safe(s.players[0]?.name || 'No one')}`}</p><p style="margin-top:15px" class="bold">Your score: ${scorefmt(s.players.find(p=>p.id===s.me?.id)?.score)} </p></div>`}</section>
-      <aside class="grid"><div class="card"><h3>${modeInfo(s.mode).icon} ${modeInfo(s.mode).name}</h3><p class="muted small" style="margin-top:7px">${modeInfo(s.mode).instruction}</p>${studentStats(s)}${s.status==='playing'?gameControls(s):''}</div>
+      `<div class="waiting"><div class="waiting-emoji">🏆</div><h2>Round complete!</h2><p class="muted">${s.players[0]?.id===s.me?.id?'You finished in first place!':`Winner: ${safe(s.players[0]?.name || 'No one')}`}</p><p class="bold">Your score: ${scorefmt(playerScore)}</p><p class="stay-connected">Stay here! Your teacher can start another game with the same PIN.</p></div>`}</div></section>
+      <button type="button" class="player-scrim" data-player-action="close-stats" aria-label="Close statistics" tabindex="-1" hidden></button><aside id="player-stats" class="grid player-sidebar" aria-label="Your statistics and leaderboard" tabindex="-1"><div class="player-sidebar-heading"><h2>Game stats</h2><button type="button" class="btn ghost tiny-btn" data-player-action="close-stats">Back to game</button></div><div class="card"><h3>${modeInfo(s.mode).icon} ${modeInfo(s.mode).name}</h3><p class="muted small" style="margin-top:7px">${modeInfo(s.mode).instruction}</p>${studentStats(s)}${s.status==='playing'?gameControls(s):''}</div>
       <div class="card"><h3>🏅 Leaderboard</h3>${leaderboard(s,true)}</div></aside></div>
-  </main>${footer()}`;
+  </main>`;
 }
 function formatTime(ms) { const s = Math.ceil(Math.max(0, Number(ms) || 0) / 1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 function paint() {
+  playerViewport.beforePaint();
   animations.beforePaint();
   root.innerHTML = !session ? homeMarkup() : session.role === 'host' ? teacherMarkup() : studentMarkup();
   refreshClock();
   animations.afterPaint(room, session?.role);
+  playerViewport.afterPaint(room, session?.role);
 }
 function refreshClock() {
   for (const el of document.querySelectorAll('[data-countdown]')) {
@@ -192,6 +200,7 @@ async function post(path, data) {
   return body;
 }
 async function createRoom() {
+  roundSetupKey = null; nextMode = null;
   if (!draft.questions.length) {toast('Import some questions first.');return;}
   try {
     const info=await post('/api/create',{title:draft.title,mode:draft.mode,questions:draft.questions});
@@ -223,6 +232,7 @@ async function copyText(text) {
 }
 document.addEventListener('change', e => {
   if (e.target.id==='csv-file') loadFile(e.target.files?.[0]);
+  if (e.target.id==='next-mode') nextMode=e.target.value;
   if (e.target.id==='duration') draft.minutes=Number(e.target.value);
   if (e.target.id==='game-title') draft.title=e.target.value.trim().slice(0,70) || 'Classroom challenge';
 });
@@ -249,7 +259,7 @@ document.addEventListener('click',e => {
   else if(action==='copy-link')copyText(`${location.origin}/?join=${room.pin}`);
   else if(action==='export')exportResults();
   else if(action==='round-csv'&&session?.role==='host'&&room?.cardReport)download(`QuizDock-round-${room.cardReport.id}.csv`,reportCSV(room.cardReport));
-  else if(action==='start')send({type:'start',minutes:draft.minutes});
+  else if(action==='start') { send({type:'start',minutes:draft.minutes,mode:nextMode || room.mode}); }
   else if(action==='pause'||action==='resume')send({type:action});
   else if(action==='end') {if(confirm('End the game for all players?'))send({type:'end'});}
   else if(action==='answer') {awaitingResponse=true;send({type:'answer',key:button.dataset.key,choice:Number(button.dataset.choice)});paint();}

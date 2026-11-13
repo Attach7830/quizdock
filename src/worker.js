@@ -173,6 +173,7 @@ export class QuizRoom extends DurableObject {
       type: 'state', pin: room.pin, title: room.title, mode: room.mode,
       status: room.status, questionCount: room.questions.length,
       startedAt: room.startedAt, endsAt: room.endsAt, remainingMs: room.remainingMs,
+      roundNumber: room.roundNumber || (room.startedAt ? 1 : 0), durationMinutes: room.durationMinutes || 10,
       players, online: this.onlineIds()
     };
     if (connection.role === 'host') return { ...shared, isHost: true,
@@ -244,7 +245,10 @@ export class QuizRoom extends DurableObject {
     }
     if (msg.type === 'start') {
       this.requireHost(att);
-      if (!['lobby', 'finished'].includes(room.status)) throw new Error('This game is already running.');
+      if (!['lobby', 'finished'].includes(room.status)) throw new Error('End the current game before starting another round.');
+      const mode = msg.mode === undefined ? room.mode : msg.mode;
+      if (!MODES.includes(mode)) throw new Error('Choose a valid game mode.');
+      if (!Object.keys(room.players).length) throw new Error('At least one player must join before starting.');
       if(room.roundMetrics?.status==='finished'&&room.reportOwner){
         await this.publishReport(true);
         if(room.reportPublished?.id!==room.roundMetrics.id||room.reportPublished.revision<room.roundMetrics.revision)
@@ -252,9 +256,12 @@ export class QuizRoom extends DurableObject {
       }
       const minutes = Math.max(3, Math.min(MAX_ROOM_MINUTES, Math.floor(Number(msg.minutes) || 10)));
       for (const [id, p] of Object.entries(room.players)) {
-        room.players[id] = newPlayer(id, p.token, p.name, room.questions);
+        room.players[id] = { ...newPlayer(id, p.token, p.name, room.questions), joinedAt: p.joinedAt }; 
       }
-      room.status = 'playing'; room.startedAt = Date.now(); room.endsAt = Date.now() + minutes * 60_000;
+      // Archive above BEFORE changing the mode or discarding any round state.
+      room.roundNumber = (room.roundNumber || (room.startedAt ? 1 : 0)) + 1;
+      room.mode = mode; room.durationMinutes = minutes;
+      room.status = 'playing'; room.startedAt = Math.max(Date.now(), (room.startedAt || 0) + 1); room.endsAt = Date.now() + minutes * 60_000;
       room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null;
       room.roundMetrics=createRoundMetrics(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
     } else if (msg.type === 'pause') {
