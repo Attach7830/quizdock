@@ -2,6 +2,8 @@ import {RoundRepository} from './round-repository.js';
 import {DurableObject} from 'cloudflare:workers';
 import {LibraryError,ensure,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository,publicList} from './library-domain.js';
 const HOUR=3600000,DAY=24*HOUR;
+// One-time recovery for email-delivery setup failures; never reset OTP verification.
+const SEND_RECOVERY='email-setup-recovery-2026-11-13';
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers}});
 const cookie=value=>`__Host-quizdock-library=${value}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${value?604800:0}`;
 export class TeacherLibrary extends DurableObject {
@@ -22,7 +24,21 @@ export class TeacherLibrary extends DurableObject {
       return json({challenge:result.challenge,message:'Check your email for a six-digit sign-in code.'});
     }catch(e){return json({error:e instanceof LibraryError?e.message:'The library could not complete this request. Please retry.'},e instanceof LibraryError?e.status:500);}
   }
-  async rate(key,max,period=HOUR){const now=Date.now(),k='rate:'+key,prior=await this.store.get(k),r=prior?.expiresAt>now?prior:{count:0,expiresAt:now+period};ensure(r.count<max,'Too many attempts. Please try again later.',429);r.count++;await this.store.put(k,r);}
+  async rate(key,max,period=HOUR){
+    const now=Date.now(),k='rate:'+key,prior=await this.store.get(k),r=prior?.expiresAt>now?prior:{count:0,expiresAt:now+period};
+    const minutes=Math.max(1,Math.ceil((r.expiresAt-now)/60000));
+    ensure(r.count<max,`Too many attempts. Try again in ${minutes} minute${minutes===1?'':'s'}.`,429);
+    r.count++;await this.store.put(k,r);
+  }
+  async recoverSendLockoutOnce(owner,ipHash){
+    // Runs inside the existing storage transaction for an allowlisted teacher only.
+    // The permanent marker makes this a single recovery, not a repeatable bypass.
+    const marker=`migration:${SEND_RECOVERY}:${owner}`;
+    if(await this.store.get(marker))return;
+    await this.store.delete(['rate:email:'+owner,'rate:ip:'+ipHash]);
+    await this.store.put(marker,{appliedAt:Date.now()});
+    // Keep the daily sending cap, OTP attempts, sessions, lists and reports intact.
+  }
   async identity(token,required=true){
     const session=token?await this.store.get('session:'+await hash(token)):null;
     const user=session?.expiresAt>Date.now()&&teacherEmails(this.config).includes(session.email)?{id:session.owner,email:session.email,role:'teacher'}:null;
@@ -34,11 +50,14 @@ export class TeacherLibrary extends DurableObject {
     if(action==='status')return json({configured:this.ready(),user:await this.identity(token,false)});
     if(action==='login-request'){
       ensure(this.ready(),'Teacher sign-in is not configured. Add TEACHER_EMAILS, EMAIL_FROM and RESEND_API_KEY in Cloudflare.',503);
-      const email=cleanEmail(p.email),owner=await hash(email);
-      await this.rate('ip:'+await hash(ip),40);
-      ensure(teacherEmails(this.config).includes(email),'This email is not authorized for the teacher library.',403);
-      await this.rate('email:'+owner,5);await this.rate('all-email',100,DAY);
+      const email=cleanEmail(p.email),owner=await hash(email),ipHash=await hash(ip);
+      const authorized=teacherEmails(this.config).includes(email);
+      if(authorized)await this.recoverSendLockoutOnce(owner,ipHash);
+      await this.rate('ip:'+ipHash,40);
+      ensure(authorized,'This email is not authorized for the teacher library.',403);
+      // Repeated clicks during the resend cooldown must not use the email quota.
       const key='code:'+owner,old=await this.store.get(key);ensure(!old||now-old.createdAt>=60000,'Wait one minute before requesting another code.',429);
+      await this.rate('email:'+owner,5);await this.rate('all-email',100,DAY);
       const challenge=uid(),code=randomCode();await this.store.put(key,{email,owner,challenge,digest:await codeDigest(this.config.RESEND_API_KEY,challenge,code),tries:0,createdAt:now,expiresAt:now+600000});
       return {key,challenge,mail:{from:this.config.EMAIL_FROM,to:[email],subject:'Your QuizDock teacher sign-in code',text:`Your QuizDock code is ${code}. It expires in 10 minutes. Do not share this code. If you did not request it, ignore this message.`}};
     }
