@@ -32,6 +32,7 @@ body.player-mode *, body.player-mode *::before, body.player-mode *::after { box-
 .player-mode .letter { flex:none; width:25px; height:25px; margin-right:7px; }
 .player-mode .feedback { margin-top:12px; padding:12px; }
 .player-mode .feedback p { overflow-wrap:anywhere; }
+.player-mode .quiz-title { overflow-wrap:anywhere; }
 .player-mode .question-image { margin:8px 0 12px; }
 .player-mode .question-image img { width:100%; max-height:clamp(85px,20vh,220px); object-fit:contain; }
 .player-mode .chests { margin:10px 0; gap:8px; }
@@ -80,7 +81,7 @@ body.player-mode *, body.player-mode *::before, body.player-mode *::after { box-
  .player-heading .timer { font-size:20px; }
  .player-score { font-size:16px; }
  .player-mode .player-question-card { padding:10px; border-radius:15px; }
- .player-mode .scene-world { height:90px; }
+ .player-mode .scene-world { height:118px; }
  .player-mode .scene-caption { font-size:10px; padding:5px 8px; min-height:27px; }
  .player-mode .scene-toolbar { padding:4px 8px; min-height:30px; }
  .player-mode .game-scene { margin-bottom:8px; border-radius:12px; }
@@ -113,3 +114,8 @@ body.player-mode *, body.player-mode *::before, body.player-mode *::after { box-
  .player-mode .question-image img { max-height:100px; }
 }
 @media (prefers-reduced-motion:reduce) { .player-sidebar, .player-scrim { animation:none!important; transition:none!important; } }
+
+/* A fixed design canvas scales with its measured viewport, including open lids. */
+.scene-art { position:absolute; left:50%; top:4px; height:160px; width:100%; transform:translateX(-50%) scale(var(--scene-scale,1)); transform-origin:top center; }
+.player-heading .room-title { color:var(--mint); }
+.player-set-title { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:11px; line-height:1.3; margin:2px 0; }

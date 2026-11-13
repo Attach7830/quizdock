@@ -9,11 +9,11 @@ const LABELS = {
 
 // Pure transition detection: heartbeats and other players' answers do not replay rewards.
 export function animationEvents(previous, next) {
-  if (!previous || !next || previous.pin !== next.pin || previous.mode !== next.mode) return [];
+  if (!previous || !next || previous.pin !== next.pin) return [];
   const events = [];
   if (next.status === 'finished' && previous.status !== 'finished') return [{ type: 'finish' }];
   if (next.status !== 'playing') return events;
-  if (previous.startedAt !== next.startedAt || previous.status === 'lobby' || previous.status === 'finished') {
+  if (roundKey(previous) !== roundKey(next) || previous.status === 'lobby' || previous.status === 'finished') {
     return [{ type: 'start' }];
   }
   const a = previous.me, b = next.me;
@@ -38,13 +38,15 @@ const ART = {
   factory: `<div class="factory-smoke"></div><div class="factory-machine"><div class="factory-chimney"></div><div class="factory-light"></div><div class="factory-gear gear-a">⚙</div><div class="factory-gear gear-b">⚙</div></div><div class="factory-belt"></div><div class="factory-crate crate-a"></div><div class="factory-crate crate-b"></div>`
 };
 const fmt = n => Math.abs(n).toLocaleString('en-US');
+const roundKey = state => state ? `${state.pin}:${state.roundNumber || 0}:${state.startedAt || 0}:${state.mode}` : null;
+const MODE_NAMES = { treasure: 'Treasure Quest', fishing: 'Fishing Frenzy', battle: 'Battle Arena', factory: 'Factory Tycoon' };
 
 export function createGameAnimations() {
   const media = window.matchMedia('(prefers-reduced-motion: reduce)');
   let enabled = true;
   try { enabled = localStorage.getItem('quizdock-motion') !== 'off'; } catch { /* optional preference */ }
   let stage = null, mode = null, previous = null, current = null, role = null;
-  let idle = [], focus = null, ranks = new Map();
+  let idle = [], focus = null, ranks = new Map(), mountedRound = null;
   const active = new Set();
   const moving = () => enabled && !media.matches && !document.hidden;
   const running = () => moving() && current?.status === 'playing';
@@ -86,18 +88,38 @@ export function createGameAnimations() {
       else if (a.playState === 'paused') a.play();
     }
   }
+  // Scale a complete design canvas, not just its clipping window. The extra
+  // headroom keeps the chest lid visible at every point in its opening motion.
+  function fitScene() {
+    const world = find('.scene-world'), art = find('.scene-art');
+    if (!world || !art || !world.isConnected) return;
+    const {width, height} = world.getBoundingClientRect();
+    if (width < 1 || height < 1) return;
+    const scale = Math.max(.05, Math.min(1, (height - 8) / 160, (width - 8) / 240));
+    art.style.setProperty('--scene-scale', String(scale));
+    art.style.width = `${Math.max(1, width - 8) / scale}px`;
+  }
+  const sceneResize = typeof ResizeObserver === 'function' ? new ResizeObserver(fitScene) : null;
+  window.addEventListener('resize', fitScene);
+  function discardScene() {
+    clearMotion(); sceneResize?.disconnect(); stage?.remove();
+    stage = null; mode = null; mountedRound = null;
+  }
   function mount(state) {
     const target = document.querySelector('.student-layout > section.card');
     if (!target || !state?.me) return;
-    if (!stage || mode !== state.mode) {
-      clearMotion();
+    if (!stage || mountedRound !== roundKey(state) || mode !== state.mode) {
+      discardScene();
+      mountedRound = roundKey(state);
       mode = state.mode;
       stage = document.createElement('section');
       stage.className = 'game-scene';
       stage.dataset.mode = mode;
-      stage.setAttribute('aria-label', 'Game animation');
-      stage.innerHTML = `<div class="scene-toolbar"><span class="scene-kicker"></span><button type="button" class="motion-toggle" aria-label="Decorative game animations"></button></div><div class="scene-world" aria-hidden="true">${ART[mode] || ''}</div><p class="scene-caption" role="status" aria-live="polite" aria-atomic="true"></p>`;
-      find('.scene-kicker').textContent = (LABELS[mode] || LABELS.treasure)[0];
+      stage.dataset.round = String(state.roundNumber || 1);
+      stage.setAttribute('aria-label', `${MODE_NAMES[mode] || 'Game'} animation`);
+      stage.innerHTML = `<div class="scene-toolbar"><span class="scene-kicker"></span><button type="button" class="motion-toggle" aria-label="Decorative game animations"></button></div><div class="scene-world" aria-hidden="true"><div class="scene-art">${ART[mode] || ''}</div></div><p class="scene-caption" role="status" aria-live="polite" aria-atomic="true"></p>`;
+      find('.scene-kicker').textContent = MODE_NAMES[mode] || 'QuizDock';
+      sceneResize?.observe(find('.scene-world'));
       find('.scene-caption').textContent = (LABELS[mode] || LABELS.treasure)[1];
       find('.motion-toggle').addEventListener('click', () => {
         enabled = !enabled;
@@ -106,6 +128,7 @@ export function createGameAnimations() {
       });
     }
     target.prepend(stage);
+    fitScene();
     stage.dataset.status = state.status;
     updatePreference();
   }
@@ -115,7 +138,7 @@ export function createGameAnimations() {
   }
   function burst(symbol = '●', count = 10, origin = 50) {
     if (!running()) return;
-    const world = find('.scene-world');
+    const world = find('.scene-art');
     // Keep each effect bounded, even during rapid snapshots or leaderboard updates.
     world.querySelectorAll('.scene-particle').forEach(el => el.remove());
     for (let i = 0; i < count; i++) {
@@ -138,7 +161,7 @@ export function createGameAnimations() {
     const el = document.createElement('span');
     el.className = `scene-score ${delta < 0 ? 'score-spent' : ''}`;
     el.textContent = `${delta > 0 ? '+' : '−'}${mode === 'factory' ? '$' : ''}${fmt(delta)}${mode === 'treasure' ? ' coins' : ''}`;
-    find('.scene-world').append(el);
+    find('.scene-art').append(el);
     const a = animate(el, [
       { transform: 'translate(-50%, 8px) scale(.8)', opacity: 0 },
       { transform: 'translate(-50%, -7px) scale(1.06)', opacity: 1, offset: .25 },
@@ -167,7 +190,7 @@ export function createGameAnimations() {
       animate(find('.scene-ripple'), [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(.8)', opacity: .8, offset: .25 }, { transform: 'scale(2)', opacity: 0 }], { duration: 1000 });
       animate(find('.scene-line'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-30px)', offset: .4 }, { transform: 'translateY(0)' }], { duration: 1200 });
     } else if (mode === 'battle') {
-      const distance = find('.scene-world').clientWidth * .48;
+      const distance = find('.scene-art').clientWidth * .48;
       animate(find('.arena-orb'), [{ transform: 'translateX(0) scale(.5)', opacity: 0 }, { transform: 'translateX(0) scale(1)', opacity: 1, offset: .1 }, { transform: `translateX(${distance}px) scale(.7)`, opacity: 1, offset: .8 }, { transform: `translateX(${distance}px) scale(2)`, opacity: 0 }], { duration: 550 });
       animate(find('.fighter-rival'), [{ transform: 'translateX(0)' }, { transform: 'translateX(9px) rotate(5deg)', offset: .5 }, { transform: 'translateX(0)' }], { delay: 350, duration: 320 });
       animate(find('.arena-impact'), [{ transform: 'scale(.1)', opacity: 1 }, { transform: 'scale(2.2)', opacity: 0 }], { delay: 350, duration: 450 });
@@ -197,7 +220,7 @@ export function createGameAnimations() {
     } else if (event.type === 'hit') {
       caption('You were hit! Keep answering to fight back.');
       animate(find('.fighter-you'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)', offset: .4 }, { transform: 'translateX(0)' }], { duration: 300 });
-    } else if (event.type === 'start') caption('Game on! Your first question is ready.');
+    } else if (event.type === 'start') caption(`Round ${state.roundNumber || 1} · ${MODE_NAMES[mode]} — game on!`);
   }
   media.addEventListener('change', updatePreference);
   document.addEventListener('visibilitychange', () => { if (document.hidden) clearMotion(); else syncIdle(); });
@@ -212,7 +235,7 @@ export function createGameAnimations() {
     afterPaint(state, sessionRole) {
       current = state; role = sessionRole;
       const events = animationEvents(previous, state);
-      const sameRound = previous && state && previous.pin === state.pin && previous.mode === state.mode && previous.startedAt === state.startedAt;
+      const sameRound = previous && state && roundKey(previous) === roundKey(state);
       if (!sameRound || state?.status !== 'playing') clearMotion();
       if (role === 'student' && state?.me) {
         mount(state);
@@ -225,7 +248,7 @@ export function createGameAnimations() {
           for (const event of events) effect(event, state);
         }
         syncIdle();
-      } else { clearMotion(); stage?.remove(); stage = null; mode = null; }
+      } else { discardScene(); }
       // Subtle leaderboard movement, never a speculative score change.
       if (moving() && sameRound && state?.status === 'playing') {
         for (const row of document.querySelectorAll('[data-player-id]')) {

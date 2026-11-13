@@ -1,6 +1,6 @@
 import { importCsv, TEMPLATE, DEMO } from './csv.js';
-import { createGameAnimations } from './animations.js';
-import { createPlayerViewport } from './player-viewport.js';
+import { createGameAnimations } from './animations.js?v=round-layout-2';
+import { createPlayerViewport } from './player-viewport.js?v=round-layout-2';
 import {imageMarkup,installImageFallback} from './list-images.js';
 import {sortedCards,reportCSV} from './report-model.js';
 installImageFallback();
@@ -164,17 +164,27 @@ function connect() {
   clearTimeout(reconnectTimer);
   if (socket) { socket.onclose = null; try {socket.close();} catch {} }
   const protocol = location.protocol === 'https:'?'wss:':'ws:';
-  socket = new WebSocket(`${protocol}//${location.host}/api/room/${session.pin}/socket`);
-  socket.onopen = () => send({ type:'auth', role:session.role, token:session.token, playerId:session.playerId });
-  socket.onmessage = event => {
+  const connection = new WebSocket(`${protocol}//${location.host}/api/room/${session.pin}/socket`);
+  socket = connection;
+  connection.onopen = () => { if (socket === connection && session) send({ type:'auth', role:session.role, token:session.token, playerId:session.playerId }); };
+  connection.onmessage = event => {
+    if (socket !== connection || !session) return;
     let msg; try {msg = JSON.parse(event.data);} catch {return;}
     if (msg.type==='state') { room=msg; awaitingResponse=false; paint(); }
     else if (msg.type==='error') { awaitingResponse=false; toast(msg.error); paint(); }
     else if (msg.type==='notice') toast(msg.message);
   };
-  socket.onclose = () => { if (session) {reconnectTimer = setTimeout(connect, 1800);} };
-  socket.onerror = () => {}; // onclose handles retries.
+  connection.onclose = () => { if (session && socket === connection) {reconnectTimer = setTimeout(connect, 1800);} };
+  connection.onerror = () => {}; // onclose handles retries.
 }
+function resyncRoom() {
+  if (!session || document.hidden) return;
+  if (socket?.readyState === WebSocket.OPEN) send({type:'sync'});
+  else if (!socket || socket.readyState === WebSocket.CLOSED) connect();
+}
+window.addEventListener('online', resyncRoom);
+window.addEventListener('pageshow', resyncRoom);
+document.addEventListener('visibilitychange', resyncRoom);
 function storeSession(value) {
   session = value;
   if (value) sessionStorage.setItem('quizdock-session',JSON.stringify(value));
@@ -237,6 +247,8 @@ document.addEventListener('change', e => {
   if (e.target.id==='game-title') draft.title=e.target.value.trim().slice(0,70) || 'Classroom challenge';
 });
 document.addEventListener('input',e => {
+  if (e.target.id==='next-mode') nextMode=e.target.value;
+  if (e.target.id==='duration') draft.minutes=Number(e.target.value);
   if (e.target.id==='game-title') draft.title=e.target.value.slice(0,70);
 });
 document.addEventListener('submit',e => {
@@ -259,7 +271,13 @@ document.addEventListener('click',e => {
   else if(action==='copy-link')copyText(`${location.origin}/?join=${room.pin}`);
   else if(action==='export')exportResults();
   else if(action==='round-csv'&&session?.role==='host'&&room?.cardReport)download(`QuizDock-round-${room.cardReport.id}.csv`,reportCSV(room.cardReport));
-  else if(action==='start') { send({type:'start',minutes:draft.minutes,mode:nextMode || room.mode}); }
+  else if(action==='start') {
+    // Read the visible controls at click time, including native mobile selects.
+    const selectedMode = $('#next-mode')?.value || nextMode || room.mode;
+    const selectedMinutes = Number($('#duration')?.value || draft.minutes);
+    nextMode = selectedMode; draft.minutes = selectedMinutes;
+    send({type:'start',minutes:selectedMinutes,mode:selectedMode});
+  }
   else if(action==='pause'||action==='resume')send({type:action});
   else if(action==='end') {if(confirm('End the game for all players?'))send({type:'end'});}
   else if(action==='answer') {awaitingResponse=true;send({type:'answer',key:button.dataset.key,choice:Number(button.dataset.choice)});paint();}

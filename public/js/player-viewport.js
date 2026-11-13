@@ -5,6 +5,7 @@ export function createPlayerViewport(notify = () => {}) {
   let active = false, statsOpen = false, ownedFullscreen = false, pending = false;
   let previousQuestion = null, previousRound = null, rememberedFocus = null;
   let questionScroll = 0, statsScroll = 0;
+  const names = {treasure:'Treasure Quest',fishing:'Fishing Frenzy',battle:'Battle Arena',factory:'Factory Tycoon'};
   const find = selector => doc.querySelector(selector);
   const fullscreenElement = () => doc.fullscreenElement || doc.webkitFullscreenElement;
   const nativeSupported = () => (html.requestFullscreen && doc.fullscreenEnabled !== false) || (html.webkitRequestFullscreen && doc.webkitFullscreenEnabled !== false);
@@ -109,9 +110,24 @@ export function createPlayerViewport(notify = () => {}) {
       active = role === 'student';
       html.classList.toggle('player-mode', active);
       doc.body.classList.toggle('player-mode', active);
-      const round = active && state ? `${state.pin}:${state.startedAt || 0}:${state.mode}` : null;
+      const round = active && state ? `${state.pin}:${state.roundNumber || 0}:${state.startedAt || 0}:${state.mode}` : null;
       const question = active && state ? `${round}:${state.me?.question?.key || state.status}` : null;
       const sameQuestion = question === previousQuestion;
+      if (active && state) {
+        const title = find('.player-heading .room-title');
+        if (title) {
+          title.textContent = names[state.mode] || 'QuizDock';
+          title.title = `${names[state.mode] || 'QuizDock'} · ${state.title || ''}`;
+          const setTitle = doc.createElement('span');
+          setTitle.className = 'player-set-title'; setTitle.textContent = state.title || '';
+          title.parentElement.querySelector('.player-set-title')?.remove();
+          title.after(setTitle);
+        }
+        if (previousRound && round !== previousRound && state.status === 'playing') {
+          notify(`Now playing ${names[state.mode] || 'QuizDock'} · Round ${state.roundNumber || 1}`);
+          statsScroll = 0;
+        }
+      }
       if (!active || round !== previousRound) statsOpen = false;
       if (wasActive && !active && ownedFullscreen) void exitFullscreen().catch(() => {});
       syncPanels(); syncFullscreen(); resize();
