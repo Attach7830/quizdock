@@ -1,3 +1,4 @@
+import {imageURL} from '../public/js/list-model.js';
 // Portable, dependency-free rules for the four original game modes.
 export const MODES = ['treasure', 'fishing', 'battle', 'factory'];
 export const MIN_QUESTIONS = 1;
@@ -30,7 +31,7 @@ export function validateQuestions(input) {
   if (!Array.isArray(input) || input.length < MIN_QUESTIONS || input.length > MAX_QUESTIONS) {
     throw new Error(`Import between ${MIN_QUESTIONS} and ${MAX_QUESTIONS} questions.`);
   }
-  return input.map((raw, i) => {
+  const result=input.map((raw, i) => {
     const text = cleanText(raw?.text, 400);
     const answers = Array.isArray(raw?.answers) ? raw.answers.map(a => cleanText(a, 180)) : [];
     const correct = Array.isArray(raw?.correct) ? raw.correct : [raw?.correct];
@@ -44,8 +45,12 @@ export function validateQuestions(input) {
     if (!indices.length || indices.some(n => !Number.isInteger(n) || n < 0 || n >= answers.length)) {
       throw new Error(`Question ${i + 1} has an invalid correct answer.`);
     }
-    return { text, answers, correct: indices };
+    const cardId=/^[a-zA-Z0-9_-]{8,80}$/.test(String(raw?.cardId||''))?String(raw.cardId):crypto.randomUUID();
+    const image=imageURL(raw?.image);
+    return { cardId, text, answers, correct: indices, ...(image?{image,imageAlt:cleanText(raw?.imageAlt||'Question image',300)}:{}) };
   });
+  if(new Set(result.map(q=>q.cardId)).size!==result.length)throw new Error('Question card identifiers must be unique.');
+  return result;
 }
 export function newPlayer(id, token, name, questions) {
   return {
@@ -63,7 +68,7 @@ export function createQuestion(questions, answered) {
 }
 export function publicQuestion(q, current) {
   if (!q || !current) return null;
-  return { key: current.key, text: q.text, options: current.order.map(i => q.answers[i]), number: current.index + 1 };
+  return { key: current.key, text: q.text, options: current.order.map(i => q.answers[i]), number: current.index + 1, ...(q.image?{image:q.image,imageAlt:q.imageAlt}:{}) };
 }
 export function scoreboard(players, mode) {
   return Object.values(players).map(p => ({
@@ -163,6 +168,6 @@ export function settleTime(room, now = Date.now()) {
       changed = true;
     }
   }
-  if (now >= room.endsAt) { room.status = 'finished'; changed = true; }
+  if (now >= room.endsAt) { room.status = 'finished'; room.finishedAt=room.endsAt; changed = true; }
   return changed;
 }

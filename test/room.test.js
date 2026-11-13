@@ -1,15 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-
-// A light-weight Durable Object runtime simulation tests the room handlers.
-// It does not substitute for an actual Cloudflare WebSocket integration test.
-const workerPath = new URL('../src/worker.js', import.meta.url);
-const gamePath = new URL('../src/game.js', import.meta.url).href;
-const workerText = (await readFile(workerPath, 'utf8'))
-  .replace("import { DurableObject } from 'cloudflare:workers';", `class DurableObject { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }`)
-  .replace("} from './game.js';", `} from '${gamePath}';`);
-const { QuizRoom } = await import(`data:text/javascript;base64,${Buffer.from(workerText).toString('base64')}`);
+import { QuizRoom } from '../src/worker.js';
 
 function mockContext() {
   const memory = new Map();

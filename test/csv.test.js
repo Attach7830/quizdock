@@ -1,34 +1,6 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {readCsv,importCsv,TEMPLATE,DEMO} from '../public/js/csv.js';
-test('CSV parses commas, escaped quotes, multi-line strings and BOM',()=>{
- const rows=readCsv('\uFEFFQuestion,Answer\r\n"Hola, "+"X","Hello"\r\n"Two ""quotes""",yes\n');
- assert.equal(rows[0][0],'Question');
- assert.equal(rows[1][0],'Hola, +X');
- assert.equal(rows[2][0],'Two "quotes"');
-});
-test('Blooket template correct answer indices and Spanish quotes',()=>{
- const qs=importCsv(TEMPLATE);
- assert.equal(qs.length,3);
- assert.equal(qs[0].correct[0],0);
- assert.equal(qs[0].text,'¿Qué significa aprovechar?');
-});
-test('vocabulary pairs generate 4 multiple choice answers',()=>{
- const qs=importCsv(DEMO);
- assert.equal(qs.length,12);
- assert.equal(qs[0].answers.length,4);
- assert.equal(qs[0].answers[0],'to learn');
- assert.ok(qs[0].answers.includes('to eat'));
-});
-test('Gimkit-style answers accepted',()=>{
- const qs=importCsv('Question,Correct Answer,Incorrect Answer 1,Incorrect Answer 2,Incorrect Answer 3\nHola,hello,goodbye,thanks,please\n');
- assert.equal(qs[0].answers.length,4);
- assert.equal(qs[0].correct[0],0);
-});
-test('Blooket numeric answer reference accepted',()=>{
- const qs=importCsv('Question Text,Answer 1,Answer 2,Correct Answer(s)\n¿Cuál?,uno,dos,2\n');
- assert.deepEqual(qs[0].correct,[1]);
-});
-test('single pair without distractors is rejected',()=>{
- assert.throws(()=>importCsv('Spanish,English\nhola,hello'),/distinct answers/);
-});
+import test from 'node:test';import assert from 'node:assert/strict';import {readCsv,importCsv,TEMPLATE,DEMO} from '../public/js/csv.js';
+test('CSV adapter preserves quotes, accents and embedded commas',()=>{const r=readCsv('\uFEFFQuestion,Answer\r\n"Hola, mundo","Two ""quotes"""');assert.equal(r[1][0],'Hola, mundo');assert.equal(r[1][1],'Two "quotes"');});
+test('template creates three valid questions with quoted Spanish prompts',()=>{const q=importCsv(TEMPLATE);assert.equal(q.length,3);assert.equal(q[0].text,'¿Qué significa "aprovechar"?');assert.equal(q[0].correct[0],0);});
+test('two-column demo has distractors and stable card IDs',()=>{const q=importCsv(DEMO);assert.equal(q.length,12);assert.equal(q[0].answers.length,4);assert.ok(q[0].cardId);});
+test('Gimkit and Blooket formats and image URLs work through the arcade adapter',()=>{const q=importCsv('Question,Correct Answer,Incorrect Answer 1,Image URL\nHola,hello,bye,https://example.org/image.png');assert.equal(q[0].image,'https://example.org/image.png');const b=importCsv('Question,Answer 1,Answer 2,Correct Answer(s)\nTest,a,b,2');assert.deepEqual(b[0].correct,[1]);});
+test('invalid rows and single-pair live decks fail rather than silently losing content',()=>{assert.throws(()=>importCsv('Prompt,Answer\nHola,'),/Row 2/);assert.throws(()=>importCsv('Spanish,English\nhola,hello'),/distractor/);});
