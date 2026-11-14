@@ -39,5 +39,8 @@
   ],
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "GOOGLE_CLIENT_ID": "544077726024-gnbg8fehleu46g18runac2tiddtdrckp.apps.googleusercontent.com"
   }
 }
