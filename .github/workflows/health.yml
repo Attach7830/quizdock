@@ -1,17 +1,35 @@
 name: Public site health
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '23 3,15 * * *'
 permissions:
   contents: read
+concurrency:
+  group: public-site-health
+  cancel-in-progress: true
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm run health
+      - name: Verify deployed release and public assets
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4; do
+            if npm run health; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "Deployment not ready or public probe failed; retrying."
+              sleep 15
+            fi
+          done
+          echo "Public deployment could not be verified. Review the Cloudflare build and live health endpoint."
+          exit 1
