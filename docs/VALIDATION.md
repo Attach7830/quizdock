@@ -1,6 +1,6 @@
 # Validation index
 
-Current release: `RELEASE_2026_11_14.md`.
+Prepared update: `ARCADE_GOOGLE_RELEASE.md`. Previous release: `RELEASE_2026_11_14.md`.
 
 Run `npm run verify` for source syntax and repository Node tests. Run `python tools/run-browser-tests.py` for isolated fake-data browser checks. The latter requires Python Playwright, Chromium and OpenSSL; screenshots/results are written under gitignored `checks/`.
 
