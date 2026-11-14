@@ -1,3 +1,4 @@
+import {maybeArcadeEvent} from './arcade-events.js';
 import {gameSettings} from './academy-model.js';
 import {PLAYER_TYPES,roleById} from '../public/js/catalog.js';
 import {createRoundMetrics,recordCardAnswer,updateRoundMetrics,roundReport} from './round-metrics.js';
@@ -143,7 +144,7 @@ export class QuizRoom extends DurableObject {
         if(!r||r.createdAt!==p.createdAt)return json({ok:true,skipped:true});
         for(const player of Object.values(r.players))if(player.accountId===p.accountId&&(!p.erasedAt||player.joinedAt<=p.erasedAt)){
           for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment()?.playerId===player.id){try{ws.close(4003,'Account data removed');}catch{}}
-          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;
+          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
         }
         await this.save();this.broadcast();return json({ok:true});
       }
@@ -159,7 +160,7 @@ export class QuizRoom extends DurableObject {
         if(identity?.accountId){const existing=Object.values(this.room.players).find(p=>p.accountId===identity.accountId);if(existing){existing.skin=identity.skin||'mint';await this.save();this.broadcast();return json({pin:this.room.pin,playerId:existing.id,playerToken:existing.token,name:existing.name});}}
         if(['playing','paused'].includes(this.room.status)&&this.room.settings?.allowLate===false)return failure('Your teacher has disabled late entry for this game.',409);
         let name = cleanText(identity?.name||data.name, 70).replace(/[<>]/g, '');
-        if (name.length < 2) return failure('Enter a nickname with at least 2 characters.');
+        if (name.length < (identity?.accountId?1:2)) return failure('Enter a nickname with at least 2 characters.');
         if (Object.keys(this.room.players).length >= MAX_PLAYERS) return failure('This room is full.', 409);
         const existing = new Set(Object.values(this.room.players).map(p => p.name.toLowerCase()));
         const original = name;
@@ -192,7 +193,7 @@ export class QuizRoom extends DurableObject {
     const room = this.room;
     const players = scoreboard(room.players, room.mode);
     const shared = {
-      type: 'state', pin: room.pin, title: room.title, mode: room.mode,
+      type: 'state', pin: room.pin, title: room.title, mode: room.mode, lastArcadeEvent:room.lastArcadeEvent||null,
       status: room.status, questionCount: room.questions.length,
       startedAt: room.startedAt, endsAt: room.endsAt, remainingMs: room.remainingMs,
       settings:room.settings||gameSettings(),classId:room.classId||null,roundNumber:room.roundNumber||(room.startedAt?1:0),durationMinutes:room.settings?.minutes||10,players, online: this.onlineIds()
@@ -288,7 +289,7 @@ export class QuizRoom extends DurableObject {
       }
       room.mode=mode;room.durationMinutes=minutes;room.settings=settings;room.roundNumber=(room.roundNumber||(room.startedAt?1:0))+1;
       room.status = 'playing'; room.startedAt = Math.max(Date.now(),(room.startedAt||0)+1); room.endsAt = Date.now() + minutes * 60_000;
-      room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null;
+      room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null; room.lastArcadeEvent=null;
       room.roundMetrics=createRoundMetrics(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
     } else if (msg.type === 'pause') {
       this.requireHost(att);
@@ -330,12 +331,14 @@ export class QuizRoom extends DurableObject {
       };
       if(!correct&&PLAYER_TYPES[room.mode]){const type=roleById(room.mode,p.roleType);if(room.mode==='rally')p.score=Math.max(0,p.score-type.penalty);else{p.hp-=type.penalty;if(p.hp<=0){p.hp=100;p.score=Math.max(0,p.score-40);p.feedback.reward='Shield rebuilt. You lost 40 energy; keep going.';}}}
       if (!correct && room.mode === 'battle') p.hp = Math.max(10, p.hp - 5);
+      if(correct && room.mode!=='treasure')maybeArcadeEvent(room,p,reward?.points||0);
       recordCardAnswer(room.roundMetrics,{playerId:p.id,sequence:p.answered,cardIndex:p.current.index,optionIndex:p.current.order[selection],correct});
     } else if (msg.type === 'chest') {
       const p = this.requireStudent(att);
       if (room.status!=='playing'||room.mode !== 'treasure' || !p.pendingChests) throw new Error('No chest to open.');
       const reward = openChest(room, p, Number(msg.index));
       p.feedback.reward = reward.text;p.feedback.effect=reward.effect||{type:'chest',amount:reward.points};
+      maybeArcadeEvent(room,p,reward.points);
     } else if (msg.type === 'next') {
       const p = this.requireStudent(att);
       if (room.status !== 'playing') throw new Error('Game is not active.');

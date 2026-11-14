@@ -2,9 +2,11 @@
 
 An independently written classroom quiz arcade. Teacher-owned question lists, six live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
 
-## Release 0.3.1
+## Release 0.4.0 (prepared)
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
+
+This update adds Google student sign-in, shareable self-enrollment links, original chip music, shuffled solo passes and 18 animated game events. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
 
 The release integrates the prepared classroom beta with the newer mobile natural-scrolling behavior. Small screens do not force long questions into a fixed-height panel. Animation scenes use a contained canvas; students can hide the scene and open Stats separately.
 
@@ -12,6 +14,7 @@ The release integrates the prepared classroom beta with the newer mobile natural
 
 Keep these values in the quizdock Worker’s runtime Variables and Secrets, not in GitHub or build-only variables:
 
+- `GOOGLE_CLIENT_ID`: Google Web application OAuth client ID for student sign-in (public identifier, not a client secret).
 - `TEACHER_EMAILS`: comma-separated teacher allowlist.
 - `EMAIL_FROM`: the sender authorized by your email provider.
 - `RESEND_API_KEY`: a sending key stored as a secret.

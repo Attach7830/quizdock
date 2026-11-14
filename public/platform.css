@@ -35,3 +35,16 @@
  .study-prompt,.typed-answer,.row { min-width:0; }
 }
 @media(max-width:360px) { .answers{grid-template-columns:1fr}.game-top .btn{padding:7px} }
+
+/* Music and event notices reflow with the existing natural page scrolling. */
+.music-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%;margin:8px 0;min-width:0}
+.music-controls label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);min-width:0}
+.music-controls input[type=range]{width:76px;min-width:0;padding:0;min-height:32px;accent-color:var(--mint)}
+.music-controls .btn{min-height:38px;white-space:normal}
+.arcade-event-notice{border:1px solid #847446;border-radius:12px;background:linear-gradient(120deg,#4a3b2f88,#253c4c);padding:12px 14px;margin:0 0 14px;overflow-wrap:anywhere}
+.arcade-event-notice .eyebrow{display:block;font-size:9px;letter-spacing:1px;margin-bottom:6px}
+.arcade-event-notice strong{display:block;color:var(--gold);font-size:17px;margin-bottom:5px}
+.arcade-event-notice p{font-size:12px;color:var(--text)}
+.google-signin{min-width:0;max-width:100%;display:grid;gap:12px;margin:14px 0}
+#host-form{margin-top:16px}
+@media(max-width:600px){.game-top .music-controls{margin:0}.game-top .music-controls input[type=range]{width:64px}.game-top>.row{justify-content:flex-end}.scene-top{flex-wrap:wrap}.scene-top>.row{gap:3px!important}.google-signin{overflow-wrap:anywhere}}

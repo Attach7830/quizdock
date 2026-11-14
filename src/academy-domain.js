@@ -2,6 +2,7 @@ import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDig
 import {correctAnswers,validateList} from '../public/js/list-model.js';
 import {SKINS} from '../public/js/catalog.js';
 import {DEFAULT_ZONE,zone,localDay,weekStart,addDays,dateTimeInZone,gradeTyped,practiceRules,progressSummary,raffleEntries,weightedWinner,rankedParticipants} from './academy-model.js';
+import {startGoogleLogin,finishGoogleLogin} from './google-login.js';
 const HOUR=3600000,DAY=24*HOUR;
 const id=v=>{ensure(/^[a-zA-Z0-9_-]{8,80}$/.test(String(v||'')),'Invalid identifier.');return String(v);};
 const text=(v,max=80)=>String(v??'').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g,' ').trim().slice(0,max);
@@ -28,7 +29,7 @@ export class AcademyService {
  async enroll(classId,userId,email,name){const key=`member:${classId}:${userId}`,old=await this.store.get(key);if(!old){const members=await this.rows(`member:${classId}:`,201);ensure(members.length<200,'This class has reached its 200-student limit.');}
   const m={classId,userId,email,name:text(name)||email.split('@')[0],active:true,joinedAt:old?.joinedAt||Date.now()};await this.store.put({[key]:m,[`enrollment:${userId}:${classId}`]:m});return m;
  }
- async byCode(raw,email){const code=String(raw||'').trim().toUpperCase();ensure(/^[A-Z0-9]{10}$/.test(code),'Use the 10-character class code from your teacher.');const classId=await this.store.get('class-code:'+code),c=classId?await this.store.get('class:'+classId):null;ensure(c&&!c.archived&&c.allowCode,'Class code is unavailable.',403);ensure(!c.emailDomain||email.endsWith('@'+c.emailDomain),'Use your school email for this class.',403);return c;}
+ async byCode(raw,email=''){const code=String(raw||'').trim().toUpperCase();ensure(/^[A-Z0-9]{10}$/.test(code),'Use the 10-character class code from your teacher.');const classId=await this.store.get('class-code:'+code),c=classId?await this.store.get('class:'+classId):null;ensure(c&&!c.archived&&c.allowCode,'Class code is unavailable.',403);ensure(!email||!c.emailDomain||email.endsWith('@'+c.emailDomain),'Use your school email for this class.',403);return c;}
  async eligibleStudent(email,code){const userId=await hash(email);if(code){const c=await this.byCode(code,email),m=await this.enrollment(userId,c.id);ensure(!m||m.active,'Ask your teacher to restore your class access.',403);return {userId,joinClass:c.id};}const memberships=await this.rows('enrollment:'+userId+':');for(const m of memberships){const c=await this.store.get('class:'+m.classId);if(m.active&&c&&!c.archived)return {userId,joinClass:null};}throw new LibraryError('Use your school email and a class code, or ask your teacher to add you to the roster.',403);}
  async login(action,p,ip){
   ensure(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM,'Email sign-in is not configured.',503);const email=cleanEmail(p.email),userId=await hash(email),now=Date.now();
@@ -37,7 +38,7 @@ export class AcademyService {
    const eligible=await this.eligibleStudent(email,p.classCode),key='student-code:'+userId,prior=await this.store.get(key);
    ensure(!prior||now-prior.createdAt>=60000,'Wait one minute before requesting another code.',429);
    await this.rate('send-email:'+userId,5);await this.rate('daily-email',Math.min(1000,Math.max(100,Number(this.config.STUDENT_EMAIL_DAILY_LIMIT)||500)),DAY);
-   const name=text(p.name);ensure(name.length>=2,'Enter your name (at least two characters).');
+   const name=text(p.name)||text(email.split('@')[0]);
    const challenge=uid(),code=randomCode();await this.store.put(key,{email,userId,joinClass:eligible.joinClass,joinCode:eligible.joinClass?String(p.classCode).trim().toUpperCase():null,name,challenge,digest:await codeDigest(this.config.RESEND_API_KEY,challenge,code),tries:0,createdAt:now,expiresAt:now+600000});
    return {key,challenge,mail:{from:this.config.EMAIL_FROM,to:[email],subject:'Your QuizDock sign-in code',text:`Your QuizDock sign-in code is ${code}. It expires in 10 minutes. Do not share it. Ignore this message if you did not request it.`}};
   }
@@ -106,12 +107,15 @@ export class AcademyService {
    profile.points+=amount;await this.store.put({['account:'+p.accountId]:profile,[dk]:prior+amount,[`reward:${p.accountId}:${record.id}`]:{roundId:record.id,amount,at:record.finishedAt}});
   }
  }
- async route(action,p={},token='',ip='unknown'){
-  if(action==='login-request'||action==='login-verify')return this.login(action,p,ip);
-  if(action==='status'){let user=null;try{user=await this.identity(token);}catch{}return response({configured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),user});}
+ async route(action,p={},token='',ip='unknown',googleIdentity=null){
+  if(action==='google-start')return startGoogleLogin(this,p,ip);
+  if(action==='google-signin')return finishGoogleLogin(this,p,googleIdentity,ip);
+  if(action==='class-invite'){const c=await this.byCode(p.code);return response({name:c.name});}
+  if(action==='login-request'||action==='login-verify'){ensure(!this.config.GOOGLE_CLIENT_ID,'Use Sign in with Google for student accounts.',400);return this.login(action,p,ip);}
+  if(action==='status'){let user=null;try{user=await this.identity(token);}catch{}return response({configured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),googleConfigured:!!this.config.GOOGLE_CLIENT_ID,user});}
   const user=await this.identity(token);
   if(action==='home')return response(await this.home(user));
-  if(action==='join-class'){await this.rate('join:'+user.id,15);const c=await this.byCode(p.code,user.email),old=await this.enrollment(user.id,c.id);ensure(!old||old.active,'Ask your teacher to restore your class access.',403);await this.enroll(c.id,user.id,user.email,old?.name||p.name||user.name);return response({ok:true});}
+  if(action==='join-class'){await this.rate('join:'+user.id,15);const c=await this.byCode(p.code,user.email),old=await this.enrollment(user.id,c.id);ensure(!old||old.active,'Ask your teacher to restore your class access.',403);await this.enroll(c.id,user.id,user.email,old?.name||user.name);return response({ok:true});}
   if(action==='create-class'){
    this.teacher(user);const existing=await this.rows('class-owner:'+user.id+':',101);ensure(existing.length<100,'Maximum 100 classes.');const name=text(p.name);ensure(name,'Name your class.');const classId=uid(),code=uid().replaceAll('-','').slice(0,10).toUpperCase();const emailDomain=text(p.emailDomain,100).toLowerCase();ensure(!emailDomain||/^[a-z0-9.-]+\.[a-z]{2,}$/.test(emailDomain),'Enter a school domain without @.');const c={id:classId,name,ownerId:user.id,code,timezone:zone(p.timezone||DEFAULT_ZONE),emailDomain,allowCode:p.allowCode!==false,createdAt:Date.now()};await this.store.put({['class:'+classId]:c,['class-owner:'+user.id+':'+classId]:c,['class-code:'+code]:classId});return response({class:c});
   }

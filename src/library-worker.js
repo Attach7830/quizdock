@@ -5,7 +5,7 @@ import {gameSettings} from './academy-model.js';
 export {QuizRoom} from './worker.js';
 export {TeacherLibrary} from './library-service.js';
 const libraryActions=new Set(['status','login-request','login-verify','logout','lists','get','save','duplicate','delete','snapshot','rounds','round','delete-round']);
-const academyActions=new Set(['status','login-request','login-verify','home','join-class','create-class','class-detail','roster-add','roster-remove','class-close-enrollment','class-rotate-code','share-list','create-assignment','assignment-report','practice-open','practice-status','practice-answer','practice-next','practice-tick','practice-submit','solo-open','solo-save','buy-skin','equip-skin','raffle-preview','raffle-draw','raffle-history']);
+const academyActions=new Set(['google-start','google-signin','class-invite','status','login-request','login-verify','home','join-class','create-class','class-detail','roster-add','roster-remove','class-close-enrollment','class-rotate-code','share-list','create-assignment','assignment-report','practice-open','practice-status','practice-answer','practice-next','practice-tick','practice-submit','solo-open','solo-save','buy-skin','equip-skin','raffle-preview','raffle-draw','raffle-history']);
 const failure=(error,status)=>new Response(JSON.stringify({error}),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const token=request=>(request.headers.get('cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('__Host-quizdock-library='))?.slice('__Host-quizdock-library='.length)||'';
 async function payload(request,limit=150000){if(Number(request.headers.get('content-length')||0)>limit)throw new Error('Request exceeds 150 KB.');const s=await request.text();if(new TextEncoder().encode(s).length>limit)throw new Error('Request exceeds 150 KB.');const d=JSON.parse(s);if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('JSON object required.');return d;}
@@ -18,7 +18,9 @@ export default {async fetch(request,env,ctx){
  if(match){if(request.method!=='POST')return failure('POST required.',405);const bad=check(request,url);if(bad)return bad;
   if(!(match[1]==='library'?libraryActions:match[1]==='data'?new Set(DATA_ACTIONS):academyActions).has(match[2]))return failure('Unknown endpoint.',404);
   if(!env.TEACHER_LIBRARY)return failure('Account storage is not configured.',503);
-  try{return await call(env,request,(match[1]==='library'?'':match[1]+':')+match[2],await payload(request,match[1]==='data'&&match[2].startsWith('restore')?5_003_000:150000));}catch{return failure('Invalid request or temporary storage error.',400);}
+  try{const data=await payload(request,match[1]==='data'&&match[2].startsWith('restore')?5_003_000:150000);
+   if(match[1]==='academy'&&match[2]==='google-signin')data.browserNonce=(request.headers.get('cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('__Host-quizdock-google='))?.slice('__Host-quizdock-google='.length)||'';
+   return await call(env,request,(match[1]==='library'?'':match[1]+':')+match[2],data);}catch{return failure('Invalid request or temporary storage error.',400);}
  }
  if(url.pathname==='/api/create'&&request.method==='POST'){
   const bad=check(request,url);if(bad)return bad;if(!env.TEACHER_LIBRARY)return failure('Teacher library storage is not configured.',503);

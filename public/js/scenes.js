@@ -1,21 +1,24 @@
 import {skinById,GAME_TYPES} from './catalog.js';
+import {drawArcadeEvent} from './event-effects.js';
 // Original vector scenes, drawn in a contained canvas. No downloaded art or proprietary assets.
 export function createScene(){
  const el=document.createElement('section');el.className='game-scene';
- el.innerHTML='<div class="scene-top"><span class="scene-name"></span><div class="row" style="gap:4px"><button type="button" data-scene="collapse">Hide scene</button><button type="button" data-scene="motion">Motion on</button><button type="button" data-scene="sound">Sound off</button></div></div><canvas class="scene-canvas" aria-hidden="true"></canvas>';
+ el.innerHTML='<div class="scene-top"><span class="scene-name"></span><div class="row" style="gap:4px"><button type="button" data-scene="collapse">Hide scene</button><button type="button" data-scene="motion">Motion on</button><button type="button" data-scene="sound">Effects off</button></div></div><canvas class="scene-canvas" aria-hidden="true"></canvas>';
  const canvas=el.querySelector('canvas'),ctx=canvas.getContext('2d');const media=matchMedia('(prefers-reduced-motion:reduce)');
+ let special=null;
  let state=null,previous=null,motion=true,sound=false,collapsed=false,event=null,frame=0,lastFrame=0,audio=null;
  try{motion=localStorage.getItem('qd-motion')!=='off';}catch{}
  const canMove=()=>motion&&!media.matches&&!document.hidden&&!collapsed&&state?.status==='playing';
- function labels(){el.querySelector('[data-scene=motion]').textContent=media.matches?'Reduced motion':`Motion ${motion?'on':'off'}`;el.querySelector('[data-scene=sound]').textContent=`Sound ${sound?'on':'off'}`;el.querySelector('[data-scene=collapse]').textContent=collapsed?'Show scene':'Hide scene';el.classList.toggle('collapsed',collapsed);}
+ function labels(){el.querySelector('[data-scene=motion]').textContent=media.matches?'Reduced motion':`Motion ${motion?'on':'off'}`;el.querySelector('[data-scene=sound]').textContent=`Effects ${sound?'on':'off'}`;el.querySelector('[data-scene=collapse]').textContent=collapsed?'Show scene':'Hide scene';el.classList.toggle('collapsed',collapsed);}
  function chime(){if(!sound||!audio||document.hidden)return;const t=audio.currentTime;for(const [i,f] of [523.25,659.25,783.99].entries()){const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t+i*.06);g.gain.linearRampToValueAtTime(.035,t+i*.06+.018);g.gain.exponentialRampToValueAtTime(.001,t+i*.06+.19);o.connect(g);g.connect(audio.destination);o.start(t+i*.06);o.stop(t+i*.06+.2);}}
  el.addEventListener('click',e=>{const b=e.target.closest('[data-scene]');if(!b)return;if(b.dataset.scene==='motion'){motion=!motion;try{localStorage.setItem('qd-motion',motion?'on':'off');}catch{}}
   if(b.dataset.scene==='collapse')collapsed=!collapsed;
   if(b.dataset.scene==='sound'){sound=!sound;if(sound){try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{sound=false;}}}labels();redraw();});
- media.addEventListener('change',()=>{labels();redraw();});document.addEventListener('visibilitychange',redraw);
+ const motionChanged=()=>{labels();redraw();};
+ media.addEventListener('change',motionChanged);document.addEventListener('visibilitychange',redraw);
  function roundKey(s){return s?`${s.pin}:${s.roundNumber}:${s.startedAt}:${s.mode}`:'';}
  function update(next){
-  if(roundKey(next)!==roundKey(previous)){event=null;previous=null;}
+  if(roundKey(next)!==roundKey(previous)){event=null;special=null;previous=null;delete el.dataset.eventId;}
   state=next;el.querySelector('.scene-name').textContent=GAME_TYPES[next?.mode]?.name||'Your adventure';
   if(previous?.me&&next?.me&&next.status==='playing'){
    const score=s=>s.mode==='treasure'?s.me.coins:s.mode==='factory'?s.me.cash:s.me.score;const delta=score(next)-score(previous);
@@ -26,6 +29,8 @@ export function createScene(){
    if(delta&&next.me.answered===previous.me.answered&&!previous.me.pendingChests&&next.me.machineLevel===previous.me.machineLevel&&next.me.rodLevel===previous.me.rodLevel)event={type:'balance',start:performance.now()};
    if(event&&delta)event.delta=delta;
   }
+  const latest=next?.me?next.me.lastEvent:next?.lastArcadeEvent,prior=previous?.me?previous.me.lastEvent:previous?.lastArcadeEvent;
+  if(previous&&latest?.id&&latest.id!==prior?.id&&next.status==='playing'){special={kind:latest.kind,start:performance.now()};el.dataset.eventId=latest.id;}
   previous=structuredClone(next);redraw();
  }
  function redraw(){cancelAnimationFrame(frame);frame=0;draw(performance.now());if(canMove())frame=requestAnimationFrame(loop);}
@@ -86,7 +91,8 @@ export function createScene(){
   const t=canMove()?now/1000:0;let p=event&&canMove()?Math.min(1,(now-event.start)/1250):0;if(event&&p>=1)event=null;
   const scenes={treasure:chest,fishing,battle,factory,rally,keep};scenes[state.mode]?.(W,t,p);
   if(event?.delta&&p>0&&p<1){ctx.save();ctx.globalAlpha=Math.min(1,(1-p)*3);ctx.font='bold 15px system-ui';ctx.textAlign='center';const label=`${event.delta>0?'+':'−'}${Math.abs(Math.round(event.delta))}`,width=ctx.measureText(label).width+24;rr(W*.5-width*.5,25-p*8,width,26,13,'#122938dd',event.delta>0?'#8feac9':'#edbf98');ctx.fillStyle=event.delta>0?'#b5f7db':'#ffe0bb';ctx.fillText(label,W*.5,43-p*8);ctx.restore();}
+  if(special){const elapsed=(now-special.start)/2400;if(elapsed>=1){special=null;}else drawArcadeEvent(ctx,special.kind,W,elapsed,canMove());}
   if(state.status!=='playing'){ctx.fillStyle='#09172c55';ctx.fillRect(0,0,W,200);}ctx.setTransform(1,0,0,1,0,0);
  }
- labels();return {el,mount(parent){if(parent&&!parent.contains(el))parent.append(el);redraw();},update,dispose(){cancelAnimationFrame(frame);resize.disconnect();el.remove();}};
+ labels();return {el,mount(parent){if(parent&&!parent.contains(el))parent.append(el);redraw();},update,dispose(){cancelAnimationFrame(frame);resize.disconnect();media.removeEventListener('change',motionChanged);document.removeEventListener('visibilitychange',redraw);if(audio)audio.close().catch(()=>{});el.remove();}};
 }
