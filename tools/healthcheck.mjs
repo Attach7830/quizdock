@@ -3,8 +3,9 @@ import {RELEASE} from '../src/release.js';
 import {pathToFileURL} from 'node:url';
 export async function checkHealth(base,expected=RELEASE,request=fetch){
  const url=new URL(base);if(url.protocol!=='https:')throw new Error('Health checks require HTTPS.');
+ // Cloudflare serves HTML at canonical extensionless routes; .html is a normal 307 redirect.
  const results=[];
- for(const [path,type] of [['/api/health','json'],['/','html'],['/play.html','html'],['/data.html','html'],['/platform.css','css'],['/js/app.js','javascript']]){
+ for(const [path,type] of [['/api/health','json'],['/','html'],['/play','html'],['/data','html'],['/platform.css','css'],['/js/app.js','javascript']]){
   const response=await request(new URL(path,url),{headers:{'cache-control':'no-cache'},redirect:'error',signal:AbortSignal.timeout(15000)});
   if(!response.ok)throw new Error(`${path}: HTTP ${response.status}`);
   const mime=response.headers.get('content-type')||'';if(!mime.includes(type))throw new Error(`${path}: unexpected response type`);
