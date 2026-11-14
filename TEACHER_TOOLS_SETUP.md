@@ -1,63 +1,34 @@
-# Teacher tools — configuration and release checklist
+# QuizDock deployment settings
 
-## Current release state
+The classroom release is ordinary editable source. The previous `.cjs` installers are obsolete.
 
-The source update is on `feature/teacher-library-round-reports`, separate from `main`. It is prepared for review, not a claim that production has been deployed or verified. There is no need to upload individual folders or use the earlier single-file installer.
+## Cloudflare
 
-This version requires teacher authentication for all new game creation, including games created from a CSV on the arcade homepage. Configure email delivery and test it before releasing to a class.
+Worker: `quizdock`. Repository: `Attach7830/quizdock`. Production branch: `main`. Root: `/`. Build command: blank. Deploy command: `npx wrangler deploy`. No local Windows installation is required for the Git-connected deployment.
 
-## Required runtime configuration
-
-Configure these names in the Cloudflare Worker environment that will run the update. They must be available to the running Worker, not only to its build process.
+Keep the existing runtime secrets in **Settings → Variables and Secrets**, not build-only variables:
 
 | Name | Purpose |
 | --- | --- |
-| `TEACHER_EMAILS` | A comma-separated allowlist of teacher email addresses. Use the address at which you will receive sign-in codes. |
-| `EMAIL_FROM` | The sender address used by Resend, such as `QuizDock <quizdock@your-domain.example>`. It must be authorized to send through your Resend account. |
-| `RESEND_API_KEY` | The private Resend API key used by the Worker to send sign-in emails. Store as a secret. |
+| `TEACHER_EMAILS` | Comma-separated authorized teacher email addresses. |
+| `EMAIL_FROM` | Verified Resend sender, matching its authorized sending domain. |
+| `RESEND_API_KEY` | Private sending key; never commit it or paste it in chat. |
 
-Do not paste API keys or sign-in codes into a chat, commit them to GitHub, or place them in public JavaScript. This update does not include real secret values. The tests contain dummy values only.
+Existing teacher/library storage and the `QuizRoom`/`TeacherLibrary` class migrations are unchanged. Do not delete namespaces or rotate unrelated keys to troubleshoot.
 
-The code sends a six-digit email code, checks it on the server, and creates a Secure, HttpOnly, SameSite=Lax session cookie. Merely typing an email address does not authorize a teacher. Removing an email from the configured allowlist invalidates its access checks on subsequent requests.
+## First visit after deployment
 
-Students still use nickname-and-PIN joining. This release does not add student email accounts.
+Open `/api/health` and verify the release identifier in `docs/RELEASE_2026_11_14.md`. Reload teacher and student tabs once, between games. Teacher sign-in is on `/`; saved lists remain at `/library.html`, reports at `/reports.html`, live games at `/play.html`, and data controls at `/data.html`.
 
-## Source-based deployment
+Use designated test accounts before importing real students. Create a class, optionally restrict its email domain, and add a roster or share the invitation code. Students must verify their email. Closing code enrollment does not remove existing rostered members.
 
-The branch contains the source files directly. After configuration and review, the deployment command remains:
+No extra runtime secret is required for this release. The optional `STUDENT_EMAIL_DAILY_LIMIT` environment value controls the app's daily student-mail cap (default 500, bounded from 100 to 1,000). This does not change the email provider's own account quota.
 
-```sh
-npx wrangler deploy
-```
+Follow `docs/LIVE_ACCEPTANCE.md` for the actual-device and email tests. Automatic retention is disabled until explicitly enabled; see `docs/DATA_AND_RECOVERY.md`.
 
-Do not use `node quizdock-teacher-tools-update.cjs && npx wrangler deploy` with this branch. That installer was a fallback for when GitHub writes were unavailable; applying it again is unnecessary and may stop on already-updated files.
+## Build and monitoring
 
-The checked-in configuration uses Worker name `quizdock`, entry point `src/library-worker.js`, the existing `ROOMS` / `QuizRoom` Durable Object, and the new `TEACHER_LIBRARY` / `TeacherLibrary` Durable Object. Migration `v1` is preserved; `v2-teacher-library` adds the new class. Do not delete the original migration or manually rename its class.
+GitHub Actions verifies source and tests, runs simulated browser checks, and performs a nonpublishing Wrangler bundle. Scheduled public health checks run twice daily after the workflow reaches the default branch. These checks do not sign in, send email, or prove that the app works on a physical phone.
 
-Do not change the production branch to this feature branch merely to inspect the files. Use a separately configured test deployment for live validation when available. A preview environment needs its own appropriate runtime configuration. No production or preview deployment was initiated as part of the source upload.
-
-## Required checks before classroom use
-
-1. Open `/library.html` in the test deployment. Confirm a configured, authorized teacher can request and use an email code. Verify an unauthorized account cannot access saved lists or reports. Never publish screenshots of codes or session cookies.
-2. Create a list, add cards, save it, reload, and confirm persistence. Try CSV import and pasted two-column text. Inspect rejected rows rather than silently discarding them. Test an optional HTTPS image and its description.
-3. Create a game from the saved list. Join from a separate private browser window using a test nickname. Submit both correct and incorrect answers, replay a card, and confirm counts on the host's card report.
-4. End the round and open `/reports.html`. Confirm the frozen prompt/answer snapshot and exported card results. Start another round and verify that the first report remains separate.
-5. Test pause/resume, reconnecting, and all four existing game modes. Test mobile layouts and simultaneous students before using actual classroom data.
-
-These are release checks, not statements that the tests have already been completed on Cloudflare.
-
-## How lists and reports behave
-
-Lists can hold up to 250 cards, within a 100 KB serialized-content limit. Empty lists can be saved as drafts but cannot launch games. For prompt/answer pairs, live-game distractors come from other distinct answers in the same list. A single pair therefore needs explicit choices or another distinct answer before it can be used in a live game.
-
-Valid editor changes autosave. Invalid or unsynced drafts are kept locally when browser storage permits. Conflicting revisions require an explicit reload or saving as a new list. JSON exports preserve accepted alternatives; native XLSX files are not imported directly.
-
-Every round receives its own identifier. Reports distinguish repeated attempts from distinct player sessions and retain the original answer options despite shuffled on-screen choices. Unanswered cards have no accuracy value. Editing or deleting the source list does not rewrite historical report snapshots.
-
-Active reports are archived periodically and on completion. Failed archival is retried from saved room state. Starting a replay is blocked if the previous completed report has not yet been archived. Finished reports can be deleted from the reports page; this does not delete the source list.
-
-Temporary game rooms have a 12-hour lifetime. Saved lists and archived reports are stored separately and do not disappear with normal room expiry. They need an appropriate retention/deletion policy before wider use.
-
-## Remaining limitations
-
-Reports count game sessions rather than verified student identities across devices or new nicknames. The 45-player room cap is a configured limit, not evidence of full-class load capacity. Live email delivery and production deployment are unverified. This release is a prototype and is not a compliance or security certification.
+Cloudflare deployment documentation: https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
+Runtime secrets documentation: https://developers.cloudflare.com/workers/configuration/secrets/

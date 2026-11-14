@@ -1,10 +1,11 @@
+import {roleById} from '../public/js/catalog.js';
 import {imageURL} from '../public/js/list-model.js';
 // Portable, dependency-free rules for the four original game modes.
-export const MODES = ['treasure', 'fishing', 'battle', 'factory'];
+export const MODES = ['treasure', 'fishing', 'battle', 'factory', 'rally', 'keep'];
 export const MIN_QUESTIONS = 1;
 export const MAX_QUESTIONS = 250;
 export const MAX_PLAYERS = 45;
-export const MAX_ROOM_MINUTES = 30;
+export const MAX_ROOM_MINUTES = 60;
 
 export function randomId(bytes = 16) {
   const buff = new Uint8Array(bytes);
@@ -57,7 +58,7 @@ export function newPlayer(id, token, name, questions) {
     id, token, name, joinedAt: Date.now(), answered: 0, correct: 0, streak: 0,
     score: 0, coins: 0, cash: 0, fishCount: 0, biggestFish: 0,
     rodLevel: 0, machineLevel: 0, hp: 100, knockouts: 0,
-    lastAnswerAt: 0, current: createQuestion(questions, 0),
+    roleType: null, accountId: null, skin: 'mint', email: null, lastEvent:null, lastAnswerAt: 0, current: createQuestion(questions, 0),
     feedback: null, pendingChests: null
   };
 }
@@ -72,7 +73,7 @@ export function publicQuestion(q, current) {
 }
 export function scoreboard(players, mode) {
   return Object.values(players).map(p => ({
-    id: p.id, name: p.name, score: mode === 'treasure' ? p.coins : mode === 'factory' ? p.cash : p.score,
+    id: p.id, name: p.name, skin:p.skin||'mint', roleType:p.roleType, score: mode === 'treasure' ? p.coins : mode === 'factory' ? p.cash : p.score,
     correct: p.correct, answered: p.answered, streak: p.streak, hp: p.hp,
     fishCount: p.fishCount, biggestFish: p.biggestFish,
     machineLevel: p.machineLevel, rodLevel: p.rodLevel, knockouts: p.knockouts
@@ -80,6 +81,13 @@ export function scoreboard(players, mode) {
 }
 export function grantAnswerReward(room, player) {
   const mode = room.mode;
+  if(mode==='rally'||mode==='keep'){
+    const role=roleById(mode,player.roleType);if(!role)throw new Error('Choose a player type first.');
+    const bonus=Math.min(player.streak,5)*(player.roleType==='ace'?6:3),points=role.gain+bonus;
+    player.score+=points;
+    if(mode==='keep'&&player.roleType==='mender')player.hp=Math.min(100,player.hp+10);
+    return {text:mode==='rally'?`Tailwind! +${points} distance`:`Crystal charged! +${points} energy`,points,effect:{type:mode==='rally'?'boost':'charge',amount:points}};
+  }
   if (mode === 'treasure') {
     const rewards = shuffle([
       { kind: 'coins', amount: randomInt(20, 60), text: 'Found treasure!' },
@@ -95,7 +103,7 @@ export function grantAnswerReward(room, player) {
     player.fishCount++;
     player.biggestFish = Math.max(player.biggestFish, weight);
     player.score += points;
-    return { text: `You caught a ${weight.toFixed(1)} kg fish! +${points} points`, points };
+    return { text: `You caught a ${weight.toFixed(1)} kg fish! +${points} points`, points, effect:{type:'catch',weight,points} };
   }
   if (mode === 'factory') {
     const earned = 35 + Math.min(player.streak * 5, 25);
@@ -111,7 +119,7 @@ export function grantAnswerReward(room, player) {
     const target = targets[randomInt(0, targets.length - 1)];
     target.hp -= 20;
     if (target.hp <= 0) { target.hp = 100; player.knockouts++; player.score += 100; }
-    return { text: `+${points} points! You hit ${target.name} for 20 HP.`, points };
+    return { text: `+${points} points! You hit ${target.name} for 20 HP.`, points, effect:{type:'attack',targetId:target.id,targetName:target.name} };
   }
   return { text: `+${points} points! Another player can join the battle.`, points };
 }
@@ -128,7 +136,7 @@ export function openChest(room, player, chosen) {
       const amount = Math.min(target.coins, reward.amount);
       target.coins -= amount;
       player.coins += amount;
-      return { text: `Pirate raid! You took ${amount} coins from ${target.name}.`, points: amount };
+      return { text: `Pirate raid! You took ${amount} coins from ${target.name}.`, points: amount, effect:{type:'raid',amount,targetId:target.id,targetName:target.name} };
     }
     player.coins += reward.amount;
     return { text: `No rivals to raid: you found ${reward.amount} coins instead!`, points: reward.amount };
@@ -169,5 +177,6 @@ export function settleTime(room, now = Date.now()) {
     }
   }
   if (now >= room.endsAt) { room.status = 'finished'; room.finishedAt=room.endsAt; changed = true; }
+  else if(room.settings?.kind==='score'&&scoreboard(room.players,room.mode).some(p=>p.score>=room.settings.target)){room.status='finished';room.finishedAt=now;changed=true;}
   return changed;
 }
