@@ -1,4 +1,9 @@
 node_modules/
 .wrangler/
+.env*
+.dev.vars*
+checks/
+__pycache__/
+*.pyc
+*.pem
 .DS_Store
-.env
