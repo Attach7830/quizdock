@@ -17,8 +17,12 @@ def http(path,data=None,cookie=''):
 COOKIES={role:http('/__test/login?role='+role)['headers'].get('Set-Cookie','').split(';')[0] for role in ['teacher','student','other']}
 FIX=json.loads(http('/__test/fixture')['body'])
 DECK=json.loads(http('/api/academy/solo-open',{'classId':FIX['classId'],'listId':FIX['listId']},COOKIES['student'])['body'])['deck']['cards']
-def practice_card(page):return next(c for c in DECK if c['prompt']==page.locator('.study-prompt').inner_text())
-def game_answer(page):return next(c['answer'] for c in DECK if c['prompt']==page.locator('.phase-heading').inner_text())
+def practice_card(page):
+    prompt=page.locator('.study-prompt').inner_text()
+    return next(c for c in DECK if c['prompt']==prompt)
+def game_answer(page):
+    prompt=page.locator('.phase-heading').inner_text()
+    return next(c['answer'] for c in DECK if c['prompt']==prompt)
 
 def check(ok,name):
     RESULTS.append({'check':name,'passed':bool(ok)})
