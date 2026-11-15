@@ -25,7 +25,8 @@ async function keys(request, now) {
  return pending;
 }
 export async function verifyGoogleCredential(credential, clientId, {request = fetch, now = Date.now(), jwks = null} = {}) {
- ensure(clientId, 'Student Google sign-in is not configured yet. Please ask your teacher.', 503);
+ clientId = String(clientId || '').trim();
+ ensure(clientId, 'Google sign-in is not configured yet. Contact the site administrator.', 503);
  ensure(typeof credential === 'string' && credential.length <= 12000, 'Invalid Google credential.', 401);
  const pieces = credential.split('.'); ensure(pieces.length === 3, 'Invalid Google credential.', 401);
  const header = part(pieces[0]), claims = part(pieces[1]);
@@ -47,5 +48,5 @@ export async function verifyGoogleCredential(credential, clientId, {request = fe
  ensure(Number.isFinite(claims.exp) && claims.exp > seconds && Number.isFinite(claims.iat) && claims.iat <= seconds + 60 && claims.iat >= seconds - 7200 && claims.exp > claims.iat, 'Google sign-in expired. Please try again.', 401);
  ensure(claims.email_verified === true && typeof claims.sub === 'string' && claims.sub.length > 0 && claims.sub.length <= 255 && typeof claims.nonce === 'string', 'Use a verified Google email account.', 401);
  const name = String(claims.name || '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, ' ').trim().slice(0,70);
- return {email:cleanEmail(claims.email),name:name || cleanEmail(claims.email).split('@')[0],subject:claims.sub,nonce:claims.nonce};
+ return {email:cleanEmail(claims.email),name:name || cleanEmail(claims.email).split('@')[0],subject:claims.sub,nonce:claims.nonce,authoritativeEmail:cleanEmail(claims.email).endsWith('@gmail.com') || (typeof claims.hd === 'string' && !!claims.hd.trim())};
 }

@@ -1,3 +1,4 @@
+import {startTeacherGoogleLogin, readTeacherGoogleAttempt, finishTeacherGoogleLogin, teacherGoogleConfigured} from './teacher-google-login.js';
 import {verifyGoogleCredential} from './google-auth.js';
 import {DataTools,flushPrivacyJobs,runRetentionPolicies} from './data-tools.js';
 import {RELEASE} from './release.js';
@@ -14,13 +15,26 @@ export class TeacherLibrary extends DurableObject {
   async fetch(request){
     try{
       const message=await request.json();
+      // Reject missing/replayed browser challenges and enforce a separate teacher
+      // attempt limit before doing Google network/cryptography work.
+      if(message.action==='google-signin'){
+        const denied=await this.store.transaction(async store=>{
+          const service=Object.create(this);service.store=store;
+          try{
+            await service.rate('teacher-google-verify:'+await hash(message.ip||'unknown'),60,600000);
+            await readTeacherGoogleAttempt(service,message.payload||{});
+            return null;
+          }catch(e){if(e instanceof LibraryError)return json({error:e.message},e.status);throw e;}
+        });
+        if(denied){await this.ensureAlarm();return denied;}
+      }
       // Google network/cryptography work stays outside the storage transaction.
-      const googleIdentity=message.action==='academy:google-signin'?await verifyGoogleCredential(message.payload?.credential,this.config.GOOGLE_CLIENT_ID):null;
+      const googleIdentity=['academy:google-signin','google-signin'].includes(message.action)?await verifyGoogleCredential(message.payload?.credential,this.config.GOOGLE_CLIENT_ID):null;
       const result=await this.store.transaction(async store=>{
         const service=Object.create(this);service.store=store;
         try{return await service.route(message,googleIdentity);}catch(e){if(e instanceof LibraryError&&!message.action.startsWith('data:'))return json({error:e.message},e.status);throw e;}
       });
-      if(['login-request','login-verify','academy:login-request','academy:login-verify','academy:google-start','academy:google-signin'].includes(message.action)||message.action.startsWith('data:'))await this.ensureAlarm();
+      if(['google-start','google-signin','login-request','login-verify','academy:login-request','academy:login-verify','academy:google-start','academy:google-signin'].includes(message.action)||message.action.startsWith('data:'))await this.ensureAlarm();
       if(['data:delete-student','data:delete-account'].includes(message.action))await flushPrivacyJobs(this.store,this.config);
       if(result instanceof Response)return result;
       // External delivery is outside the storage transaction; retries use a stable idempotency key.
@@ -42,6 +56,8 @@ export class TeacherLibrary extends DurableObject {
   }
   async route({action,payload:p={},token='',ip='unknown'},googleIdentity=null){
     const now=Date.now();
+    if(action==='google-start')return startTeacherGoogleLogin(this,ip);
+    if(action==='google-signin')return finishTeacherGoogleLogin(this,p,googleIdentity);
     if(action.startsWith('data:'))return json(await new DataTools(this.store,this.config,new AcademyService(this.store,this.config)).route(action.slice(5),p,token));
     if(action==='record-round'){
       const result=await new RoundRepository(this.store,p.owner).upsert(p.report);
@@ -73,7 +89,7 @@ export class TeacherLibrary extends DurableObject {
       await this.store.put(`active-room:${p.owner}:${p.pin}`,{pin:p.pin,classId:p.classId||null,owner:p.owner,accountIds:p.accountIds||[],createdAt:p.createdAt,expiresAt:p.expiresAt});
       return json({ok:true});
     }
-    if(action==='status')return json({configured:this.ready(),user:await this.identity(token,false)});
+    if(action==='status')return json({configured:this.ready(),googleConfigured:teacherGoogleConfigured(this.config),user:await this.identity(token,false)});
     if(action==='login-request'){
       ensure(this.ready(),'Teacher sign-in is not configured. Add TEACHER_EMAILS, EMAIL_FROM and RESEND_API_KEY in Cloudflare.',503);
       const email=cleanEmail(p.email),owner=await hash(email),ipHash=await hash(ip),authorized=teacherEmails(this.config).includes(email);
@@ -111,7 +127,7 @@ export class TeacherLibrary extends DurableObject {
   async ensureAlarm(){if(!(await this.store.getAlarm()))await this.store.setAlarm(Date.now()+HOUR);}
   async alarm(){
     let next=Infinity;const now=Date.now();
-    for(const prefix of ['code:','student-code:','google-login:','session:','rate:'])for(const [key,value]of await this.store.list({prefix})){
+    for(const prefix of ['code:','student-code:','google-login:','google-teacher-login:','session:','rate:'])for(const [key,value]of await this.store.list({prefix})){
       if(value.expiresAt<=now)await this.store.delete(key);else next=Math.min(next,value.expiresAt);
     }
     for(const [key,value]of await this.store.list({prefix:'active-room:'}))if(value.expiresAt<=now)await this.store.delete(key);
