@@ -1,12 +1,16 @@
 # QuizDock · classroom beta
 
-An independently written classroom quiz arcade. Teacher-owned question lists, six live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
+An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
 
-## Release 0.6.0
+## Release 0.7.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This update adds large, one-shot event announcements with actual rewards, bigger game animations, five new original purchasable characters and upgraded art for the existing eight. On mobile, four answer tiles occupy the lower two-thirds of the viewport when the prompt fits, including fullscreen; longer content stays scrollable. See `docs/EVENTS_CHARACTERS_MOBILE.md`.
+This update gives the original six modes distinct strategy and adds Word Forge spelling puzzles plus Sketch Relay, where one student draws privately assigned vocabulary while classmates guess with letter clues. Those six modes retain multiple choice; the two vocabulary modes use their own layouts. New round state preserves existing live rooms, grades and account records. See `docs/DISTINCT_MODE_GAMEPLAY.md`.
+
+The primary domain is `https://srtw.win`; its custom-domain binding is deployed with the existing Worker. The sender is `QuizDock <no-reply@srtw.win>` through the existing Resend connection. Provider verification and Google-origin setup were confirmed by the owner; deployment and delivery checks are separate. See `docs/SRTW_DOMAIN.md`.
+
+Previous updates added large, one-shot event announcements with actual rewards, bigger game animations, five new original purchasable characters and upgraded art for the existing eight. On mobile, four answer tiles occupy the lower two-thirds of the viewport when the prompt fits, including fullscreen; longer content stays scrollable. See `docs/EVENTS_CHARACTERS_MOBILE.md`.
 
 Previous updates separate large answer tiles from animated game-result screens, give each Sky Rally role its own aircraft, add typed solo flashcard practice, and replace the short music loops with original 16-bar RPG chip themes. Google student and authorized teacher sign-in, shareable self-enrollment links, shuffled solo passes and all 18 arcade events remain. See `docs/PLAYER_EXPERIENCE.md`. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
 

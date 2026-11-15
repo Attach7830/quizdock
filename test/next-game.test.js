@@ -15,12 +15,12 @@ async function fixture() {
   await service.fetch(new Request('https://room.internal/init',{method:'POST',body:JSON.stringify({pin:'123456',hostToken:'teacher-secret',title:'Class review',mode:'treasure',reportOwner:owner,questions:[{cardId:'card_one',text:'hola',answers:['hello','bye'],correct:[0]}]})}));
   const host=new Socket();ctx.sockets.push(host);
   const send=(socket,msg)=>service.webSocketMessage(socket,JSON.stringify(msg));
-  await send(host,{type:'auth',role:'host',token:'teacher-secret'});
+  await send(host,{type:'auth',protocol:2,role:'host',token:'teacher-secret'});
   const students=[];
   for (const name of ['Student A','Student B']) {
     const response=await service.fetch(new Request('https://room.internal/api/room/123456/join',{method:'POST',body:JSON.stringify({name})}));
     const credentials=await response.json(), socket=new Socket();ctx.sockets.push(socket);
-    await send(socket,{type:'auth',role:'student',playerId:credentials.playerId,token:credentials.playerToken});
+    await send(socket,{type:'auth',protocol:2,role:'student',playerId:credentials.playerId,token:credentials.playerToken});
     students.push({socket,...credentials});
   }
   return {service,ctx,libraryCtx,owner,host,students,send,setFail:value=>{archiveFails=value;}};

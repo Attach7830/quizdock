@@ -1,11 +1,13 @@
 // Public presentation data. Purchases and game rules are enforced by the server.
 export const GAME_TYPES = {
- treasure:{name:'Treasure Quest',icon:'◆',description:'Open chests and raid treasure.',unit:'coins'},
- fishing:{name:'Fishing Frenzy',icon:'≈',description:'Reel in a bigger catch.',unit:'points'},
- battle:{name:'Battle Arena',icon:'ϟ',description:'Land hits and protect your health.',unit:'points'},
- factory:{name:'Factory Tycoon',icon:'▦',description:'Build a miniature production line.',unit:'cash'},
- rally:{name:'Sky Rally',icon:'➤',description:'Choose a pilot and race through the clouds.',unit:'distance'},
- keep:{name:'Crystal Keep',icon:'⬡',description:'Choose a guardian and power your crystal.',unit:'energy'}
+ treasure:{name:'Treasure Quest',icon:'◆',description:'Bank a haul, explore ruins, or risk a corsair chest.',unit:'coins'},
+ fishing:{name:'Fishing Frenzy',icon:'≈',description:'Explore waters, discover species, and complete collections.',unit:'points'},
+ battle:{name:'Battle Arena',icon:'ϟ',description:'Strike, guard, and charge in a tactical arena.',unit:'points'},
+ factory:{name:'Factory Tycoon',icon:'▦',description:'Build production lines and fulfill orders.',unit:'net worth'},
+ rally:{name:'Sky Rally',icon:'➤',description:'Choose your plane, read the wind, and manage boost.',unit:'distance'},
+ keep:{name:'Crystal Keep',icon:'⬡',description:'Defend a shared crystal with towers and team attacks.',unit:'energy'},
+ word:{name:'Word Forge',icon:'✦',description:'Decode vocabulary with letter clues and typed answers.',unit:'points'},
+ sketch:{name:'Sketch Relay',icon:'✎',description:'Take turns drawing while classmates guess with letter clues.',unit:'points'}
 };
 export const PLAYER_TYPES = {
  rally:[

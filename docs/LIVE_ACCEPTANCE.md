@@ -3,7 +3,7 @@
 Use only designated test accounts until school approval. None of these live outcomes should be inferred from automated local tests.
 
 - [ ] Cloudflare deploy succeeds from the source release, using `npx wrangler deploy`.
-- [ ] `GET /api/health` reports `classroom-release-2026-11-14.5` with `ok: true`.
+- [ ] `GET /api/health` reports `classroom-release-2026-11-15.1` with `ok: true`.
 - [ ] Teacher receives one sign-in email and the code works; unauthorized teachers cannot host.
 - [ ] Two Google test students open a class invitation link, sign in with Google and join without typing a name or being pre-rostered. Confirm their Google names and verified emails in the roster. An unrelated account cannot view its assignments or join its games.
 - [ ] Save, reload and edit a list. Import a real-format test CSV and view a prompt image.
@@ -28,3 +28,8 @@ Report a remaining mobile issue with screen orientation, browser, whether the ke
 - [ ] On a physical phone, short four-choice questions use the lower two-thirds for answers in regular and fullscreen views. Rotate and expand/collapse browser controls; long prompts, images and long answers remain reachable by scrolling.
 - [ ] A special event produces one large italic announcement with the actual awarded health/currency, then disappears. Dismiss, pause, reconnect and motion-off settings do not replay or repeatedly flash it.
 - [ ] Inspect all 13 original characters. Buy/equip a new character on a designated account, reload, and confirm matching shop/game artwork, a single wallet debit and preserved old ownership.
+
+- [ ] Host at srtw.win, verify Google sign-in and actual email-code delivery from no-reply@srtw.win with designated accounts. Existing workers.dev links should still reach the same account data.
+- [ ] In each original mode, try its strategic actions, skip/default action, wrong answers, pause, reconnect and new-round reset. Check real classroom pacing.
+- [ ] Word Forge: type accented words and alternatives, try letter clues, and inspect the separate typed counts in the teacher report.
+- [ ] Sketch Relay: rotate at least three artists on phones and desktop, stream/erase/clear strokes, type guesses, reveal clues, reconnect and pass the brush. Confirm artist-only words stay private until reveal.

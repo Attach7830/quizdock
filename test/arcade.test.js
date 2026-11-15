@@ -71,7 +71,7 @@ function audioFixture(){
  return {doc,view,memory,intervals,click,get instance(){return instance;},get count(){return contextCount;}};
 }
 test('music composes original distinct tunes and manages one audio context across mute, pause, visibility and replay',async()=>{
- assert.equal(new Set(Object.values(CHIP_TUNES).map(t=>t.lead.join(','))).size,7);
+ assert.equal(new Set(Object.values(CHIP_TUNES).map(t=>t.lead.join(','))).size,9);
  const f=audioFixture(),music=createArcadeMusic(f);music.enter({mode:'treasure',status:'lobby'});await Promise.resolve();
  assert.equal(f.count,1);assert.equal(f.intervals.size,1);assert.ok(f.instance.notes.length>0);
  music.enter({mode:'fishing',status:'playing'});music.enter({mode:'fishing',status:'playing'});assert.equal(f.count,1);assert.equal(f.intervals.size,1);

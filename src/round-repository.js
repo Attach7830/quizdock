@@ -19,8 +19,10 @@ export function validateReport(input){
     for(const key of ['number','attempts','correct','incorrect','uniqueStudents','uniqueCorrectStudents','uniqueIncorrectStudents','firstAttempts','firstCorrect','firstIncorrect'])ensure(count(c[key]),`Invalid ${key} count.`);
     ensure(c.attempts===c.correct+c.incorrect&&c.firstAttempts===c.firstCorrect+c.firstIncorrect&&c.firstAttempts===c.uniqueStudents&&c.firstAttempts<=c.attempts,'Inconsistent card attempt counts.');
     ensure(c.firstCorrect<=c.correct&&c.firstIncorrect<=c.incorrect&&c.uniqueCorrectStudents<=c.correct&&c.uniqueIncorrectStudents<=c.incorrect&&c.uniqueCorrectStudents<=c.uniqueStudents&&c.uniqueIncorrectStudents<=c.uniqueStudents,'Inconsistent student counts.');
-    ensure(Array.isArray(c.choiceCounts)&&c.choiceCounts.length===c.answers.length&&c.choiceCounts.every(count)&&c.choiceCounts.reduce((n,v)=>n+v,0)===c.attempts,'Inconsistent answer-choice counts.');
-    ensure(c.correctOptions.reduce((n,i)=>n+c.choiceCounts[i],0)===c.correct,'Correct-choice totals do not match grading.');
+    for(const key of ['typedCorrect','typedIncorrect','typedAttempts','hintedAttempts']){c[key]??=0;ensure(count(c[key]),'Invalid typed answer count.');}
+    ensure(c.typedAttempts===c.typedCorrect+c.typedIncorrect&&c.hintedAttempts<=c.typedAttempts,'Inconsistent typed answer counts.');
+    ensure(Array.isArray(c.choiceCounts)&&c.choiceCounts.length===c.answers.length&&c.choiceCounts.every(count)&&c.choiceCounts.reduce((n,v)=>n+v,0)+c.typedAttempts===c.attempts,'Inconsistent answer-choice counts.');
+    ensure(c.correctOptions.reduce((n,i)=>n+c.choiceCounts[i],0)+c.typedCorrect===c.correct,'Correct-choice totals do not match grading.');
     c.accuracy=ratio(c.correct,c.attempts);c.errorRate=ratio(c.incorrect,c.attempts);c.firstAccuracy=ratio(c.firstCorrect,c.firstAttempts);
     delete c.respondents;
   }

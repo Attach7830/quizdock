@@ -16,6 +16,6 @@ export async function checkHealth(base,expected=RELEASE,request=fetch){
  return {ok:true,release:expected,checks:results.length};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- const base=process.env.QUIZDOCK_URL||'https://quizdock.iwesterbeck.workers.dev';
+ const base=process.env.QUIZDOCK_URL||'https://srtw.win';
  try{console.log(JSON.stringify(await checkHealth(base),null,2));}catch(error){console.error(`QuizDock health check failed: ${error.message}`);process.exitCode=1;}
 }

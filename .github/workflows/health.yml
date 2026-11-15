@@ -22,11 +22,11 @@ jobs:
       - name: Verify deployed release and public assets
         shell: bash
         run: |
-          for attempt in 1 2 3 4; do
+          for attempt in {1..12}; do
             if npm run health; then
               exit 0
             fi
-            if [ "$attempt" -lt 4 ]; then
+            if [ "$attempt" -lt 12 ]; then
               echo "Deployment not ready or public probe failed; retrying."
               sleep 15
             fi
