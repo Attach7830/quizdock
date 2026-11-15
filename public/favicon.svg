@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>QuizDock</title>
+  <rect width="32" height="32" rx="8" fill="#79e4c4"/>
+  <path fill="#112e2c" fill-rule="evenodd" d="M15 6C9.6 6 6.5 9.8 6.5 15.5S9.6 25 15 25s8.5-3.8 8.5-9.5S20.4 6 15 6Zm0 4c3 0 4.5 2.1 4.5 5.5S18 21 15 21s-4.5-2.1-4.5-5.5S12 10 15 10Z"/>
+  <path d="m17 19 7 7" fill="none" stroke="#112e2c" stroke-width="4" stroke-linecap="round"/>
+</svg>
