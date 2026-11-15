@@ -2,11 +2,13 @@
 
 An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
 
-## Release 0.7.0
+## Release 0.7.1
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This update gives the original six modes distinct strategy and adds Word Forge spelling puzzles plus Sketch Relay, where one student draws privately assigned vocabulary while classmates guess with letter clues. Those six modes retain multiple choice; the two vocabulary modes use their own layouts. New round state preserves existing live rooms, grades and account records. See `docs/DISTINCT_MODE_GAMEPLAY.md`.
+This update accepts individual semicolon-separated meanings in typed answers, shuffles card passes in every study/game format, and adds keyboard navigation with a Keys guide. Graded work has its own top-level Assignments tab. New verified Servite Google Workspace students can sign in before enrollment, then enter a class code; their Google name fills the roster. Existing accounts, grading history, class access checks and drafts are retained. See `docs/PRACTICE_NAVIGATION_RELEASE.md`.
+
+Release 0.7.0 gave the original six modes distinct strategy and adds Word Forge spelling puzzles plus Sketch Relay, where one student draws privately assigned vocabulary while classmates guess with letter clues. Those six modes retain multiple choice; the two vocabulary modes use their own layouts. New round state preserves existing live rooms, grades and account records. See `docs/DISTINCT_MODE_GAMEPLAY.md`.
 
 The primary domain is `https://srtw.win`; its custom-domain binding is deployed with the existing Worker. The sender is `QuizDock <no-reply@srtw.win>` through the existing Resend connection. Provider verification and Google-origin setup were confirmed by the owner; deployment and delivery checks are separate. See `docs/SRTW_DOMAIN.md`.
 
@@ -25,11 +27,12 @@ Keep these values in the quizdock Worker’s runtime Variables and Secrets, not 
 - `EMAIL_FROM`: the sender authorized by your email provider.
 - `RESEND_API_KEY`: a sending key stored as a secret.
 
-Existing values continue to be used. New teachers do not gain access merely by typing an email. Student access requires a verified email and a class invitation or roster entry. Restrict a class’s email domain and close/rotate its join code as appropriate.
+Existing values continue to be used. New teachers do not gain access merely by typing an email. Verified `servitehs.org` Google Workspace accounts can sign in before enrollment. Class access still requires a class invitation/code or active roster membership. Existing students retain their Google sign-in and records. Restrict a class’s email domain and close/rotate its join code as appropriate.
 
 ## Pages
 
-- `/`: teacher/student sign-in and classroom home.
+- `/`: teacher/student sign-in, Arcade, class enrollment and solo study.
+- `/?view=assignments`: the separate Assignments workspace and graded practice.
 - `/play.html`: live games and guest PIN joining.
 - `/library.html`: private saved-list editor and imports.
 - `/reports.html`: archived per-card round reports.

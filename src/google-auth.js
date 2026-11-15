@@ -48,5 +48,6 @@ export async function verifyGoogleCredential(credential, clientId, {request = fe
  ensure(Number.isFinite(claims.exp) && claims.exp > seconds && Number.isFinite(claims.iat) && claims.iat <= seconds + 60 && claims.iat >= seconds - 7200 && claims.exp > claims.iat, 'Google sign-in expired. Please try again.', 401);
  ensure(claims.email_verified === true && typeof claims.sub === 'string' && claims.sub.length > 0 && claims.sub.length <= 255 && typeof claims.nonce === 'string', 'Use a verified Google email account.', 401);
  const name = String(claims.name || '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, ' ').trim().slice(0,70);
- return {email:cleanEmail(claims.email),name:name || cleanEmail(claims.email).split('@')[0],subject:claims.sub,nonce:claims.nonce,authoritativeEmail:cleanEmail(claims.email).endsWith('@gmail.com') || (typeof claims.hd === 'string' && !!claims.hd.trim())};
+ const workspaceDomain=typeof claims.hd==='string'?claims.hd.trim().toLowerCase():'';
+ return {email:cleanEmail(claims.email),name:name || cleanEmail(claims.email).split('@')[0],subject:claims.sub,nonce:claims.nonce,workspaceDomain,authoritativeEmail:cleanEmail(claims.email).endsWith('@gmail.com') || !!workspaceDomain};
 }

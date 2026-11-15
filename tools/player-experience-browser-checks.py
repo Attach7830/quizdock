@@ -34,7 +34,7 @@ def run():
   t.on('dialog',lambda d:d.accept())
   fix=tc.request.get(BASE+'/__test/fixture').json()
   # Ungraded typing is part of the existing shared deck, with server confidence saves.
-  s.goto(BASE+'/');s.locator('[data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click()
+  s.goto(BASE+'/');s.locator('[role=tab][data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click()
   s.locator('[data-act=solo-mode][data-mode=type]').click();s.wait_for_selector('#solo-answer')
   check(s.locator('[data-act=solo-flip]').count()==0,'typing mode requires an answer instead of flipping to reveal it')
   def solo_expected():
@@ -84,7 +84,10 @@ def run():
   s.locator('[data-act=chest]').first.click();s.wait_for_selector('[data-act=next]')
   check(s.locator('.result-reward').inner_text()!='Choose a mystery chest!','chest result displays the server-issued reward')
   s.screenshot(path=str(ROOT/'checks/reward-result-phone.png'),full_page=True)
-  next_question(s);choose(s);next_question(s)
+  next_question(s)
+  for _ in range(8):
+   if s.locator('.question-screen h2').inner_text().startswith('Read this longer prompt'):break
+   choose(s,False);next_question(s)
   check(s.locator('.question-screen h2').inner_text().startswith('Read this longer prompt'),'long prompt remains part of the same question deck')
   s.set_viewport_size({'width':320,'height':460});s.locator('.answer').last.scroll_into_view_if_needed();y=s.evaluate('scrollY')
   other=oc.new_page();other.goto(BASE+'/play.html?join='+pin);other.wait_for_selector('.answer');choose(other)

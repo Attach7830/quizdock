@@ -25,7 +25,10 @@ export async function finishGoogleLogin(service, payload, identity, ip) {
  const userId = await hash(identity.email), prior = await service.profile(userId);
  ensure(!prior?.disabled, 'This account has been disabled.',403);
  ensure(!prior?.googleSubject || prior.googleSubject === identity.subject, 'This email is linked to a different Google account. Ask your teacher for help.',403);
- const eligible = await service.eligibleStudent(identity.email,attempt.classCode);
+ // Verified Servite Workspace students can create their account before joining
+ // a class. Class access still requires its code and normal enrollment checks.
+ const servite=identity.email.endsWith('@servitehs.org')&&identity.workspaceDomain==='servitehs.org';
+ const eligible = servite&&!attempt.classCode?{userId,joinClass:null}:await service.eligibleStudent(identity.email,attempt.classCode);
  if (eligible.joinClass) {
   const old = await service.enrollment(userId,eligible.joinClass);
   await service.enroll(eligible.joinClass,userId,identity.email,old?.name || identity.name);

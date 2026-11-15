@@ -88,3 +88,21 @@ test('student OTP endpoints defer to Google when it is configured; teacher email
  assert.equal((await f.call('login-verify',{email:'new@example.com',code:'000000'})).status,400);
  const status=await f.library.fetch(internal('status',{},''));assert.equal((await status.json()).configured,true);
 });
+
+test('new Servite Workspace students sign in before enrollment and join with their Google name',async()=>{
+ const f=await fixture(),email='new.student@servitehs.org',{response}=await login(f,email,'',{hd:'servitehs.org',name:'Servite Google Student'});assert.equal(response.status,200);
+ const session=cookie(response,'__Host-quizdock-library'),id=await hash(email),home=await(await f.web('home',{},session)).json();assert.equal(home.user.name,'Servite Google Student');assert.equal(home.classes.length,0);assert.equal(home.assignments.length,0);
+ assert.equal(await f.ctx.storage.get(`member:${f.klass.id}:${id}`),undefined);
+ const joined=await f.web('join-class',{code:f.klass.code,name:'Forged Name',email:'other@example.com'},session);assert.equal(joined.status,200);const member=await f.ctx.storage.get(`member:${f.klass.id}:${id}`);assert.equal(member.name,'Servite Google Student');assert.equal(member.email,email);assert.equal((await(await f.web('home',{},session)).json()).classes.length,1);
+});
+test('Servite pre-enrollment requires the exact verified Google Workspace domain',async()=>{
+ for(const claims of [{email:'fake@servitehs.org.evil',hd:'servitehs.org'},{email:'fake@notservitehs.org',hd:'servitehs.org'},{email:'fake@servitehs.org'},{email:'fake@servitehs.org',hd:'other.org'},{email:'fake@servitehs.org',hd:'servitehs.org',email_verified:false}]){
+  const f=await fixture(),result=await login(f,claims.email,'',claims);assert.ok([401,403].includes(result.response.status));assert.equal(await f.ctx.storage.get('account:'+await hash(claims.email)),undefined);
+ }
+});
+test('Servite pre-enrollment cannot bypass a closed class or revoked membership',async()=>{
+ const f=await fixture(),email='new.student@servitehs.org',id=await hash(email),{response}=await login(f,email,'',{hd:'servitehs.org'}),session=cookie(response,'__Host-quizdock-library');assert.equal(response.status,200);
+ await f.call('class-close-enrollment',{classId:f.klass.id});assert.equal((await f.web('join-class',{code:f.klass.code},session)).status,403);assert.equal(await f.ctx.storage.get(`member:${f.klass.id}:${id}`),undefined);
+ const rotated=(await(await f.call('class-rotate-code',{classId:f.klass.id})).json()).class;assert.equal((await f.web('join-class',{code:rotated.code},session)).status,200);
+ await f.call('roster-remove',{classId:f.klass.id,userId:id});assert.equal((await f.web('join-class',{code:rotated.code},session)).status,403);assert.equal((await(await f.web('home',{},session)).json()).classes.length,0);
+});
