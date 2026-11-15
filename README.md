@@ -2,11 +2,13 @@
 
 An independently written classroom quiz arcade. Teacher-owned question lists, six live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
 
-## Release 0.5.0
+## Release 0.6.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This update separates large answer tiles from animated game-result screens, gives each Sky Rally role its own aircraft, adds typed solo flashcard practice, and replaces the short music loops with original 16-bar RPG chip themes. Google student sign-in, shareable self-enrollment links, shuffled solo passes and all 18 arcade events remain. See `docs/PLAYER_EXPERIENCE.md`. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
+This update adds large, one-shot event announcements with actual rewards, bigger game animations, five new original purchasable characters and upgraded art for the existing eight. On mobile, four answer tiles occupy the lower two-thirds of the viewport when the prompt fits, including fullscreen; longer content stays scrollable. See `docs/EVENTS_CHARACTERS_MOBILE.md`.
+
+Previous updates separate large answer tiles from animated game-result screens, give each Sky Rally role its own aircraft, add typed solo flashcard practice, and replace the short music loops with original 16-bar RPG chip themes. Google student and authorized teacher sign-in, shareable self-enrollment links, shuffled solo passes and all 18 arcade events remain. See `docs/PLAYER_EXPERIENCE.md`. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
 
 The release integrates the prepared classroom beta with the newer mobile natural-scrolling behavior. Small screens do not force long questions into a fixed-height panel. Animation scenes use a contained canvas; students can hide the scene and open Stats separately.
 
@@ -14,7 +16,7 @@ The release integrates the prepared classroom beta with the newer mobile natural
 
 Keep these values in the quizdock Worker’s runtime Variables and Secrets, not in GitHub or build-only variables:
 
-- `GOOGLE_CLIENT_ID`: Google Web application OAuth client ID for student sign-in (public identifier, not a client secret).
+- `GOOGLE_CLIENT_ID`: Google Web application OAuth client ID for student and authorized teacher sign-in (public identifier, not a client secret).
 - `TEACHER_EMAILS`: comma-separated teacher allowlist.
 - `EMAIL_FROM`: the sender authorized by your email provider.
 - `RESEND_API_KEY`: a sending key stored as a secret.
@@ -41,6 +43,7 @@ Game score, persistent reward points, and raffle tickets are different quantitie
 npm run verify
 # With Python Playwright/Chromium and OpenSSL installed:
 python tools/run-browser-tests.py
+python tools/teacher-google-browser.py
 # Read-only deployed-site check:
 npm run health
 ```
