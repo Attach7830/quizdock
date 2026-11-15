@@ -1,5 +1,5 @@
 import {api} from './ui.js';
-let loading = null;
+let loading = null, activeGeneration = null;
 const generations = new WeakMap();
 function loadGoogle() {
  if (window.google?.accounts?.id) return Promise.resolve();
@@ -12,26 +12,29 @@ function loadGoogle() {
  });
  return loading;
 }
-export async function mountGoogleSignIn(container, {classCode = '', onSuccess, onError = () => {}}) {
+export async function mountGoogleSignIn(container, {classCode = '', group = 'academy', onSuccess, onError = () => {}}) {
  if (!container) return;
- const generation = {}; generations.set(container, generation);
- const current = () => container.isConnected && generations.get(container) === generation;
+ if (!['academy','library'].includes(group)) throw new Error('Invalid Google sign-in screen.');
+ const generation = {}; generations.set(container, generation); activeGeneration = generation;
+ // The Google SDK has one current configuration. A removed or older role panel
+ // must not replace the callback/nonce for the currently visible sign-in button.
+ const current = () => container.isConnected && generations.get(container) === generation && activeGeneration === generation;
  const fail = error => {
   if (!current()) return;
   container.replaceChildren(); const message = document.createElement('p'); message.className = 'form-note'; message.setAttribute('role','status'); message.textContent = error.message;
   const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'btn ghost'; retry.textContent = 'Retry Google sign-in';
-  retry.onclick = () => mountGoogleSignIn(container,{classCode,onSuccess,onError}); container.append(message,retry); onError(error);
+  retry.onclick = () => mountGoogleSignIn(container,{classCode,group,onSuccess,onError}); container.append(message,retry); onError(error);
  };
  container.textContent = 'Loading Google sign-in…';
  try {
-  const config = await api('google-start',{classCode});
+  const config = await api('google-start',group === 'academy' ? {classCode} : {},group);
   if (!current()) return;
   await loadGoogle(); if (!current()) return;
   window.google.accounts.id.initialize({client_id:config.clientId, nonce:config.nonce, auto_select:false,
    callback:async result => {
     if (!current() || generation.busy) return;
     generation.busy = true; container.textContent = 'Verifying your Google account…';
-    try { await api('google-signin',{challenge:config.challenge,credential:result.credential}); if (current()) await onSuccess(); }
+    try { await api('google-signin',{challenge:config.challenge,credential:result.credential},group); if (current()) await onSuccess(); }
     catch (error) { fail(error); } finally { generation.busy = false; }
    }
   });
