@@ -45,6 +45,12 @@ def run():
   s.set_viewport_size({'width':1024,'height':400});s.wait_for_timeout(100);d=dimensions()
   check(s.evaluate("matchMedia('(pointer:coarse)').matches") and abs(d['top']-d['h']/3)<3 and abs(d['height']-d['h']*2/3)<3,'wide touch-device landscape still reserves the lower two thirds for answers')
   touch.send('Emulation.setTouchEmulationEnabled',{'enabled':False});touch.detach()
+  s.set_viewport_size({'width':320,'height':568});wide_font=s.add_style_tag(content='body,button{font-family:monospace!important}')
+  s.evaluate("document.fonts.dispatchEvent(new Event('loadingdone'))");s.wait_for_timeout(80);d=dimensions();s.screenshot(path=str(ROOT/'checks/wide-font-answers.png'))
+  check(abs(d['top']-d['h']/3)<3 and not d['overflow'],f'narrow question header fits wider fallback fonts and resizes after fonts load: {d}')
+  s.locator('[data-act=fullscreen]').click();s.wait_for_function('!!document.fullscreenElement');s.wait_for_timeout(100);d=dimensions()
+  check(abs(d['top']-d['h']/3)<3,'320-pixel fullscreen header still fits its longer Exit fullscreen label')
+  s.locator('[data-act=fullscreen]').click();s.wait_for_function('!document.fullscreenElement');wide_font.evaluate('(el)=>el.remove()')
   s.set_viewport_size({'width':320,'height':568})
   s.evaluate("window.answerTexts=[...document.querySelectorAll('.answer span')].map(e=>e.textContent);document.querySelectorAll('.answer span').forEach(e=>e.textContent='A longer answer with accented vocabulary and a detailed explanation. '.repeat(5).slice(0,300));dispatchEvent(new Event('resize'))")
   s.wait_for_timeout(80);d=dimensions()
@@ -93,6 +99,10 @@ def run():
   # Draw each enlarged scene and every event through the real renderer in portrait.
   scene_data=s.evaluate('''async()=>{const {createScene}=await import('/js/scenes.js');const {ARCADE_EVENTS}=await import('/js/event-catalog.js');const out=[];const slot=document.querySelector('#scene-slot');for(const [mode,events] of Object.entries(ARCADE_EVENTS)){const scene=createScene();scene.mount(slot);const state={pin:'123456',roundNumber:1,startedAt:1,mode,status:'playing',settings:{target:1000},me:{id:'s',skin:'stormwing',roleType:mode==='rally'?'ace':'guardian',score:0,cash:0,coins:0,hp:75,answered:0,correct:0},players:[]};scene.update(state);const initial=scene.el.querySelector('canvas').toDataURL();for(const [i,event] of events.entries()){state.me.answered++;state.me.score+=25;state.me.lastEvent={id:mode+i,kind:event.kind,amount:25,health:4};state.me.feedback={correct:true,effect:{weight:4}};scene.update(structuredClone(state));out.push({mode,kind:event.kind,shown:scene.el.dataset.eventId===mode+i,changed:scene.el.querySelector('canvas').toDataURL()!==initial});}scene.dispose();}return out;}''')
   for d in scene_data:check(d['shown'] and d['changed'],'enlarged portrait canvas renders the distinctive event: '+d['kind'])
+  s.set_viewport_size({'width':320,'height':568});s.add_style_tag(content='body,button{font-family:monospace!important}')
+  for role in ['sprinter','navigator','ace']:
+   t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');t.locator('#round-mode').select_option('rally');t.locator('[data-act=start]').click();s.wait_for_selector('[data-act=role]');s.locator(f'[data-act=role][data-role={role}]').click();s.wait_for_selector('.answer');s.wait_for_timeout(80);d=dimensions()
+   check(s.locator('.selected-plane').is_visible() and abs(d['top']-d['h']/3)<3,'narrow Rally question preserves its selected plane and lower answer region: '+role)
   check(not errors,'event, shop, fullscreen and enhanced scene flows have no browser JavaScript errors')
   browser.close()
  print(json.dumps({'checks':len(RESULTS),'passed':sum(r['passed'] for r in RESULTS)},indent=2))
