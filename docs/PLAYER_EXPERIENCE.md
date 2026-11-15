@@ -1,0 +1,15 @@
+# Question and game-result update
+
+Release identifier: `classroom-release-2026-11-14.3`.
+
+Student live play has two distinct views. A question shows large colored answer tiles, its prompt and optional image. The four-choice question uses a two-by-two layout even on narrow phones. Existing two/three-choice questions retain their real choices; no fabricated choices or grading changes are introduced. The game scene does not compete for question space. Stats remains accessible through its button on every screen size.
+
+The server's answer feedback switches the player to a dedicated game-result screen: a correct/incorrect heading, the actual animated game, the server-issued reward or accepted answer, and Next. Treasure still requires choosing a chest before advancing. Reconnect restores the server's result. A score-ending answer still shows the result even though its question snapshot is no longer present. Pausing blocks choices; same-PIN replay resets the view and role choice. Scroll position is preserved during updates within a view and resets when intentionally changing question/result views. Long content always remains scrollable.
+
+Sky Rally's existing roles now have matching original aircraft in their selection cards, HUD and canvas: Sprinter/Comet Racer, Navigator/Harbor Twinwing, Ace/Violet Kestrel. The exact original gains and penalties remain server-owned. Player skins still personalize the pilot.
+
+Solo shared decks offer Flip cards and Type practice. Typed answers use the same normalization and accepted-answer helper as server-graded assignments, including Unicode normalization, alternatives and strict/optional vowel accents with ñ preserved. The browser checks these self-study answers because the ungraded deck already includes its answers. Only existing card-ID confidence records are saved; session accuracy is local. Assignment grades, active-time requirements, submissions and account currency are not written by this mode. Server assignment grading remains authoritative.
+
+Music is seven original 16-bar RPG chip themes (lobby and six modes), with distinct melodies, chord progressions, held pulse leads, narrow-pulse arpeggios, triangle bass, harmony and synthesized noise percussion. Short original result cues follow the accepted server outcome. No music or recordings from other games are used. The same score/synth runs in the scheduler and offline rendering checks. Mute, volume, visibility suspension, autoplay handling and bounded voice cleanup remain; cues do not replay on ordinary sync updates.
+
+Validation includes the full existing Node and browser suites, wrong/correct/final result transitions, narrow/landscape and long-prompt scrolling, role-to-aircraft rendering, ungraded typed confidence versus assignment/wallet preservation, and rendering every complete theme through OfflineAudioContext for audibility and clipping. Local account and audio checks do not establish physical-phone behavior or successful live student Google sign-in. See `LIVE_ACCEPTANCE.md`. Deployment/commit status is recorded in the PR and handoff.

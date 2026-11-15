@@ -70,6 +70,7 @@ def run():
    check(bool(s.locator('.game-scene').get_attribute('data-event-id')),mode+' event reaches scene animation')
    check(t.locator('.arcade-event-notice').count()==1,mode+' event also reaches the host')
    check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),mode+' event and music controls fit phone width')
+   s.screenshot(path=str(ROOT/f'checks/{mode}-result-phone.png'),full_page=True)
    s.emulate_media(reduced_motion='reduce');s.locator('[data-act=next]').click();s.wait_for_selector('.answer:not([disabled])');s.wait_for_timeout(2500)
    s.evaluate('document.dispatchEvent(new Event("visibilitychange"))');s.wait_for_timeout(180);before=s.locator('canvas').evaluate('(c)=>c.toDataURL()');s.evaluate('document.dispatchEvent(new Event("visibilitychange"))');s.wait_for_timeout(180);after=s.locator('canvas').evaluate('(c)=>c.toDataURL()')
    check(before==after,mode+' sync does not replay a completed event')

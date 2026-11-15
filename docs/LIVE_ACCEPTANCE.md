@@ -3,7 +3,7 @@
 Use only designated test accounts until school approval. None of these live outcomes should be inferred from automated local tests.
 
 - [ ] Cloudflare deploy succeeds from the source release, using `npx wrangler deploy`.
-- [ ] `GET /api/health` reports `classroom-release-2026-11-14.2` with `ok: true`.
+- [ ] `GET /api/health` reports `classroom-release-2026-11-14.3` with `ok: true`.
 - [ ] Teacher receives one sign-in email and the code works; unauthorized teachers cannot host.
 - [ ] Two Google test students open a class invitation link, sign in with Google and join without typing a name or being pre-rostered. Confirm their Google names and verified emails in the roster. An unrelated account cannot view its assignments or join its games.
 - [ ] Save, reload and edit a list. Import a real-format test CSV and view a prompt image.
@@ -19,3 +19,8 @@ Use only designated test accounts until school approval. None of these live outc
 - [ ] School privacy/security review and the chosen data-retention policy are approved before real student records are collected.
 
 Report a remaining mobile issue with screen orientation, browser, whether the keyboard is open, release identifier and a screenshot with student details hidden. A physical-device issue is not considered closed merely because Chromium viewport tests pass.
+
+- [ ] Live question screens show large answer tiles without the game scene. Correct and incorrect answers switch to a dedicated result scene; Next returns to a fresh question. Test the final score-ending answer, pause/resume, reconnect and long-text scrolling.
+- [ ] Each Sky Rally role shows its own aircraft preview, selected-plane label and matching flight scene. Role bonuses and penalties stay the same.
+- [ ] Open Solo flashcards → Type practice. Check accents, alternatives, incorrect feedback, saved confidence and return to flip cards. Confirm assigned grades and reward currency do not change.
+- [ ] Listen to all seven original RPG chip themes on actual speakers/headphones; test mute, volume, background tabs, outcome jingles and pause/resume.

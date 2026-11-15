@@ -2,11 +2,11 @@
 
 An independently written classroom quiz arcade. Teacher-owned question lists, six live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
 
-## Release 0.4.0 (prepared)
+## Release 0.5.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This update adds Google student sign-in, shareable self-enrollment links, original chip music, shuffled solo passes and 18 animated game events. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
+This update separates large answer tiles from animated game-result screens, gives each Sky Rally role its own aircraft, adds typed solo flashcard practice, and replaces the short music loops with original 16-bar RPG chip themes. Google student sign-in, shareable self-enrollment links, shuffled solo passes and all 18 arcade events remain. See `docs/PLAYER_EXPERIENCE.md`. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
 
 The release integrates the prepared classroom beta with the newer mobile natural-scrolling behavior. Small screens do not force long questions into a fixed-height panel. Animation scenes use a contained canvas; students can hide the scene and open Stats separately.
 
