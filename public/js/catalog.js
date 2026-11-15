@@ -27,7 +27,12 @@ export const SKINS = [
  {id:'arctic',name:'Arctic Explorer',price:150,primary:'#9ee3ff',secondary:'#3e73ad',accent:'#f0fbff',shape:'visor'},
  {id:'ember',name:'Ember Guardian',price:180,primary:'#ffb371',secondary:'#a44542',accent:'#ffe5b8',shape:'horns'},
  {id:'forest',name:'Forest Keeper',price:200,primary:'#b1e79e',secondary:'#41795f',accent:'#fff4a9',shape:'crown'},
- {id:'midnight',name:'Midnight Voyager',price:250,primary:'#94a3d3',secondary:'#353a66',accent:'#e1d1ff',shape:'visor'}
+ {id:'midnight',name:'Midnight Voyager',price:250,primary:'#94a3d3',secondary:'#353a66',accent:'#e1d1ff',shape:'visor'},
+ {id:'stormwing',name:'Stormwing Ace',price:180,primary:'#91e7ed',secondary:'#6045a1',accent:'#e0ffff',shape:'wings',rarity:'Epic'},
+ {id:'frostblade',name:'Frostblade Knight',price:220,primary:'#a5dfff',secondary:'#3869a8',accent:'#efffff',shape:'knight',rarity:'Epic'},
+ {id:'nebula',name:'Nebula Mage',price:300,primary:'#c8a4ff',secondary:'#55378d',accent:'#ffdf9f',shape:'mage',rarity:'Legendary'},
+ {id:'sunforge',name:'Sunforge Sentinel',price:350,primary:'#ffd58b',secondary:'#985044',accent:'#fff3c4',shape:'sentinel',rarity:'Legendary'},
+ {id:'kitsune',name:'Nightfall Kitsune',price:450,primary:'#e7b4ff',secondary:'#64448c',accent:'#fff0e3',shape:'fox',rarity:'Legendary'}
 ];
 export const skinById = id => SKINS.find(s=>s.id===id)||SKINS[0];
 export const roleById = (mode,id) => PLAYER_TYPES[mode]?.find(r=>r.id===id);

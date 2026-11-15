@@ -87,3 +87,70 @@
 @media(prefers-reduced-motion:reduce){.phase-shell .answer-tile:hover:not(:disabled),.phase-shell .answer-tile:active:not(:disabled){transform:none}}
 
 .phase-shell .phase-heading:focus{outline:none}
+
+/* Reward events are a single cinematic announcement, not a static rules card. */
+.event-flash{position:fixed;inset:0;z-index:2500;display:grid;place-items:center;padding:24px;pointer-events:none;isolation:isolate}
+.event-flash-aura{position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at center,#7ae6bc24 0%,#14253d5c 55%,#07132730 100%);opacity:1}
+.event-flash-card{position:relative;pointer-events:auto;text-align:center;width:min(780px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:48px 36px 42px;border:2px solid #e5ffc275;border-radius:30px;background:radial-gradient(ellipse at 50% 0%,#356e658f,#152943f5 72%);box-shadow:0 0 90px #8bffe351,0 25px 80px #0008;color:#fff}
+.event-flash-kicker{display:block;font-size:12px;text-transform:uppercase;font-weight:850;letter-spacing:3px;color:#c8ffe9;margin:0 20px 20px;overflow-wrap:anywhere}
+.event-flash-title{display:block;font-size:clamp(44px,8vw,100px);font-weight:950;line-height:1.03;letter-spacing:-.055em;text-shadow:0 4px 0 #09192d,0 0 28px #b5ffe955;overflow-wrap:anywhere}
+.event-flash-title em{font-style:italic}
+.event-flash-outcome{font-size:clamp(22px,4.2vw,38px);line-height:1.25;font-weight:800;color:#d1ffdb;margin-top:23px;overflow-wrap:anywhere}
+.event-flash-dismiss{position:absolute;right:10px;top:8px;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#06172e70;font-size:29px;color:#e8fff4}
+.event-flash[data-motion=on] .event-flash-card{animation:event-impact 3.2s cubic-bezier(.2,.8,.2,1) both}
+.event-flash[data-motion=on] .event-flash-aura{animation:event-radiance 3.2s ease-out both}
+@keyframes event-impact{0%{opacity:0;transform:translateY(25px) scale(.76) rotate(-4deg)}14%{opacity:1;transform:translateY(0) scale(1.04) rotate(-1deg)}24%,82%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-14px) scale(1.02)}}
+@keyframes event-radiance{0%{opacity:0}16%,78%{opacity:1}100%{opacity:0}}
+.event-flash[data-kind=coin-comet] .event-flash-card,.event-flash[data-kind=vault-echo] .event-flash-card,.event-flash[data-kind=compass-cache] .event-flash-card{border-color:#ffe39c;background:radial-gradient(ellipse at 50% 0%,#806334dd,#182a42f5 72%)}
+.event-flash[data-kind=meteor-volley] .event-flash-card,.event-flash[data-kind=crystal-orbit] .event-flash-card{border-color:#dbc4ff;background:radial-gradient(ellipse at 50% 0%,#66538ddd,#182a42f5 72%)}
+.result-scene-slot .scene-canvas{height:clamp(300px,48dvh,520px);min-height:300px}
+.result-scene-slot .game-scene{border-radius:20px;overflow:hidden;border-color:#60849f}
+.result-scene-slot .scene-canvas{border-radius:0 0 19px 19px}
+/* Original characters: complete portraits, shared with the canvas renderer. */
+.avatar.character-avatar{background:none;border:0;border-radius:0;box-shadow:none;width:92px;height:104px;overflow:visible}
+.avatar.character-avatar::before,.avatar.character-avatar::after{content:none!important}
+.character-art{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 7px 9px #07132655)}
+.avatar.character-avatar.mini{width:34px;height:40px}
+.hero-island .avatar.character-avatar{width:76px;height:90px;transform:none;margin:12px}
+.skin-grid .skin-card{position:relative;overflow:hidden;gap:12px;padding:22px 18px;background:radial-gradient(ellipse at 50% 32%,#394b6659,#18263e 72%)}
+.skin-grid .skin-card .character-avatar{width:154px;height:168px;margin:0}
+.skin-rarity{font-size:10px;font-weight:850;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.skin-card[data-rarity=Epic]{border-color:#7d8ecc;background:radial-gradient(ellipse at 50% 32%,#58548b66,#18263e 72%)}
+.skin-card[data-rarity=Epic] .skin-rarity{color:#c5c6ff}
+.skin-card[data-rarity=Legendary]{border-color:#b69967;background:radial-gradient(ellipse at 50% 32%,#8a673e55,#18263e 72%)}
+.skin-card[data-rarity=Legendary] .skin-rarity{color:#ffe0a4}
+.skin-card .btn{width:100%}
+.question-space{height:0;flex:none}
+@media(max-width:900px),(pointer:coarse){
+ .phase-shell[data-player-view=question] .music-controls label{display:none}
+ .phase-shell[data-player-view=question] .game-top{gap:4px;padding-top:4px;padding-bottom:4px}
+ .phase-shell[data-player-view=question] .game-top .row{gap:3px}
+ .phase-shell[data-player-view=question] .game-top .btn{font-size:10px;padding:5px 6px;min-height:40px}
+ .phase-shell[data-player-view=question] .player-hud{padding-top:4px;padding-bottom:6px;align-items:center}
+ .phase-shell[data-player-view=question] .player-hud h1{font-size:16px}
+ .phase-shell[data-player-view=question] .player-hud p{display:none}
+ .phase-shell[data-player-view=question] .selected-plane{margin:0;font-size:10px}.phase-shell[data-player-view=question] .selected-plane svg{height:18px;width:34px}
+ .phase-shell[data-player-view=question] .game-panel{padding:12px 10px 6px}
+ .phase-shell[data-player-view=question] .question-screen{display:flex;flex-direction:column}
+ .phase-shell[data-player-view=question] .question-screen .phase-heading{font-size:22px;margin:8px auto 12px}
+ .phase-shell[data-player-view=question] .answer-tiles{margin-top:12px;align-content:stretch;gap:10px}
+ .phase-shell[data-player-view=question] .answer-tile{height:100%;min-height:0;font-size:clamp(21px,5.4vw,34px);padding:20px 14px;justify-content:center}
+ .phase-shell[data-player-view=question] .question-hint{margin-top:10px}
+}
+@media(max-width:600px){
+ .event-flash{padding:16px}.event-flash-card{padding:48px 18px 32px;border-radius:23px}.event-flash-title{font-size:clamp(39px,11vw,64px)}.event-flash-outcome{font-size:clamp(22px,6.4vw,30px)}.event-flash-kicker{font-size:10px;letter-spacing:2px}
+ .result-scene-slot .scene-canvas{height:clamp(280px,46svh,390px);min-height:280px}
+ .skin-grid .skin-card{padding:18px 10px;gap:10px}.skin-grid .skin-card .character-avatar{width:112px;height:134px}.skin-card h3{min-height:2.4em;display:grid;align-items:center}.skin-rarity{font-size:9px;letter-spacing:1px}
+}
+@media(max-height:500px) and (max-width:900px),(max-height:500px) and (pointer:coarse){.phase-shell[data-player-view=question] .game-top .btn{min-height:30px}.phase-shell[data-player-view=question] .player-hud{padding-top:0;padding-bottom:3px}.phase-shell[data-player-view=question] .question-screen>.eyebrow{margin-bottom:0;font-size:9px}.phase-shell[data-player-view=question] .question-screen .phase-heading{font-size:19px;margin:4px auto 6px}}
+@media(max-height:500px) and (min-width:600px) and (max-width:900px),(max-height:500px) and (min-width:600px) and (pointer:coarse){
+ .phase-shell[data-player-view=question]{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:12px;align-content:start}
+ .phase-shell[data-player-view=question] .game-top{grid-column:1;align-self:start}
+ .phase-shell[data-player-view=question] .player-hud{grid-column:2;align-self:center;flex-wrap:nowrap;gap:12px;padding:4px}
+ .phase-shell[data-player-view=question] .player-hud>div:first-child{flex:initial}
+ .phase-shell[data-player-view=question] .player-hud h1{font-size:12px;max-width:16ch}
+ .phase-shell[data-player-view=question] .live-layout{grid-column:1/-1}
+ .phase-shell[data-player-view=question] .answer-tile{flex-direction:row;align-items:center;gap:12px;padding:12px 14px}
+ .phase-shell[data-player-view=question] .answer-tiles{margin-top:8px}
+}
+@media(prefers-reduced-motion:reduce){.event-flash .event-flash-card,.event-flash .event-flash-aura{animation:none!important;transform:none!important}}

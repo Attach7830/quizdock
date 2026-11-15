@@ -1,3 +1,4 @@
+import {characterMarkup} from './characters.js';
 export const $=s=>document.querySelector(s);
 export const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export async function api(action,data={},group='academy'){
@@ -14,5 +15,5 @@ export function topbar(user,active='home'){return `<header class="topbar"><a cla
 export function empty(title,detail){return `<div class="empty"><strong>${esc(title)}</strong><p>${esc(detail)}</p></div>`;}
 export function option(value,label,selected){return `<option value="${esc(value)}" ${value===selected?'selected':''}>${esc(label)}</option>`;}
 export function mountDialog(title,content){const d=$('#dialog');d.innerHTML=`<form method="dialog" class="dialog-top"><h2>${esc(title)}</h2><button class="icon-btn" aria-label="Close dialog">×</button></form><div class="dialog-body">${content}</div>`;d.showModal();return d;}
-export function avatar(skin,size=''){return `<span class="avatar ${esc(skin?.shape||'round')} ${esc(size)}" style="--avatar:${skin?.primary||'#69e3cb'};--avatar-dark:${skin?.secondary||'#1d6172'};--avatar-accent:${skin?.accent||'#e6fff7'}" aria-hidden="true"><i></i><b></b></span>`;}
+export function avatar(skin,size=''){return `<span class="avatar character-avatar ${esc(size)}" data-character="${esc(skin?.id||'mint')}" aria-hidden="true">${characterMarkup(skin)}</span>`;}
 export function setupViewport(){const run=()=>{const v=window.visualViewport;if(!v||Math.abs(v.scale-1)<.01){const h=v?.height||innerHeight;document.documentElement.style.setProperty('--viewport-height',h+'px');document.documentElement.classList.toggle('short-window',h<480);}};window.addEventListener('resize',run);window.visualViewport?.addEventListener('resize',run);run();}

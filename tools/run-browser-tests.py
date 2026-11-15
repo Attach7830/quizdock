@@ -12,7 +12,7 @@ def run():
  CHECKS.mkdir(exist_ok=True)
  if server_ready():raise RuntimeError('Port 9443 is already serving a test instance. Stop it before running isolated checks.')
  subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(CHECKS/'dev-key.pem'),'-out',str(CHECKS/'dev-cert.pem'),'-days','1','-subj','/CN=localhost'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
- for script in ['browser-checks.py','release-browser-checks.py','arcade-browser-checks.py','player-experience-browser-checks.py']:
+ for script in ['browser-checks.py','release-browser-checks.py','arcade-browser-checks.py','player-experience-browser-checks.py','event-character-browser-checks.py']:
   with (CHECKS/(script+'.server.log')).open('w') as log:
    proc=subprocess.Popen(['node','--import','./test/register.mjs','tools/dev-harness.mjs'],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
    try:
