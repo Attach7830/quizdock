@@ -116,6 +116,9 @@ def run():
     home_check=page_for(b,'academy-ui.js','student',(390,844))
     check(home_check.locator('a[href*="play.html?join="]').count()==1,'student homepage lists teacher class game')
     home_check.close()
+    check(g.locator('.answer').count()==4 and not g.locator('canvas').is_visible(),'question shows four large answers without game scene')
+    g.locator('.answer').filter(has_text='aprender').click();g.wait_for_selector('[data-player-view=result]')
+    check(g.locator('.answer').count()==0 and g.locator('canvas').is_visible(),'answer opens a separate game result screen')
     g.emulate_media(reduced_motion='no-preference');g.wait_for_timeout(80)
     before=g.locator('canvas').evaluate('(c)=>c.toDataURL()');g.wait_for_timeout(120);after=g.locator('canvas').evaluate('(c)=>c.toDataURL()')
     check(before!=after,'live scene animation changes rendered frames')
@@ -124,7 +127,7 @@ def run():
     check(before==after,'motion toggle freezes nonessential animation')
     g.locator('[data-scene=collapse]').click();check(not g.locator('canvas').is_visible(),'hide scene frees mobile space');g.locator('[data-scene=collapse]').click()
     g.locator('[data-act=stats]').click();check(g.locator('#dialog').is_visible(),'mobile Stats panel accessible');g.keyboard.press('Escape')
-    g.locator('.answer').filter(has_text='aprender').click();g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
+    g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
     for index,answer in [(2,'habló'),(3,'una casa'),(4,'una biblioteca')]:
         g.locator('[data-act=next]').click();g.wait_for_selector('.answer:not([disabled])');g.wait_for_timeout(550)
         if index==3:check(g.locator('.question-image').count()==1,'image prompt renders with accessible fallback')

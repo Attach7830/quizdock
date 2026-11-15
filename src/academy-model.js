@@ -1,5 +1,4 @@
 import {ensure,LibraryError} from './library-domain.js';
-import {correctAnswers} from '../public/js/list-model.js';
 export const DEFAULT_ZONE='America/Los_Angeles';
 export function zone(value=DEFAULT_ZONE){try{new Intl.DateTimeFormat('en-US',{timeZone:value}).format();return value;}catch{throw new LibraryError('Choose a valid IANA timezone.');}}
 export function localDay(timestamp,timezone=DEFAULT_ZONE){return new Intl.DateTimeFormat('en-CA',{timeZone:zone(timezone),year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(timestamp));}
@@ -14,13 +13,8 @@ export function dateTimeInZone(value,timezone=DEFAULT_ZONE){
  }
  throw new LibraryError('This local time does not exist because of a clock change. Choose a different time.');
 }
-export function normalizeAnswer(value,{strictAccents=true}={}){
- let s=String(value??'').normalize('NFC').trim().toLocaleLowerCase('es').replace(/\s+/g,' ');
- // ñ remains a different letter even when optional accents are ignored.
- if(!strictAccents)s=s.replace(/[áéíóúü]/g,c=>({á:'a',é:'e',í:'i',ó:'o',ú:'u',ü:'u'}[c]));
- return s;
-}
-export function gradeTyped(card,value,rules={}){const expected=correctAnswers(card);return {correct:expected.some(a=>normalizeAnswer(a,rules)===normalizeAnswer(value,rules)),expected};}
+export {normalizeAnswer,gradeTyped} from '../public/js/answer-check.js';
+
 export function practiceRules(raw={}){
  const out={minSeconds:Math.round(Number(raw.minMinutes??5)*60),minCards:Number(raw.minCards??20),minAccuracy:Number(raw.minAccuracy??80),strictAccents:raw.strictAccents!==false,cardCountMode:raw.cardCountMode||'attempts'};
  ensure(['attempts','distinct'].includes(out.cardCountMode),'Choose answer attempts or distinct cards.');
