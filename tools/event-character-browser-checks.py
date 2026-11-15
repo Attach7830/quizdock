@@ -14,6 +14,14 @@ def account(browser,role,width=390,height=844):
  ctx=browser.new_context(ignore_https_errors=True,viewport={'width':width,'height':height},reduced_motion='reduce')
  ctx.request.get(BASE+'/__test/login?role='+role)
  return ctx
+def short_question(s):
+ expected={'How do you say “to learn”?':'aprender','He spoke yesterday.':'habló','Look at the picture. ¿Qué ves?':'una casa'}
+ for _ in range(4):
+  prompt=s.locator('.phase-heading').inner_text()
+  if prompt=='How do you say “to learn”?':break
+  wrong=next(text for text in s.locator('.answer span').all_inner_texts() if text!=expected.get(prompt,'una biblioteca'))
+  s.wait_for_timeout(470);s.locator('.answer span').get_by_text(wrong,exact=True).click();s.wait_for_selector('[data-act=next]');s.locator('[data-act=next]').click();s.wait_for_selector('.answer:not([disabled])')
+ check(s.locator('.phase-heading').inner_text()=='How do you say “to learn”?','short mobile layout fixture is reached through shuffled questions')
 def run():
  with sync_playwright() as p:
   browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or None,headless=True,args=['--no-sandbox'])
@@ -21,7 +29,7 @@ def run():
   for page in [s,t]:page.on('pageerror',lambda e:errors.append(str(e)))
   t.on('dialog',lambda d:d.accept())
   fix=tc.request.get(BASE+'/__test/fixture').json()
-  s.goto(BASE+'/');s.locator('[data-act=tab][data-tab=wardrobe]').click()
+  s.goto(BASE+'/');s.locator('[role=tab][data-act=tab][data-tab=wardrobe]').click()
   check(s.locator('.skin-card').count()==13,'all eight existing characters and five new characters appear in the shop')
   check(s.locator('[data-skin-card=coral] button').inner_text()=='Equipped','existing equipped purchase survives the catalog expansion')
   check(s.locator('[data-skin-card=nebula] button').is_disabled(),'unaffordable new character cannot be purchased in the UI')
@@ -29,11 +37,12 @@ def run():
   s.locator('[data-skin-card=stormwing] button').click();s.wait_for_function('document.querySelector("[data-skin-card=stormwing] button").textContent==="Equipped"')
   profile=sc.request.post(BASE+'/api/academy/home',data={},headers={'Origin':BASE}).json()['user']
   check(profile['points']==10 and profile['skin']=='stormwing' and set(profile['owned'])=={'mint','coral','stormwing'},'new character uses the real wallet once and preserves existing ownership')
-  s.reload();s.locator('[data-act=tab][data-tab=wardrobe]').click();check(s.locator('[data-skin-card=stormwing] button').inner_text()=='Equipped','new purchase and equipped art survive a page reload')
+  s.reload();s.locator('[role=tab][data-act=tab][data-tab=wardrobe]').click();check(s.locator('[data-skin-card=stormwing] button').inner_text()=='Equipped','new purchase and equipped art survive a page reload')
   s.set_viewport_size({'width':390,'height':844});s.screenshot(path=str(ROOT/'checks/character-shop-phone.png'),full_page=True)
   check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'expanded shop has no horizontal phone overflow')
   t.goto(BASE+'/');t.locator('[data-act=host]').first.click();t.locator('#host-form select[name=classId]').select_option(fix['classId']);t.locator('#host-form button.btn.primary').click();t.wait_for_selector('.host-pin');pin=t.locator('.host-pin').inner_text()
   s.goto(BASE+'/play.html?join='+pin);s.wait_for_selector('.game-shell');t.locator('[data-act=start]').click();s.wait_for_selector('.answer')
+  short_question(s)
   def dimensions():
    return s.evaluate('''()=>{const a=document.querySelector('.answer-tiles'),r=a.getBoundingClientRect(),h=visualViewport.height;return{top:r.top+scrollY,height:r.height,h,tiles:[...a.children].map(b=>({h:b.clientHeight,scroll:b.scrollHeight,w:b.clientWidth})),overflow:document.documentElement.scrollWidth>innerWidth+1}}''')
   for w,h in [(390,844),(320,568),(844,390),(667,375),(600,320),(360,460),(768,1024)]:
@@ -62,7 +71,7 @@ def run():
   check(abs(d['top']-d['h']/3)<3 and abs(d['height']-d['h']*2/3)<3,'native Chromium fullscreen recalculates the lower two-thirds answer layout')
   check(s.locator('[data-act=fullscreen]').get_attribute('aria-pressed')=='true','fullscreen control reflects the active native fullscreen state')
   s.screenshot(path=str(ROOT/'checks/mobile-fullscreen-answers.png'));s.locator('[data-act=fullscreen]').click();s.wait_for_function('!document.fullscreenElement')
-  s.wait_for_timeout(450);s.locator('.answer').filter(has_text='aprender').click();s.wait_for_selector('[data-player-view=result]')
+  s.wait_for_timeout(450);s.locator('.answer span').get_by_text({'How do you say “to learn”?':'aprender','He spoke yesterday.':'habló','Look at the picture. ¿Qué ves?':'una casa'}.get(s.locator('.phase-heading').inner_text(),'una biblioteca'),exact=True).click();s.wait_for_selector('[data-player-view=result]')
   check(s.locator('.game-scene').get_attribute('data-character')=='stormwing','purchased character is used in the live game scene')
   check(s.locator('.result-scene-slot canvas').bounding_box()['height']>=280,'mobile game animation receives a substantially larger canvas')
   s.locator('[data-act=chest]').first.click();s.wait_for_selector('[data-act=next]');s.screenshot(path=str(ROOT/'checks/stormwing-game-reward.png'),full_page=True)
@@ -101,8 +110,8 @@ def run():
   for d in scene_data:check(d['shown'] and d['changed'],'enlarged portrait canvas renders the distinctive event: '+d['kind'])
   s.set_viewport_size({'width':320,'height':568});s.add_style_tag(content='body,button{font-family:monospace!important}')
   for role in ['sprinter','navigator','ace']:
-   t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');t.locator('#round-mode').select_option('rally');t.locator('[data-act=start]').click();s.wait_for_selector('[data-act=role]');s.locator(f'[data-act=role][data-role={role}]').click();s.wait_for_selector('.answer');s.wait_for_timeout(80);d=dimensions()
-   check(s.locator('.selected-plane').is_visible() and abs(d['top']-d['h']/3)<3,'narrow Rally question preserves its selected plane and lower answer region: '+role)
+   t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');t.locator('#round-mode').select_option('rally');t.locator('[data-act=start]').click();s.wait_for_selector('[data-act=role]');s.locator(f'[data-act=role][data-role={role}]').click();s.wait_for_selector('.answer');short_question(s);s.wait_for_timeout(80);d=dimensions()
+   check(s.locator('.selected-plane').is_visible() and abs(d['top']-d['h']/3)<3,'narrow Rally question preserves its selected plane and lower answer region: '+role+': '+str(d))
   check(not errors,'event, shop, fullscreen and enhanced scene flows have no browser JavaScript errors')
   browser.close()
  print(json.dumps({'checks':len(RESULTS),'passed':sum(r['passed'] for r in RESULTS)},indent=2))

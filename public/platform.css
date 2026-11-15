@@ -143,7 +143,7 @@
  .result-scene-slot .scene-canvas{height:clamp(280px,46svh,390px);min-height:280px}
  .skin-grid .skin-card{padding:18px 10px;gap:10px}.skin-grid .skin-card .character-avatar{width:112px;height:134px}.skin-card h3{min-height:2.4em;display:grid;align-items:center}.skin-rarity{font-size:9px;letter-spacing:1px}
 }
-@media(max-height:500px) and (max-width:900px),(max-height:500px) and (pointer:coarse){.phase-shell[data-player-view=question] .game-top .btn{min-height:30px}.phase-shell[data-player-view=question] .player-hud{padding-top:0;padding-bottom:3px}.phase-shell[data-player-view=question] .question-screen>.eyebrow{margin-bottom:0;font-size:9px}.phase-shell[data-player-view=question] .question-screen .phase-heading{font-size:19px;margin:4px auto 6px}}
+@media(max-height:500px) and (max-width:900px),(max-height:500px) and (pointer:coarse){.phase-shell[data-player-view=question] .game-top .btn{min-height:30px}.phase-shell[data-player-view=question] .game-top .keyboard-help-button{min-height:30px;padding:4px 6px}.phase-shell[data-player-view=question] .player-hud{padding-top:0;padding-bottom:3px}.phase-shell[data-player-view=question] .question-screen>.eyebrow{margin-bottom:0;font-size:9px}.phase-shell[data-player-view=question] .question-screen .phase-heading{font-size:19px;margin:4px auto 6px}}
 @media(max-height:500px) and (min-width:600px) and (max-width:900px),(max-height:500px) and (min-width:600px) and (pointer:coarse){
  .phase-shell[data-player-view=question]{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:12px;align-content:start}
  .phase-shell[data-player-view=question] .game-top{grid-column:1;align-self:start}
@@ -155,10 +155,10 @@
  .phase-shell[data-player-view=question] .answer-tiles{margin-top:8px}
 }
 @media(max-width:360px){
- .phase-shell[data-player-view=question] .game-top .wordmark{font-size:0;flex:none}
- .phase-shell[data-player-view=question] .game-top .wordmark::before{content:'Q';display:grid;place-items:center;width:28px;height:32px;font-size:17px;font-weight:900;border-radius:8px;background:var(--mint);color:#14263b}
+ .phase-shell[data-player-view=question] .game-top .wordmark{display:none}
+ .phase-shell[data-player-view=question] .game-top .btn{padding-left:4px;padding-right:4px}
+ .phase-shell[data-player-view=question] .game-top>.row{gap:2px}
  .phase-shell[data-player-view=question] .question-screen .phase-heading{font-size:20px;margin:6px auto 8px}
- :fullscreen .phase-shell[data-player-view=question] .game-top .wordmark{display:none}
  :fullscreen .phase-shell[data-player-view=question] .game-top>.row{width:100%;justify-content:space-between}
 }
 @media(prefers-reduced-motion:reduce){.event-flash .event-flash-card,.event-flash .event-flash-aura{animation:none!important;transform:none!important}}

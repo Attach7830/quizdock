@@ -1,6 +1,6 @@
 # Student Google sign-in
 
-Students click **Sign in with Google** and select their Google or school Google Workspace account. Google supplies the verified email and display name; QuizDock does not request a typed name or Google password. Teacher sign-in continues to use the existing teacher allowlist and email codes.
+Students click **Sign in with Google** and select their Google or school Google Workspace account. Google supplies the verified email and display name; QuizDock does not request a typed name or Google password. Teacher sign-in uses its existing allowlist, with Google sign-in and email-code fallback.
 
 ## Required runtime setup before merge/deploy
 
@@ -11,6 +11,10 @@ Students click **Sign in with Google** and select their Google or school Google 
 5. Complete the Google-specific live checks in `LIVE_ACCEPTANCE.md`. A local test issuer does not verify Google's consent configuration, school account policies or popup support.
 
 With no Google client configured, the new student UI shows a setup message. Do not merge into an automatically deployed production branch before configuring Google. Existing sessions and stored records remain valid. Old student email-code API endpoints remain compatible when no Google client is configured; once it is configured, new student sign-ins must use Google.
+
+## Servite student onboarding
+
+A new `servitehs.org` student can sign in before being added to a roster. The server requires the exact verified email suffix and the exact signed Google Workspace `hd` domain. The student then enters a teacher’s class code on the enrollment screen; their name and email come from Google. Until a code succeeds, their account cannot read a class, assignment or shared deck. Returning enrolled students keep their existing access, and removed/closed class access is not restored by signing in again.
 
 ## Class invitation links
 

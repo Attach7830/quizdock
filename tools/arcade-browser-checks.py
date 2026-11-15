@@ -15,7 +15,7 @@ def run():
   browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or None,headless=True,args=['--no-sandbox'])
   teacher=browser.new_context(ignore_https_errors=True,viewport={'width':1280,'height':900});teacher.add_init_script(AUDIO_OBSERVER)
   teacher.request.get(BASE+'/__test/login?role=teacher');t=teacher.new_page();errors=[];t.on('pageerror',lambda e:errors.append(str(e)));t.on('dialog',lambda d:d.accept())
-  fix=teacher.request.get(BASE+'/__test/fixture').json();t.goto(BASE+'/');t.locator('[data-act=tab][data-tab=classes]').click();t.locator('[data-act=roster]').first.click()
+  fix=teacher.request.get(BASE+'/__test/fixture').json();t.goto(BASE+'/');t.locator('[role=tab][data-act=tab][data-tab=classes]').click();t.locator('[data-act=roster]').first.click()
   invite=t.locator('input[aria-label="Class join link"]').input_value();check(invite==BASE+'/?class='+fix['classCode'],'teacher receives usable class join link')
   student=browser.new_context(ignore_https_errors=True,viewport={'width':360,'height':640});student.add_init_script(AUDIO_OBSERVER)
   student.route('https://accounts.google.com/gsi/client',lambda route:route.fulfill(content_type='application/javascript',body=FAKE_GOOGLE))
@@ -25,8 +25,8 @@ def run():
   check('Welcome back, Casey' in s.locator('body').inner_text(),'Google account profile supplies student name')
   home=student.request.post(BASE+'/api/academy/home',data={},headers={'Origin':BASE}).json();check(len(home['classes'])==1,'new student self-enrolls from link without roster entry')
   s.goto(invite);s.locator('[data-act=accept-invite]').click();s.wait_for_selector('[data-act=tab]');check(len(student.request.post(BASE+'/api/academy/home',data={},headers={'Origin':BASE}).json()['classes'])==1,'existing student invitation is idempotent')
-  s.locator('[data-act=tab][data-tab=classes]').click();s.locator('[data-act=join-class]').click();check(s.locator('#join-class-form input[name=name]').count()==0,'join another class uses saved Google identity')
-  s.keyboard.press('Escape');s.locator('[data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click();s.wait_for_selector('.flashcard')
+  s.locator('[role=tab][data-act=tab][data-tab=classes]').click();s.locator('[data-act=join-class]').click();check(s.locator('#join-class-form input[name=name]').count()==0,'join another class uses saved Google identity')
+  s.keyboard.press('Escape');s.locator('[role=tab][data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click();s.wait_for_selector('.flashcard')
   prompts=[]
   for i in range(4):
    prompts.append(s.locator('.flashcard span').inner_text());s.locator('[data-act=solo-mark][data-mark=known]').click();s.wait_for_function('document.querySelector("#solo-save").textContent==="Progress saved"')

@@ -15,7 +15,7 @@ async function fixture(){const ctx=context(),env={...config},service=new Teacher
  const listId=uid();await call('','save',{id:listId,revision:0,mutationId:uid(),list:{title:'Verbs',cards:[validateCard({prompt:'he spoke',answer:'habló'}),validateCard({prompt:'year',answer:'año'})]}});
  const a=(await call('academy','create-assignment',{classId:c.id,listId,dueLocal:'2026-11-20T23:59',rules:{minMinutes:0,minCards:1,minAccuracy:0}})).body.assignment;
  const practice=(await call('academy','practice-open',{assignmentId:a.id},studentToken)).body;
- await call('academy','practice-answer',{assignmentId:a.id,lease:practice.lease,questionKey:practice.question.key,answer:'habló',mutationId:uid()},studentToken);
+ await call('academy','practice-answer',{assignmentId:a.id,lease:practice.lease,questionKey:practice.question.key,answer:practice.question.prompt==='he spoke'?'habló':'año',mutationId:uid()},studentToken);
  return {ctx,env,service,owner,token,call,c,email,studentId,studentToken,listId,a};
 }
 test('signed workspace backup contains records but excludes sessions, codes and signing keys',async()=>{const f=await fixture(),b=await f.call('data','backup');assert.equal(b.status,200);const keys=b.body.payload.records.map(([k])=>k);assert.ok(keys.some(k=>k.startsWith('practice:')));assert.ok(keys.some(k=>k.startsWith('list:')));assert.ok(keys.every(k=>!/^session:|^code:|^student-code:|backup-key/.test(k)));assert.equal(JSON.stringify(b.body).includes(config.RESEND_API_KEY),false);});

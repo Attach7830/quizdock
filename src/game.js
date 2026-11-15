@@ -1,5 +1,6 @@
 import {roleById} from '../public/js/catalog.js';
 import {imageURL} from '../public/js/list-model.js';
+import {drawShuffledCard} from '../public/js/card-order.js';
 // Portable base rules for six modes; new-round strategy lives in gameplay.js.
 export const MODES = ['treasure', 'fishing', 'battle', 'factory', 'rally', 'keep', 'word', 'sketch'];
 export const MIN_QUESTIONS = 1;
@@ -54,17 +55,22 @@ export function validateQuestions(input) {
   return result;
 }
 export function newPlayer(id, token, name, questions) {
-  return {
+  const player = {
     id, token, name, joinedAt: Date.now(), answered: 0, correct: 0, streak: 0,
     score: 0, coins: 0, cash: 0, fishCount: 0, biggestFish: 0,
     rodLevel: 0, machineLevel: 0, hp: 100, knockouts: 0,
-    roleType: null, accountId: null, skin: 'mint', email: null, lastEvent:null, lastAnswerAt: 0, current: createQuestion(questions, 0),
+    roleType: null, accountId: null, skin: 'mint', email: null, lastEvent:null, lastAnswerAt: 0, current: null,
     feedback: null, pendingChests: null
   };
+  prepareQuestion(questions,player);return player;
 }
-export function createQuestion(questions, answered) {
+export function prepareQuestion(questions,player) {
+  if(!questions.length)return player.current=null;
+  const draw=drawShuffledCard(player.questionCycle,questions.map((_,i)=>i),player.current?.index);
+  player.questionCycle=draw.cycle;return player.current=createQuestion(questions,draw.index);
+}
+export function createQuestion(questions, index) {
   if (!questions.length) return null;
-  const index = answered % questions.length;
   return { index, key: randomId(6), order: shuffle(questions[index].answers.map((_, i) => i)) };
 }
 export function publicQuestion(q, current) {

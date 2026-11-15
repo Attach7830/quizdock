@@ -34,7 +34,7 @@ export async function mountGoogleSignIn(container, {classCode = '', group = 'aca
    callback:async result => {
     if (!current() || generation.busy) return;
     generation.busy = true; container.textContent = 'Verifying your Google account…';
-    try { await api('google-signin',{challenge:config.challenge,credential:result.credential},group); if (current()) await onSuccess(); }
+    try { const signedIn=await api('google-signin',{challenge:config.challenge,credential:result.credential},group); if (current()) await onSuccess(signedIn); }
     catch (error) { fail(error); } finally { generation.busy = false; }
    }
   });

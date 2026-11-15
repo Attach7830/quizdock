@@ -16,6 +16,9 @@ def http(path,data=None,cookie=''):
     return {'status':r.status,'body':r.read().decode(),'headers':dict(r.headers)}
 COOKIES={role:http('/__test/login?role='+role)['headers'].get('Set-Cookie','').split(';')[0] for role in ['teacher','student','other']}
 FIX=json.loads(http('/__test/fixture')['body'])
+DECK=json.loads(http('/api/academy/solo-open',{'classId':FIX['classId'],'listId':FIX['listId']},COOKIES['student'])['body'])['deck']['cards']
+def practice_card(page):return next(c for c in DECK if c['prompt']==page.locator('.study-prompt').inner_text())
+def game_answer(page):return next(c['answer'] for c in DECK if c['prompt']==page.locator('.phase-heading').inner_text())
 
 def check(ok,name):
     RESULTS.append({'check':name,'passed':bool(ok)})
@@ -77,10 +80,14 @@ def run():
     check('Welcome back, Alex' in s.locator('body').inner_text(),'Student homepage uses verified name')
     overflow(s,'student home phone')
     s.screenshot(path=str(ROOT/'checks/student-home-phone.png'),full_page=True)
+    s.locator('header [data-hub-view=assignments]').click();s.wait_for_selector('[data-act=practice]')
     s.locator('[data-act=practice]').first.click();s.wait_for_selector('#typed-answer')
-    s.locator('#typed-answer').fill('aprender');s.locator('#answer-form button[type=submit]').click()
+    s.locator('#typed-answer').fill(practice_card(s)['answer']);s.locator('#answer-form button[type=submit]').click()
     s.wait_for_selector('[data-act=practice-next]');check('Correct. Nicely done.' in s.locator('body').inner_text(),'typed answer server graded')
     s.locator('[data-act=practice-next]').click();s.wait_for_selector('#typed-answer')
+    for _ in range(8):
+        if practice_card(s)['answer']=='habló':break
+        s.wait_for_timeout(600);s.locator('#typed-answer').fill(practice_card(s)['answer']);s.locator('#typed-answer').press('Enter');s.wait_for_selector('[data-act=practice-next]');s.locator('[data-act=practice-next]').click();s.wait_for_selector('#typed-answer')
     s.locator('#typed-answer').fill('hablo');s.locator('#typed-answer').press('ArrowLeft');s.locator('#typed-answer').press('ArrowRight')
     s.wait_for_timeout(120);check(s.locator('.accent-zone .accent').count()>0,'contextual accent popup')
     s.locator('.accent-zone .accent').first.click();check(s.locator('#typed-answer').input_value()=='habló','accent replaces preceding letter')
@@ -90,14 +97,14 @@ def run():
     check(s.locator('[data-act=practice-submit]').count()>0,'submit control exists')
     s.locator('[data-act=practice-submit]').click();s.wait_for_timeout(200)
     check('submitted' in s.locator('body').inner_text().lower(),'graded practice submitted')
-    s.locator('[data-act=back-home]').click();s.wait_for_selector('[data-act=tab]')
-    s.locator('[data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click();s.wait_for_selector('.flashcard')
+    s.locator('[data-act=back-home]').click();s.wait_for_selector('h1');s.locator('header [data-hub-view=arcade]').click();s.wait_for_selector('[data-act=tab]')
+    s.locator('[role=tab][data-act=tab][data-tab=practice]').click();s.locator('[data-act=solo]').first.click();s.wait_for_selector('.flashcard')
     check('ungraded' in s.locator('body').inner_text().lower(),'solo is explicitly ungraded')
     prompt=s.locator('.flashcard span').inner_text();deck=json.loads(http('/api/academy/solo-open',{'classId':FIX['classId'],'listId':FIX['listId']},COOKIES['student'])['body'])['deck'];expected=next(c['answer'] for c in deck['cards'] if c['prompt']==prompt)
     s.locator('[data-act=solo-flip]').click();check(expected in s.locator('.flashcard').inner_text(),'solo shuffled card reveals its matching answer')
     s.locator('[data-act=solo-mark][data-mark=known]').click();s.wait_for_timeout(200)
     s.screenshot(path=str(ROOT/'checks/flashcards-phone.png'),full_page=True)
-    s.locator('[data-act=back-home]').click();s.wait_for_selector('[data-act=tab]');s.locator('[data-act=tab][data-tab=wardrobe]').click()
+    s.locator('[data-act=back-home]').click();s.wait_for_selector('[data-act=tab]');s.locator('[role=tab][data-act=tab][data-tab=wardrobe]').click()
     s.locator('[data-act=skin][data-id=solar]').click();s.wait_for_timeout(200)
     check('100 reward points' in s.locator('body').inner_text(),'server purchase deducts points')
     overflow(s,'shop phone')
@@ -117,7 +124,12 @@ def run():
     check(home_check.locator('a[href*="play.html?join="]').count()==1,'student homepage lists teacher class game')
     home_check.close()
     check(g.locator('.answer').count()==4 and not g.locator('canvas').is_visible(),'question shows four large answers without game scene')
-    g.locator('.answer').filter(has_text='aprender').click();g.wait_for_selector('[data-player-view=result]')
+    initial_prompt=g.locator('.phase-heading').inner_text()
+    if initial_prompt=='Look at the picture. ¿Qué ves?':check(g.locator('.question-image').count()==1,'image prompt renders with accessible fallback')
+    if initial_prompt.startswith('Read this longer prompt'):
+        g.set_viewport_size({'width':320,'height':568});g.locator('.answer').last.scroll_into_view_if_needed();bb=g.locator('.answer').last.bounding_box();check(bb['y']+bb['height']<=569,'long mobile prompt leaves answers reachable')
+        y=g.evaluate('scrollY');g.evaluate('document.dispatchEvent(new Event("visibilitychange"))');g.wait_for_timeout(220);check(abs(g.evaluate('scrollY')-y)<2,'heartbeat preserves mobile document scroll')
+    g.locator('.answer span').get_by_text(game_answer(g),exact=True).click();g.wait_for_selector('[data-player-view=result]')
     check(g.locator('.answer').count()==0 and g.locator('canvas').is_visible(),'answer opens a separate game result screen')
     g.emulate_media(reduced_motion='no-preference');g.wait_for_timeout(80)
     before=g.locator('canvas').evaluate('(c)=>c.toDataURL()');g.wait_for_timeout(120);after=g.locator('canvas').evaluate('(c)=>c.toDataURL()')
@@ -128,16 +140,20 @@ def run():
     g.locator('[data-scene=collapse]').click();check(not g.locator('canvas').is_visible(),'hide scene frees mobile space');g.locator('[data-scene=collapse]').click()
     g.locator('[data-act=stats]').click();check(g.locator('#dialog').is_visible(),'mobile Stats panel accessible');g.keyboard.press('Escape')
     g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
-    for index,answer in [(2,'habló'),(3,'una casa'),(4,'una biblioteca')]:
+    # The first shuffled pass contains all fixtures, including the image and long prompt.
+    seen_prompts={initial_prompt}
+    for index in range(3):
         g.locator('[data-act=next]').click();g.wait_for_selector('.answer:not([disabled])');g.wait_for_timeout(550)
-        if index==3:check(g.locator('.question-image').count()==1,'image prompt renders with accessible fallback')
-        if index==4:
+        prompt=g.locator('.phase-heading').inner_text();seen_prompts.add(prompt)
+        if prompt=='Look at the picture. ¿Qué ves?':check(g.locator('.question-image').count()==1,'image prompt renders with accessible fallback')
+        if prompt.startswith('Read this longer prompt'):
             g.set_viewport_size({'width':320,'height':568});g.locator('.answer').last.scroll_into_view_if_needed();bb=g.locator('.answer').last.bounding_box();check(bb['y']+bb['height']<=569,'long mobile prompt leaves answers reachable')
             y=g.evaluate('scrollY');g.evaluate('document.dispatchEvent(new Event("visibilitychange"))');g.wait_for_timeout(220);check(abs(g.evaluate('scrollY')-y)<2,'heartbeat preserves mobile document scroll')
-        g.locator('.answer span').filter(has_text=re.compile('^'+answer+'$')).click();g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
+        g.locator('.answer span').get_by_text(game_answer(g),exact=True).click();g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
+    check(len(seen_prompts)==4,'live shuffled pass visits every prompt once')
     g.locator('[data-act=next]').click();g.wait_for_selector('.answer:not([disabled])')
     t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]')
-    raffle_page=page_for(b,'academy-ui.js','teacher',(1366,900));raffle_page.locator('[data-act=tab][data-tab=raffle]').click();raffle_page.locator('#raffle-preview button').click();raffle_page.wait_for_selector('[data-act=draw-raffle]')
+    raffle_page=page_for(b,'academy-ui.js','teacher',(1366,900));raffle_page.locator('[role=tab][data-act=tab][data-tab=raffle]').click();raffle_page.locator('#raffle-preview button').click();raffle_page.wait_for_selector('[data-act=draw-raffle]')
     check('3 tickets' in raffle_page.locator('body').inner_text(),'completed live round creates weighted raffle tickets')
     raffle_page.locator('[data-act=draw-raffle]').click();raffle_page.wait_for_selector('.raffle-winner');check('Alex Rivera' in raffle_page.locator('.raffle-winner').inner_text(),'raffle draws verified student and stores result')
     raffle_page.screenshot(path=str(ROOT/'checks/weekly-raffle.png'),full_page=True);raffle_page.close()

@@ -8,11 +8,14 @@ def server_ready():
   with urllib.request.urlopen('https://localhost:9443/__test/fixture',context=ssl._create_unverified_context(),timeout=1) as r:return r.status==200
  except Exception:return False
 
-def run():
+def run(scripts=None):
  CHECKS.mkdir(exist_ok=True)
  if server_ready():raise RuntimeError('Port 9443 is already serving a test instance. Stop it before running isolated checks.')
  subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(CHECKS/'dev-key.pem'),'-out',str(CHECKS/'dev-cert.pem'),'-days','1','-subj','/CN=localhost'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
- for script in ['browser-checks.py','release-browser-checks.py','arcade-browser-checks.py','player-experience-browser-checks.py','event-character-browser-checks.py','distinct-gameplay-browser-checks.py']:
+ suites=['browser-checks.py','release-browser-checks.py','arcade-browser-checks.py','player-experience-browser-checks.py','event-character-browser-checks.py','distinct-gameplay-browser-checks.py','practice-navigation-browser-checks.py']
+ selected=scripts or suites
+ if any(script not in suites for script in selected):raise ValueError('Choose a known browser suite.')
+ for script in selected:
   with (CHECKS/(script+'.server.log')).open('w') as log:
    proc=subprocess.Popen(['node','--import','./test/register.mjs','tools/dev-harness.mjs'],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
    try:
@@ -28,4 +31,4 @@ def run():
     except subprocess.TimeoutExpired:proc.kill();proc.wait()
     time.sleep(.2)
  print('All browser suites passed. Fake-data screenshots are in checks/.')
-if __name__=='__main__':run()
+if __name__=='__main__':run(sys.argv[1:] or None)

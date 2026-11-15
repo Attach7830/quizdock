@@ -3,6 +3,7 @@ import {correctAnswers,validateList} from '../public/js/list-model.js';
 import {SKINS} from '../public/js/catalog.js';
 import {DEFAULT_ZONE,zone,localDay,weekStart,addDays,dateTimeInZone,gradeTyped,practiceRules,progressSummary,raffleEntries,weightedWinner,rankedParticipants} from './academy-model.js';
 import {startGoogleLogin,finishGoogleLogin} from './google-login.js';
+import {drawShuffledCard} from '../public/js/card-order.js';
 const HOUR=3600000,DAY=24*HOUR;
 const id=v=>{ensure(/^[a-zA-Z0-9_-]{8,80}$/.test(String(v||'')),'Invalid identifier.');return String(v);};
 const text=(v,max=80)=>String(v??'').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g,' ').trim().slice(0,max);
@@ -62,8 +63,13 @@ export class AcademyService {
   result.assignments.sort((a,b)=>a.dueAt-b.dueAt);return result;
  }
  async assignment(assignmentId,user){const a=await this.store.get('assignment:'+id(assignmentId));ensure(a&&!a.archived,'Assignment is unavailable.',404);await this.course(a.classId,user);return a;}
- async practice(assignmentId,user){ensure(user.role==='student','Practice submissions require a student account.',403);const a=await this.assignment(assignmentId,user),key=`practice:${a.id}:${user.id}`,prior=await this.store.get(key);return {a,key,p:prior||{assignmentId:a.id,userId:user.id,answered:0,correct:0,activeMs:0,cardStats:{},questionKey:uid(),feedback:null,createdAt:Date.now(),lastBeat:0,lastAnswer:Date.now(),lastMutation:null,lease:null}};}
- viewPractice(a,p){const card=a.cards[(p.answered-(p.feedback?1:0))%a.cards.length];return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},feedback:p.feedback};}
+ async practice(assignmentId,user){ensure(user.role==='student','Practice submissions require a student account.',403);const a=await this.assignment(assignmentId,user),key=`practice:${a.id}:${user.id}`,prior=await this.store.get(key),p=prior||{assignmentId:a.id,userId:user.id,answered:0,correct:0,activeMs:0,cardStats:{},questionKey:uid(),feedback:null,createdAt:Date.now(),lastBeat:0,lastAnswer:Date.now(),lastMutation:null,lease:null};
+  // Keep a pre-update active prompt/feedback attached to its original card.
+  if(p.cardIndex===undefined){if(prior)p.cardIndex=(p.answered-(p.feedback?1:0))%a.cards.length;else this.nextPracticeCard(a,p);}
+  return {a,key,p};
+ }
+ nextPracticeCard(a,p){const draw=drawShuffledCard(p.cardCycle,a.cards.map((_,i)=>i),p.cardIndex);p.cardIndex=draw.index;p.cardCycle=draw.cycle;}
+ viewPractice(a,p){const card=a.cards[p.cardIndex];return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},feedback:p.feedback};}
  async practiceAction(action,payload,user){
   const {a,key,p}=await this.practice(payload.assignmentId,user),now=Date.now();
   if(action==='practice-open'){p.lease=uid();p.lastBeat=now;p.lastAnswer=now;await this.store.put(key,p);return this.viewPractice(a,p);}
@@ -79,12 +85,12 @@ export class AcademyService {
    const elapsed=now-p.lastBeat;if(payload.active===true&&elapsed>=0&&elapsed<=25000&&now-p.lastAnswer<=120000)p.activeMs+=Math.min(elapsed,15000);
    p.lastBeat=now;p.updatedAt=now;await this.store.put(key,p);return {progress:progressSummary(p,a.rules)};
   }
-  if(action==='practice-next'){ensure(p.feedback,'Answer the current prompt first.',409);p.feedback=null;p.questionKey=uid();await this.store.put(key,p);return this.viewPractice(a,p);}
+  if(action==='practice-next'){ensure(p.feedback,'Answer the current prompt first.',409);this.nextPracticeCard(a,p);p.feedback=null;p.questionKey=uid();await this.store.put(key,p);return this.viewPractice(a,p);}
   ensure(action==='practice-answer','Unknown practice action.');const mutationId=id(payload.mutationId);
   if(p.lastMutation===mutationId){ensure(p.lastInput===String(payload.answer),'That answer identifier was already used.',409);return this.viewPractice(a,p);}
   ensure(!p.feedback&&payload.questionKey===p.questionKey,'This prompt is no longer active. Refresh practice.',409);
   ensure(now-(p.lastSubmittedAt||0)>=500,'Please answer a little more slowly.',429);const input=String(payload.answer??'').trim();ensure(input.length>0&&input.length<=300,'Type an answer of 1–300 characters.');
-  const card=a.cards[p.answered%a.cards.length],graded=gradeTyped(card,input,a.rules),stats=p.cardStats[card.id]||{prompt:card.prompt,correct:0,incorrect:0,firstCorrect:graded.correct};
+  const card=a.cards[p.cardIndex],graded=gradeTyped(card,input,a.rules),stats=p.cardStats[card.id]||{prompt:card.prompt,correct:0,incorrect:0,firstCorrect:graded.correct};
   if(graded.correct){stats.correct++;p.correct++;}else stats.incorrect++;p.cardStats[card.id]=stats;p.answered++;
   p.feedback={correct:graded.correct,expected:graded.expected,answer:input,prompt:card.prompt};p.lastMutation=mutationId;p.lastInput=String(payload.answer);p.lastAnswer=now;p.lastSubmittedAt=now;p.updatedAt=now;
   await this.store.put(key,p);return this.viewPractice(a,p);

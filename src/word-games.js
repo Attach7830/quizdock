@@ -1,5 +1,6 @@
 import {randomId,shuffle} from './game.js';
 import {gradeTyped} from '../public/js/answer-check.js';
+import {drawShuffledCard} from '../public/js/card-order.js';
 export const WORD_MODES=['word','sketch'];
 export const DRAW_COLORS=['#18344d','#e55f78','#3b9fc7','#48a889','#d4a146','#9471c6','#ffffff'];
 export const DRAW_SIZES=[3,6,12,24];
@@ -8,7 +9,7 @@ const letters=s=>[...String(s).normalize('NFC')];
 const alphabetic=c=>/^\p{L}$/u.test(c);
 export function wordCardIndices(questions){return questions.map((q,i)=>({i,word:q.answers[q.correct[0]]})).filter(x=>letters(x.word).length<=40&&letters(x.word).some(alphabetic)).map(x=>x.i);}
 export function validateWordDeck(questions){const indices=wordCardIndices(questions);if(!indices.length)throw new Error('Word games need an answer of at most 40 characters containing letters.');return indices;}
-export function prepareWordQuestion(room,p){const indices=validateWordDeck(room.questions);if(!p.wordOrder||p.answered%indices.length===0){p.wordOrder=shuffle(indices);if(p.wordOrder.length>1&&p.wordOrder[0]===p.current?.index)[p.wordOrder[0],p.wordOrder[1]]=[p.wordOrder[1],p.wordOrder[0]];}const index=p.wordOrder[p.answered%indices.length];p.current={index,key:randomId(6),order:[]};p.wordPuzzle={key:p.current.key,guesses:[],misses:0};}
+export function prepareWordQuestion(room,p){const draw=drawShuffledCard(p.wordCycle,validateWordDeck(room.questions),p.current?.index);p.wordCycle=draw.cycle;delete p.wordOrder;p.current={index:draw.index,key:randomId(6),order:[]};p.wordPuzzle={key:p.current.key,guesses:[],misses:0};}
 function answerCard(q){return {type:'pair',answer:q.answers[q.correct[0]],alternatives:q.correct.slice(1).map(i=>q.answers[i])};}
 export function gradeWord(q,raw){if(typeof raw!=='string'||!raw.trim()||raw.length>180)throw new Error('Type a word of 1–180 characters.');return gradeTyped(answerCard(q),raw,{strictAccents:true});}
 function masked(word,shown){return letters(word).map((c,i)=>({value:!alphabetic(c)||shown.has(i)?c:'',letter:alphabetic(c)}));}
@@ -22,7 +23,8 @@ export function guessWordLetter(room,p,key,letter){
 }
 function candidates(room,online){const ids=new Set(online);return Object.values(room.players).filter(p=>!p.deleted&&ids.has(p.id)).sort((a,b)=>a.joinedAt-b.joinedAt||a.id.localeCompare(b.id));}
 export function startSketchWord(room,online,now=Date.now()){
- const indices=validateWordDeck(room.questions),turn=(room.sketch?.turn||0)+1,pool=candidates(room,online),artist=pool.length?pool[(turn-1)%pool.length]:null,index=indices[(turn-1)%indices.length],word=room.questions[index].answers[room.questions[index].correct[0]];
+ const turn=(room.sketch?.turn||0)+1,pool=candidates(room,online),artist=pool.length?pool[(turn-1)%pool.length]:null,draw=drawShuffledCard(room.sketchCycle,validateWordDeck(room.questions),room.sketch?.cardIndex),index=draw.index,word=room.questions[index].answers[room.questions[index].correct[0]];
+ room.sketchCycle=draw.cycle;
  room.sketch={id:randomId(8),turn,cardIndex:index,word,artistId:artist?.id||null,artists:artist?[artist.id]:[],phase:'drawing',startedAt:now,endsAt:now+60000,nextHintAt:now+15000,revealOrder:shuffle(letters(word).map((c,i)=>alphabetic(c)?i:-1).filter(i=>i>=0)),revealed:[],guessed:[],strokes:[],revision:0,clearEpoch:0,points:0,lastStrokeAt:0,offlineAt:null,reason:''};
  for(const p of Object.values(room.players)){p.feedback=null;p.pendingPlay=null;p.sketchReceipt=null;}
  if(artist&&artist.adventure)artist.adventure.drawings=(artist.adventure.drawings||0)+1;

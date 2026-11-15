@@ -6,7 +6,7 @@ import {PLAYER_TYPES,roleById} from '../public/js/catalog.js';
 import {createRoundMetrics,recordCardAnswer,updateRoundMetrics,roundReport} from './round-metrics.js';
 import { DurableObject } from 'cloudflare:workers';
 import {
-  MODES, MAX_PLAYERS, MAX_ROOM_MINUTES, cleanText, createQuestion,
+  MODES, MAX_PLAYERS, MAX_ROOM_MINUTES, cleanText, prepareQuestion,
   grantAnswerReward, newPlayer, openChest, publicQuestion, randomId,
   randomInt, scoreboard, settleTime, upgrade, validateQuestions
 } from './game.js';
@@ -155,7 +155,7 @@ export class QuizRoom extends DurableObject {
         if(!r||r.createdAt!==p.createdAt)return json({ok:true,skipped:true});
         for(const player of Object.values(r.players))if(player.accountId===p.accountId&&(!p.erasedAt||player.joinedAt<=p.erasedAt)){
           for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment()?.playerId===player.id){try{ws.close(4003,'Account data removed');}catch{}}
-          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
+          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.wordCycle=null;player.questionCycle=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
           for(const other of Object.values(r.players)){other.lastPlay=null;if(other.feedback){delete other.feedback.game;if(other.feedback.effect?.targetId===player.id){other.feedback.reward='Game reward saved.';other.feedback.effect=null;}}}
           if(r.gameplay?.keep){r.gameplay.keep.participants=r.gameplay.keep.participants.filter(id=>id!==player.id);r.gameplay.keep.contributors=r.gameplay.keep.contributors.filter(id=>id!==player.id);}
           if(r.sketch){r.sketch.guessed=r.sketch.guessed.filter(id=>id!==player.id);const drew=r.sketch.artists.includes(player.id);r.sketch.artists=r.sketch.artists.filter(id=>id!==player.id);if(drew){r.sketch.strokes=[];r.sketch.clearEpoch++;r.sketch.revision++;}if(r.sketch.artistId===player.id){r.sketch.artistId=null;r.sketch.offlineAt=Date.now()-8001;}tickSketch(r,this.onlineIds());}
@@ -311,7 +311,7 @@ export class QuizRoom extends DurableObject {
       }
       room.mode=mode;room.durationMinutes=minutes;room.settings=settings;room.roundNumber=(room.roundNumber||(room.startedAt?1:0))+1;
       room.status = 'playing'; room.startedAt = Math.max(Date.now(),(room.startedAt||0)+1); room.endsAt = Date.now() + minutes * 60_000;
-      room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null; room.lastArcadeEvent=null;room.sketch=null;createGameWorld(room);
+      room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null; room.lastArcadeEvent=null;room.sketch=null;room.sketchCycle=null;createGameWorld(room);
       if(mode==='word')for(const p of Object.values(room.players))prepareWordQuestion(room,p);
       if(mode==='sketch')startSketchWord(room,this.onlineIds());
       room.roundMetrics=createRoundMetrics(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
@@ -382,7 +382,7 @@ export class QuizRoom extends DurableObject {
       if (room.status !== 'playing') throw new Error('Game is not active.');
       if (!p.feedback || p.pendingChests) throw new Error('Finish this question first.');
       finishDefaultChoice(room,p);
-      if(room.mode==='word')prepareWordQuestion(room,p);else p.current = createQuestion(room.questions, p.answered);
+      if(room.mode==='word')prepareWordQuestion(room,p);else prepareQuestion(room.questions,p);
       p.feedback = null;
     } else if (msg.type === 'upgrade') {
       const p = this.requireStudent(att);

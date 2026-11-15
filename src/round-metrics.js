@@ -1,4 +1,4 @@
-import {normalizeAnswer} from '../public/js/answer-check.js';
+import {matchesTypedAnswer} from '../public/js/answer-check.js';
 // Server-owned round analytics. Original choice indices are used, never shuffled display positions.
 const clone=value=>structuredClone(value);
 const validId=value=>typeof value==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(value);
@@ -24,7 +24,7 @@ export function recordCardAnswer(metrics,{playerId,sequence,cardIndex,optionInde
   const typed=typedAnswer!==undefined;
   if(!card||(!typed&&(!Number.isInteger(optionIndex)||optionIndex<0||optionIndex>=card.answers.length)))throw new Error('Invalid analytics choice.');
   if(typed&&(typeof typedAnswer!=='string'||typedAnswer.length>180||!Number.isInteger(hintsUsed)||hintsUsed<0||hintsUsed>40))throw new Error('Invalid typed analytics answer.');
-  const graded=typed?card.correctOptions.some(i=>normalizeAnswer(card.answers[i])===normalizeAnswer(typedAnswer)):card.correctOptions.includes(optionIndex);
+  const graded=typed?card.correctOptions.some(i=>matchesTypedAnswer(card.answers[i],typedAnswer)):card.correctOptions.includes(optionIndex);
   if(typeof correct!=='boolean'||graded!==correct)throw new Error('Analytics result differs from server grading.');
   if(sequence!==prior+1)metrics.partial=true;
   const seen=Object.hasOwn(card.respondents,playerId)?card.respondents[playerId]:0;
