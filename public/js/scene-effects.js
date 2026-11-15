@@ -1,4 +1,4 @@
-const palette={treasure:['#ffdf8c','#f8b363'],fishing:['#b4f9ed','#81d8ff'],battle:['#dab8ff','#ffb4d9'],factory:['#ffdb95','#a0f4df'],rally:['#d0ffff','#acbeff'],keep:['#b2ffe4','#d0baff']};
+const palette={treasure:['#ffdf8c','#f8b363'],fishing:['#b4f9ed','#81d8ff'],battle:['#dab8ff','#ffb4d9'],factory:['#ffdb95','#a0f4df'],rally:['#d0ffff','#acbeff'],keep:['#b2ffe4','#d0baff'],word:['#ebc3ff','#ffe6b1'],sketch:['#a9ecff','#ffdeab']};
 function star(ctx,x,y,r,color){ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,rr=i%2?r*.3:r;const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.fillStyle=color;ctx.fill();}
 export function sceneAtmosphere(ctx,mode,w,h,t){
  const [light,second]=palette[mode]||palette.treasure;

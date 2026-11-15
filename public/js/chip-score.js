@@ -56,7 +56,19 @@ export const CHIP_TUNES={
   'D5 F5 A5 C6 A5 F5 E5 D5','Bb5 A5 F5 D5 E5 F5 G5 -','E5 G5 A5 C6 A5 G5 E5 C5','D5 - A4 D5 - - . .',
   'A5 D6 C6 A5 F5 - A5 C6','G5 C6 E6 D6 C6 G5 E5 -','F5 Bb5 D6 F6 D6 Bb5 A5 -','E5 A5 C6 E6 C6 A5 G5 E5',
   'F5 A5 D6 C6 A5 F5 E5 D5','Bb5 A5 G5 F5 D5 F5 A5 -','G5 E5 C5 E5 A5 G5 E5 C5','D5 F5 A5 D6 A5 F5 D5 -'
- ],[0,6,5,4,0,5,4,0,0,6,5,4,0,5,4,0],[0,2,1,2,0,1,2,1])
+ ],[0,6,5,4,0,5,4,0,0,6,5,4,0,5,4,0],[0,2,1,2,0,1,2,1]),
+ word:theme('Ink Beneath the Stars',112,50,false,[
+  'F#5 - E5 D5 A4 - D5 E5','F#5 A5 B5 A5 F#5 - E5 D5','G5 - B5 A5 F#5 E5 D5 -','E5 F#5 A5 G5 E5 - C#5 E5',
+  'D5 A4 D5 F#5 A5 - G5 F#5','B5 A5 F#5 E5 D5 E5 F#5 -','G5 A5 B5 D6 C#6 B5 A5 G5','F#5 E5 D5 - - - . .',
+  'A5 - F#5 A5 D6 - C#6 B5','A5 F#5 E5 D5 F#5 A5 B5 -','G5 B5 D6 E6 D6 B5 A5 F#5','E5 A5 C#6 B5 A5 G5 E5 -',
+  'F#5 A5 D6 - C#6 B5 A5 F#5','G5 F#5 E5 D5 B4 D5 G5 -','E5 F#5 A5 C#6 B5 A5 G5 E5','D5 - A4 F#5 D5 - - .'
+ ],[0,5,3,4,0,5,3,4,0,5,3,4,5,3,4,0],[0,2,1,2]),
+ sketch:theme('Paper Kites Parade',124,48,false,[
+  'G5 E5 C5 E5 G5 - A5 G5','E5 C5 D5 E5 G5 A5 C6 -','A5 F5 D5 F5 A5 - G5 F5','D5 G5 B5 A5 G5 E5 D5 -',
+  'E5 G5 C6 B5 A5 - G5 E5','F5 A5 C6 D6 C6 A5 G5 -','G5 B5 D6 C6 B5 G5 E5 D5','C5 E5 G5 C6 - - . .',
+  'C6 G5 E5 G5 A5 C6 D6 E6','D6 C6 A5 G5 E5 G5 A5 -','F5 A5 D6 C6 A5 F5 D5 F5','G5 B5 D6 E6 D6 B5 A5 G5',
+  'E6 D6 C6 G5 A5 G5 E5 C5','A5 G5 F5 E5 D5 F5 A5 C6','B5 A5 G5 E5 D5 E5 G5 B5','C6 G5 E5 C5 - - . .'
+ ],[0,0,3,4,5,3,4,0,0,5,3,4,5,3,4,0],[0,1,2,1])
 };
 
 // Each step is a sixteenth note. This same score planner drives playback and

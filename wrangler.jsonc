@@ -41,6 +41,14 @@
     "enabled": true
   },
   "vars": {
-    "GOOGLE_CLIENT_ID": "544077726024-gnbg8fehleu46g18runac2tiddtdrckp.apps.googleusercontent.com"
-  }
+    "GOOGLE_CLIENT_ID": "544077726024-gnbg8fehleu46g18runac2tiddtdrckp.apps.googleusercontent.com",
+    "EMAIL_FROM": "QuizDock <no-reply@srtw.win>"
+  },
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "srtw.win",
+      "custom_domain": true
+    }
+  ]
 }

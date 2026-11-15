@@ -1,7 +1,7 @@
 import {roleById} from '../public/js/catalog.js';
 import {imageURL} from '../public/js/list-model.js';
-// Portable, dependency-free rules for the four original game modes.
-export const MODES = ['treasure', 'fishing', 'battle', 'factory', 'rally', 'keep'];
+// Portable base rules for six modes; new-round strategy lives in gameplay.js.
+export const MODES = ['treasure', 'fishing', 'battle', 'factory', 'rally', 'keep', 'word', 'sketch'];
 export const MIN_QUESTIONS = 1;
 export const MAX_QUESTIONS = 250;
 export const MAX_PLAYERS = 45;
@@ -73,10 +73,10 @@ export function publicQuestion(q, current) {
 }
 export function scoreboard(players, mode) {
   return Object.values(players).map(p => ({
-    id: p.id, name: p.name, skin:p.skin||'mint', roleType:p.roleType, score: mode === 'treasure' ? p.coins : mode === 'factory' ? p.cash : p.score,
+    id: p.id, name: p.name, skin:p.skin||'mint', roleType:p.roleType, score: mode === 'treasure' ? p.coins : mode === 'factory' ? p.cash+(p.adventure?.assetValue||0) : p.score,
     correct: p.correct, answered: p.answered, streak: p.streak, hp: p.hp,
     fishCount: p.fishCount, biggestFish: p.biggestFish,
-    machineLevel: p.machineLevel, rodLevel: p.rodLevel, knockouts: p.knockouts
+    machineLevel: p.machineLevel, rodLevel: p.rodLevel, knockouts: p.knockouts,shield:p.adventure?.shield||0,charge:p.adventure?.charge||0,protected:p.adventure?.protectedAt===p.answered,vault:p.adventure?.vault||0,discoveries:p.adventure?.collection?.length||0,orders:p.adventure?.orders||0
   })).sort((a, b) => b.score - a.score || b.correct - a.correct || a.name.localeCompare(b.name));
 }
 export function grantAnswerReward(room, player) {
@@ -156,7 +156,8 @@ export function upgrade(room, player) {
     const cost = (player.machineLevel + 1) * 120;
     if (player.cash < cost) throw new Error(`You need $${cost} to buy a machine.`);
     player.cash -= cost;
-    player.score = player.cash;
+    if(room.gameplay?.version===1&&player.adventure?.mode==='factory')player.adventure.assetValue+=cost;
+    player.score = player.cash+(player.adventure?.assetValue||0);
     player.machineLevel++;
     return { text: `Bought machine level ${player.machineLevel}. It earns $8 per 5 seconds.`, cost };
   }
@@ -169,8 +170,11 @@ export function settleTime(room, now = Date.now()) {
     const periods = Math.floor((Math.min(now, room.endsAt) - room.lastPassiveAt) / 5000);
     if (periods > 0) {
       for (const p of Object.values(room.players)) {
-        p.cash += periods * 8 * p.machineLevel;
-        p.score = p.cash;
+        const fueled=room.gameplay?.version===1&&p.adventure?.mode==='factory';
+        const count=fueled?Math.min(periods,p.adventure.fuel||0):periods;
+        p.cash += count * 8 * p.machineLevel;
+        if(fueled&&p.machineLevel>0)p.adventure.fuel-=count;
+        p.score = p.cash+(p.adventure?.assetValue||0);
       }
       room.lastPassiveAt += periods * 5000;
       changed = true;
