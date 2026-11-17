@@ -5,7 +5,7 @@ import {MODE_IDENTITIES,WATERS,FISH_SPECIES,WINDS,FISH_WEATHER,ARENAS,STATIONS,E
 const fmt=n=>Number(n||0).toLocaleString();
 const meter=(value,max,label)=>`<div class="adventure-meter" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Math.max(0,Math.min(max,value))}"><i style="width:${Math.max(0,Math.min(100,value/max*100))}%"></i></div>`;
 const charges=(n,max=3)=>`<span class="adventure-charges" aria-label="${n} of ${max}">${Array.from({length:max},(_,i)=>`<i class="${i<n?'filled':''}"></i>`).join('')}</span>`;
-export function gameplayPanel(room){
+export function gameplayPanel(room,{compact=false}={}){
  const p=room?.me,s=p?.adventure;if(!room.gameplay||!s)return '';
  const identity=MODE_IDENTITIES[room.mode];let body='';
  if(room.mode==='word')body=`<div class="forge-progress"><b>${s.solved} ${s.solved===1?'word':'words'} forged</b><span>${s.constellations} ${s.constellations===1?'constellation':'constellations'} completed</span><p>Every five correct words light a constellation and earn a bonus.</p></div>`;
@@ -22,15 +22,45 @@ export function gameplayPanel(room){
   const wind=WINDS.find(w=>w.id===s.wind);body=`<div class="wind-forecast" data-wind="${s.wind}"><span aria-hidden="true">${s.wind==='storm'?'ϟ':s.wind==='crosswind'?'↗':'➜'}</span><div><small>NEXT LEG FORECAST</small><h3>${esc(wind.name)}</h3><p>${esc(wind.hint)}</p></div></div><div class="adventure-row"><b>${s.legs} legs flown</b><span>Boost ${charges(s.boost)}</span></div><p class="adventure-hint">Gliding stores 2 boost. Rings store 1 and offer a variable bonus. A dive spends 2 boost. Your selected line applies to the next correct answer.</p>`;
  }
  if(room.mode==='keep')body=keepMarkup(room)+`<div class="adventure-row"><b>${s.supplies}/8 building supplies</b><span>${fmt(s.contribution)} contribution energy</span></div><p class="adventure-hint">Save supplies for a tower or repair. Guardian roles help the whole class. Everyone keeps answering through a last stand.</p>`;
+ if(compact)body=compactState(room);
  const play=room.status==='playing'&&p.feedback?.correct?p.play:null;
- return `<section class="adventure-panel adventure-${room.mode}" data-gameplay="${room.mode}" aria-label="${esc(identity.verb)}"><div class="adventure-heading"><span class="eyebrow">${esc(identity.verb)}</span><p>${esc(identity.goal)}</p></div>${body}${p.feedback?.game?`<div class="gameplay-receipt" role="status"><strong>${esc(p.feedback.game)}</strong></div>`:''}${play?`<div class="gameplay-choices" data-play-id="${esc(play.id)}">${play.options.map(o=>`<button class="gameplay-choice" data-act="play" data-play="${esc(play.id)}" data-choice="${esc(o.id)}" ${o.enabled?'':'disabled'}><strong>${esc(o.label)}</strong><span>${esc(o.hint)}</span>${o.enabled?'':`<small>${esc(o.reason)}</small>`}</button>`).join('')}</div>`:''}</section>`;
+ return `<section class="adventure-panel adventure-${room.mode}${compact?' compact-adventure':''}" data-gameplay="${room.mode}" aria-label="${esc(identity.verb)}"><div class="adventure-heading"><span class="eyebrow">${esc(identity.verb)}</span><p>${esc(identity.goal)}</p>${compact?'<button type="button" class="field-guide" data-act="game-details">Field guide ↗</button>':''}</div>${body}${p.feedback?.game?`<div class="gameplay-receipt" role="status"><strong>${esc(p.feedback.game)}</strong></div>`:''}${play?`<div class="gameplay-choices" data-play-id="${esc(play.id)}">${play.options.map(o=>`<button class="gameplay-choice" data-act="play" data-play="${esc(play.id)}" data-choice="${esc(o.id)}" ${o.enabled?'':'disabled'}><strong>${esc(o.label)}</strong><span>${esc(compact?(o.enabled?compactHint(room,o):compactReason(o.reason)):o.hint)}</span>${o.enabled||compact?'':`<small>${esc(o.reason)}</small>`}</button>`).join('')}</div>`:''}</section>`;
+}
+function compactReason(reason){return reason.replace(/^Save (\d+) supplies.*$/, 'Need $1 supplies').replace(/^Store at least (\d+) boost first\.$/,'Need $1 boost').replace('The crystal is fully repaired.','Crystal full').replace('All eight team towers are built.','8 towers built').replace('Maximum station level reached.','Maximum level').replace(/^Produce (\d+) more (.+)\.$/,'Need $1 $2');}
+function compactHint(room,o){const mode=room.mode,arena=ARENAS.find(a=>a.id===room.me.adventure.arena)||ARENAS[0];
+ const hints={fishing:{shallows:'Smaller fish · more rare finds',reef:'Reliable collection starter',deep:'Heavier, varied catches'},battle:{strike:'Strike a nearby rival',guard:`+10 health · ${arena.guard} shield`,charge:`+${arena.charge} charge · max 3`},rally:{glide:'+2 boost · steady flight',rings:'+1 boost · variable bonus',dive:'Spend 2 boost · breakaway'},keep:{barrage:'1 supply · 18 damage',tower:'3 supplies · team tower',repair:'2 supplies · +40 crystal'}};
+ if(mode==='factory')return o.hint.split(' · ')[0].split('.')[0];if(mode==='battle'&&o.id==='strike'&&o.label==='Charged strike')return 'Spend 1 charge · strong hit';return hints[mode]?.[o.id]||o.hint;
+}
+function compactState(room){
+ const p=room.me,s=p.adventure;
+ if(room.mode==='word')return `<div class="forge-progress"><b>${s.solved} ${s.solved===1?'word':'words'} forged</b><span>${s.constellations} ${s.constellations===1?'constellation':'constellations'}</span></div>`;
+ if(room.mode==='treasure')return `<div class="haul-split"><div><small>Protected vault</small><strong>${fmt(s.vault)}</strong></div><div><small>Exposed haul · next bonus ${s.expedition*8}%</small><strong>${fmt(Math.max(0,p.coins-s.vault))}</strong></div></div>`;
+ if(room.mode==='fishing'){
+  const c=s.lastCatch,fish=FISH_SPECIES.find(f=>f.id===c?.species);
+  return `${fish?`<div class="catch-reveal ${fish.rare?'rare-catch':''}">${fishMarkup(fish.id)}<div><h3>${esc(fish.name)}</h3><p>${c.weight.toFixed(1)} kg · ${c.points} points${c.fresh?' · NEW!':''}</p></div></div>`:''}<div class="adventure-row"><b>${s.collection.length}/${FISH_SPECIES.length} species</b><span>${esc(FISH_WEATHER.find(w=>w.id===s.weather)?.name)}</span></div>`;
+ }
+ if(room.mode==='battle'){
+  const arena=ARENAS.find(a=>a.id===s.arena)||ARENAS[0];
+  return `<div class="arena-forecast"><strong>${esc(arena.name)}</strong><p>${esc(arena.hint)}</p></div><div class="adventure-row"><b>${p.hp} health · ${s.shield} shield</b><span>Charge ${charges(s.charge)}</span></div>`;
+ }
+ if(room.mode==='factory')return `<div class="factory-capital"><span>Cash <b>$${fmt(p.cash)}</b></span><span>Assets <b>$${fmt(s.assetValue)}</b></span></div><div class="production-chain">${STATIONS.map(st=>`<div class="station-card ${s.stations[st.id]?'station-online':''}" style="--station:${st.color}"><small>${esc(st.name)}</small><strong>${s.stations[st.id]?`Lv ${s.stations[st.id]}`:'Blueprint'}</strong><span>${s.stock[st.part]} ${st.part}</span></div>`).join('')}</div><div class="factory-order"><strong>${s.order.quantity} ${s.order.part} → $${s.order.payout}</strong><span>${s.stock[s.order.part]}/${s.order.quantity} ready · ${s.market} in demand</span></div>`;
+ if(room.mode==='rally'){
+  const wind=WINDS.find(w=>w.id===s.wind);
+  return `<div class="wind-forecast" data-wind="${s.wind}"><span aria-hidden="true">${s.wind==='storm'?'ϟ':s.wind==='crosswind'?'↗':'➜'}</span><div><h3>${esc(wind.name)}</h3><p>${esc({tailwind:'Rings or dive favored',crosswind:'Glide is steadier',storm:'Glide or charged dive'}[s.wind])}</p></div></div><div class="adventure-row"><b>${s.legs} legs flown</b><span>Boost ${charges(s.boost)}</span></div>`;
+ }
+ if(room.mode==='keep'){
+  const k=room.gameplay.keep,enemy=ENEMIES.find(e=>e.id===k.enemy);
+  return `<div class="keep-wave"><strong>Wave ${k.wave}${k.enemy==='wyvern'?' · BOSS':''}</strong><span>${s.supplies}/8 supplies · ${k.towers.bolt+k.towers.ward} towers</span></div><div class="keep-meters"><div class="keep-health"><span>Crystal <b>${k.crystal}/300</b></span>${meter(k.crystal,300,'Shared crystal health')}</div><div class="keep-health enemy-health"><span>${esc(enemy.name)} <b>${k.enemyHp}/${k.enemyMax}</b></span>${meter(k.enemyHp,k.enemyMax,'Shared enemy health')}</div></div>`;
+ }
+ return '';
 }
 function keepMarkup(room){const k=room.gameplay.keep,enemy=ENEMIES.find(e=>e.id===k.enemy);return `<div class="keep-wave"><div><small>DEFENDING TOGETHER</small><strong>Wave ${k.wave}${k.enemy==='wyvern'?' · BOSS':''}</strong></div><span>${k.cleared} cleared</span></div><div class="keep-health"><span>Class crystal <b>${k.crystal}/300</b></span>${meter(k.crystal,300,'Shared crystal health')}</div><div class="keep-health enemy-health"><span>${esc(enemy.name)} <b>${k.enemyHp}/${k.enemyMax}</b></span>${meter(k.enemyHp,k.enemyMax,'Shared enemy health')}</div><p class="adventure-hint">${esc(enemy.intent)}</p><div class="adventure-row"><b>${k.towers.bolt} bolt towers · ${k.towers.ward} ward towers</b><span>${k.lastStand?'Last stands: '+k.lastStand:''}</span></div><p class="keep-outcome" role="status">${esc(k.lastOutcome)}</p>`;}
 export function gameplayHostPanel(room){
  if(!room?.gameplay||room.mode==='sketch')return '';const identity=MODE_IDENTITIES[room.mode];return `<section class="adventure-panel host-adventure" data-gameplay-host="${room.mode}"><div class="adventure-heading"><span class="eyebrow">${esc(identity.verb)}</span><p>${esc(identity.goal)}</p></div>${room.mode==='keep'?keepMarkup(room):`<div class="adventure-row"><span>${room.mode==='fishing'?`${room.players.reduce((n,p)=>n+(p.discoveries||0),0)} species discoveries`:room.mode==='factory'?`${room.players.reduce((n,p)=>n+(p.orders||0),0)} orders shipped`:room.mode==='treasure'?`${fmt(room.players.reduce((n,p)=>n+(p.vault||0),0))} coins protected in vaults`:'Correct answers unlock strategic choices on the game screen.'}</span></div>`}</section>`;
 }
-export function chestChoiceMarkup(room){
+export function chestChoiceMarkup(room,{compact=false}={}){
  if(!room.gameplay)return [0,1,2].map(i=>`<button data-act="chest" data-index="${i}" aria-label="Open chest ${i+1}"><span aria-hidden="true">◆</span>Chest ${i+1}</button>`).join('');
- return CHEST_ROUTES.map((route,i)=>`<button class="route-chest" data-act="chest" data-index="${i}"><span class="chest-risk">${route.risk}</span><strong>${route.name}</strong><small>${route.hint}</small></button>`).join('');
+ const hints=['18–28 coins · banks your haul','24–42 coins · exploration bonus','A raid, jackpot, or storm'];
+ return CHEST_ROUTES.map((route,i)=>`<button class="route-chest" data-act="chest" data-index="${i}"><span class="chest-risk">${route.risk}</span><strong>${route.name}</strong><small>${compact?hints[i]:route.hint}</small></button>`).join('');
 }
 export function nextGameplayLabel(room){const play=room?.me?.play;if(play&&room.mode==='keep')return 'Save supplies & next →';if(play&&room.mode==='factory')return 'Keep producing & next →';if(play&&room.mode==='battle')return 'Strike & next question →';return 'Next question →';}

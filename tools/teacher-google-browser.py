@@ -32,7 +32,7 @@ def newpage(browser,body=HOME,role='home',sdk=True,error=None):
     css=(ROOT/'public/styles.css').read_text()+'\n'+re.sub(r'@import[^;]+;','',(ROOT/'public/platform.css').read_text())+'\n'+(ROOT/'public/google-teacher.css').read_text()
     page.set_content('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body></body></html>')
     if sdk:page.evaluate(SDK)
-    source={name:(ROOT/'public/js'/name).read_text() for name in ['characters.js','shortcuts.js','ui.js','google-signin.js','teacher-google-ui.js']}
+    source={name:(ROOT/'public/js'/name).read_text() for name in ['characters.js','shortcut-settings.js','shortcuts.js','ui.js','google-signin.js','teacher-google-ui.js']}
     page.evaluate(r'''async ({source,body,role,sdk})=>{
       window.fetch=async(path,init)=>{const r=await window.__request(path,JSON.parse(init.body));return new Response(JSON.stringify(r.body),{status:r.status,headers:{'content-type':'application/json'}})};
       if(!sdk){const append=document.head.append.bind(document.head);document.head.append=(...nodes)=>{for(const node of nodes){if(node.tagName==='SCRIPT'&&node.src==='https://accounts.google.com/gsi/client')queueMicrotask(()=>node.dispatchEvent(new Event('error')));else append(node);}};}

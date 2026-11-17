@@ -1,7 +1,9 @@
 import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository} from './library-domain.js';
-import {correctAnswers,validateList} from '../public/js/list-model.js';
+import {correctAnswers,validateList,CARD_CATEGORIES} from '../public/js/list-model.js';
 import {SKINS} from '../public/js/catalog.js';
 import {DEFAULT_ZONE,zone,localDay,weekStart,addDays,dateTimeInZone,gradeTyped,practiceRules,progressSummary,raffleEntries,weightedWinner,rankedParticipants} from './academy-model.js';
+import {StudyRewards,rewardPolicy} from './study-rewards.js';
+import {publicWordQuestion,guessWordLetter} from './word-games.js';
 import {startGoogleLogin,finishGoogleLogin} from './google-login.js';
 import {drawShuffledCard} from '../public/js/card-order.js';
 const HOUR=3600000,DAY=24*HOUR;
@@ -54,8 +56,9 @@ export class AcademyService {
  }
  async home(user){
   const classes=user.role==='teacher'?(await this.rows('class-owner:'+user.id+':')).filter(c=>!c.archived):await Promise.all((await this.rows('enrollment:'+user.id+':')).filter(m=>m.active).map(async m=>{const c=await this.store.get('class:'+m.classId);return c&&!c.archived?{id:c.id,name:c.name,timezone:c.timezone}:null;})).then(a=>a.filter(Boolean));
-  const result={user,classes,assignments:[],liveGames:[],sharedLists:[],skins:SKINS,now:Date.now()};
+  const result={user,classes,assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,now:Date.now()};
   for(const c of classes){
+   if(user.role==='student'){const course=await this.store.get('class:'+c.id);result.studyRewards.push(await new StudyRewards(this.store).summary(course,user.id,result.now));}
    for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...a,className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,progress:p?progressSummary(p,a.rules):null});}
    const room=await this.store.get('class-live:'+c.id);if(room&&room.expiresAt>result.now&&!['finished','expired'].includes(room.status))result.liveGames.push({...room,className:c.name});
    const shared=await this.rows('shared-index:'+c.id+':');result.sharedLists.push(...shared.map(s=>({...s,className:c.name})));
@@ -69,10 +72,11 @@ export class AcademyService {
   return {a,key,p};
  }
  nextPracticeCard(a,p){const draw=drawShuffledCard(p.cardCycle,a.cards.map((_,i)=>i),p.cardIndex);p.cardIndex=draw.index;p.cardCycle=draw.cycle;}
- viewPractice(a,p){const card=a.cards[p.cardIndex];return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},feedback:p.feedback};}
+ practiceWord(a,p){const card=a.cards[p.cardIndex],answers=correctAnswers(card);return {room:{status:'playing',questions:[{text:card.prompt,answers,correct:answers.map((_,i)=>i),image:card.image,imageAlt:card.imageAlt}]},player:{current:{key:p.questionKey,index:0},feedback:p.feedback,wordPuzzle:p.wordPuzzle?.key===p.questionKey?p.wordPuzzle:{key:p.questionKey,guesses:[],misses:0}}};}
+ viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:publicWordQuestion(word.room,word.player),feedback:p.feedback,clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
  async practiceAction(action,payload,user){
   const {a,key,p}=await this.practice(payload.assignmentId,user),now=Date.now();
-  if(action==='practice-open'){p.lease=uid();p.lastBeat=now;p.lastAnswer=now;await this.store.put(key,p);return this.viewPractice(a,p);}
+  if(action==='practice-open'){p.lease=uid();p.lastBeat=now;p.lastAnswer=now;p.focusActive=false;p.focusVersion=0;await this.store.put(key,p);return this.viewPractice(a,p);}
   ensure(payload.lease&&payload.lease===p.lease,'Practice was opened in another tab. Reopen it here to continue.',409);
   if(action==='practice-status')return this.viewPractice(a,p);
   if(action==='practice-submit'){
@@ -80,10 +84,20 @@ export class AcademyService {
    p.submittedAt=now;p.late=now>a.dueAt;await this.store.put(key,p);return this.viewPractice(a,p);
   }
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
+  if(action==='practice-letter'){
+   ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);
+   const word=this.practiceWord(a,p);guessWordLetter(word.room,word.player,p.questionKey,payload.letter);p.wordPuzzle=word.player.wordPuzzle;await this.store.put(key,p);return this.viewPractice(a,p);
+  }
   if(action==='practice-tick'){
    // Never trust a client-supplied duration. Only count bounded, connected, active intervals.
-   const elapsed=now-p.lastBeat;if(payload.active===true&&elapsed>=0&&elapsed<=25000&&now-p.lastAnswer<=120000)p.activeMs+=Math.min(elapsed,15000);
-   p.lastBeat=now;p.updatedAt=now;await this.store.put(key,p);return {progress:progressSummary(p,a.rules)};
+   if(Number.isInteger(payload.focusVersion)&&payload.focusVersion<(p.focusVersion||0))return {progress:progressSummary(p,a.rules),clock:{milliseconds:p.activeMs,eligible:!!p.focusActive}};
+   const sameFocus=payload.focusVersion===undefined||payload.focusVersion===(p.focusVersion||0);
+   const elapsed=now-p.lastBeat,focusEligible=sameFocus&&(payload.focused===undefined||(payload.focused===true&&p.focusActive===true));
+   const closing=payload.closing===true&&p.focusActive===true&&payload.active===false&&(sameFocus||payload.focusVersion===(p.focusVersion||0)+1);
+   const clientBound=Number.isFinite(payload.elapsedMs)?Math.max(0,payload.elapsedMs):15000;
+   if((payload.active===true&&focusEligible||closing)&&elapsed>=0&&elapsed<=25000&&now-p.lastAnswer<=120000)p.activeMs+=Math.min(elapsed,15000,clientBound);
+   p.focusActive=payload.focused===true&&payload.active===true&&now-p.lastAnswer<=120000;if(Number.isInteger(payload.focusVersion))p.focusVersion=payload.focusVersion;
+   p.lastBeat=now;p.updatedAt=now;await this.store.put(key,p);return {progress:progressSummary(p,a.rules),clock:{milliseconds:p.activeMs,eligible:!!p.focusActive}};
   }
   if(action==='practice-next'){ensure(p.feedback,'Answer the current prompt first.',409);this.nextPracticeCard(a,p);p.feedback=null;p.questionKey=uid();await this.store.put(key,p);return this.viewPractice(a,p);}
   ensure(action==='practice-answer','Unknown practice action.');const mutationId=id(payload.mutationId);
@@ -146,10 +160,25 @@ export class AcademyService {
    return response({assignment:publicAssignment(a),students:members.filter(m=>!m.erased).map(m=>({...m,progress:progressSummary(map.get(m.userId)||{},a.rules)})),cards});
   }
   if(action==='solo-open'){
-   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'This list is not shared with your class.',404);return response({deck,progress:await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]}});
+   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'This list is not shared with your class.',404);
+   const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose Grammar, Vocabulary, Culture, or All categories.');
+   const categories=Object.fromEntries(['all',...CARD_CATEGORIES].map(c=>[c,c==='all'?deck.cards.length:deck.cards.filter(card=>card.category===c).length]));
+   return response({deck:{...deck,cards:deck.cards.filter(card=>category==='all'||card.category===category)},category,categories,progress:await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]}});
+  }
+  if(action==='solo-answer'){
+   ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card,'This card is not in the shared list.',404);const key=`solo:${user.id}:${p.classId}:${p.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]},mutationId=id(p.mutationId),answer=String(p.answer??'').trim();ensure(answer&&answer.length<=300,'Type an answer of 1–300 characters.');
+   const receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);if(receipt){ensure(receipt.cardId===card.id&&receipt.answer===answer,'That answer identifier was already used.',409);return response({feedback:receipt.feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});}
+   ensure(Date.now()-(progress.lastTyped?.at||0)>=500,'Take a moment before checking another answer.',429);
+   const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
+  }
+  if(action==='study-rewards'||action==='study-rewards-settings'||action==='study-rewards-claim'){
+   this.teacher(user);const course=await this.course(p.classId,user,true),rewards=new StudyRewards(this.store);
+   if(action==='study-rewards-settings'){course.studyRewards=rewardPolicy(p);await this.store.put({['class:'+course.id]:course,['class-owner:'+user.id+':'+course.id]:course});return response({ok:true,policy:course.studyRewards});}
+   if(action==='study-rewards-claim'){const member=await this.enrollment(id(p.userId),course.id);ensure(member?.active,'Student is not in this class.',403);const receipt=await rewards.claim(course,member.userId,id(p.awardId),id(p.requestId),user.id);return response({ok:true,receipt});}
+   const members=(await this.rows('member:'+course.id+':',201)).filter(m=>m.active&&!m.erased);return response({class:course,students:await Promise.all(members.map(async m=>({userId:m.userId,name:m.name,email:m.email,...await rewards.summary(course,m.userId)})))});
   }
   if(action==='solo-save'){
-   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const progress={index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
+   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
   }
   if(action==='buy-skin'||action==='equip-skin'){
    const skin=SKINS.find(s=>s.id===p.skinId);ensure(skin,'Unknown character skin.');const profile=await this.profile(user.id);

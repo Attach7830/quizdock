@@ -2,6 +2,8 @@ import {startTeacherGoogleLogin, readTeacherGoogleAttempt, finishTeacherGoogleLo
 import {verifyGoogleCredential} from './google-auth.js';
 import {DataTools,flushPrivacyJobs,runRetentionPolicies} from './data-tools.js';
 import {RELEASE} from './release.js';
+import {StudyRewards} from './study-rewards.js';
+import {compileQuestions,CARD_CATEGORIES} from '../public/js/list-model.js';
 import {AcademyService} from './academy-domain.js';
 import {RoundRepository} from './round-repository.js';
 import {DurableObject} from 'cloudflare:workers';
@@ -65,6 +67,13 @@ export class TeacherLibrary extends DurableObject {
       return json(result);
     }
     if(action.startsWith('academy:'))return new AcademyService(this.store,this.config).route(action.slice(8),p,token,ip,googleIdentity);
+    if(action==='solo-game-source'){
+      const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);ensure(user.role==='student','Use a student account for solo games.',403);const course=await svc.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${p.listId}`);ensure(deck,'This list is not shared with your class.',404);ensure(['treasure','fishing','battle','factory','rally','keep','word'].includes(p.mode),'Choose a solo-compatible game.');const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose a valid category.');const cards=deck.cards.filter(c=>category==='all'||c.category===category);ensure(cards.length,'No cards in this category.');await svc.rate('solo-game:'+user.id,30);return json({title:deck.title,questions:compileQuestions({title:deck.title,cards},{typedOnly:p.mode==='word'}),solo:{accountId:user.id,classId:course.id,listId:deck.listId,ownerId:course.ownerId},identity:{accountId:user.id,name:user.name,email:user.email,skin:user.skin}});
+    }
+    if(action==='record-solo-round'){
+      const svc=new AcademyService(this.store,this.config),s=p.solo,r=p.report;ensure(s&&r&&typeof r.id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(r.id),'Invalid solo report.');const course=await this.store.get('class:'+s.classId),profile=await svc.profile(s.accountId),member=await svc.enrollment(s.accountId,s.classId);const erased=await this.store.get(`data:erased-account:${s.accountId}`),erasedMember=await this.store.get(`data:erased-member:${s.classId}:${s.accountId}`);if(!course||course.archived||course.ownerId!==s.ownerId||!member?.active||!profile||profile.disabled||r.startedAt<(profile.createdAt||0)||r.startedAt<=(erased?.at||0)||r.startedAt<=(erasedMember?.at||0))return json({skipped:true});
+      const key=`study-game:${s.classId}:${s.accountId}:${r.id}`,prior=await this.store.get(key),total=r.mode==='word'?r.cards.reduce((n,c)=>n+c.typedAttempts,0):0;ensure(Number.isSafeInteger(total)&&total>=0&&total<=10000,'Invalid solo typed count.');if(!prior||total>prior.total){await new StudyRewards(this.store).credit(course,s.accountId,total-(prior?.total||0));await this.store.put(key,{classId:s.classId,userId:s.accountId,total,updatedAt:Date.now()});}return json({ok:true});
+    }
     if(action==='authorize-class-game'){
       const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);svc.teacher(user);
       if(p.classId)await svc.course(p.classId,user,true);
@@ -84,7 +93,7 @@ export class TeacherLibrary extends DurableObject {
       ensure(/^[a-f0-9]{64}$/.test(p.owner)&&/^\d{6}$/.test(p.pin),'Invalid room identity.',400);
       if(p.classId){const c=await this.store.get('class:'+p.classId);ensure(c&&c.ownerId===p.owner,'Invalid class owner.',403);
         const prior=await this.store.get('class-live:'+c.id);
-        if(!prior||prior.pin===p.pin||p.createdAt>=prior.createdAt)await this.store.put('class-live:'+c.id,{pin:p.pin,mode:p.mode,status:p.status,title:p.title,roundNumber:p.roundNumber||0,allowLate:p.allowLate,createdAt:p.createdAt,expiresAt:p.expiresAt});
+        if(!p.solo&&(!prior||prior.pin===p.pin||p.createdAt>=prior.createdAt))await this.store.put('class-live:'+c.id,{pin:p.pin,mode:p.mode,status:p.status,title:p.title,roundNumber:p.roundNumber||0,allowLate:p.allowLate,createdAt:p.createdAt,expiresAt:p.expiresAt});
       }
       await this.store.put(`active-room:${p.owner}:${p.pin}`,{pin:p.pin,classId:p.classId||null,owner:p.owner,accountIds:p.accountIds||[],createdAt:p.createdAt,expiresAt:p.expiresAt});
       return json({ok:true});

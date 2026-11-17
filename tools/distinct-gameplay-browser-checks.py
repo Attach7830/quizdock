@@ -41,17 +41,17 @@ def run():
    start(mode);check(s.locator('.answer').count()==4 and not s.locator('.word-keyboard').count(),mode+' retains four multiple-choice question buttons');answer(s)
    check(s.locator(f'[data-gameplay="{mode}"]').count()==1,mode+' presents its own strategic game state')
    if mode=='fishing':
-    check(s.locator('.collection-fish.discovered').count()==1,'a catch discovers a named species');choose(s,'deep');check('Deep water' in s.locator('.gameplay-receipt').inner_text(),'water selection is accepted by the server');advance(s);answer(s);check(s.locator('.catch-reveal h3').inner_text() in ['Blue Grouper','Steel Marlin','Abyss Ray','Leviathan Koi'],'next fish comes from the selected deep-water species')
+    check(s.locator('.adventure-row b').inner_text().startswith('1/'),'a catch discovers a named species');choose(s,'deep');check('Deep water' in s.locator('.gameplay-receipt').inner_text(),'water selection is accepted by the server');advance(s);answer(s);check(s.locator('.catch-reveal h3').inner_text() in ['Blue Grouper','Steel Marlin','Abyss Ray','Leviathan Koi'],'next fish comes from the selected deep-water species')
    if mode=='battle':
     choose(s,'charge');check('1/3 charges' in s.locator('.gameplay-receipt').inner_text(),'battle stores a real charge');advance(s);answer(s);choose(s,'strike');check('Charged strike' in s.locator('.gameplay-receipt').inner_text(),'charged strike is a distinct server-resolved attack')
    if mode=='factory':
     for _ in range(2):advance(s);answer(s)
-    capital=s.locator('.factory-capital b').last.inner_text();choose(s,'build-cells');check(s.locator('.factory-capital b').last.inner_text()==capital,'station purchase preserves net worth while converting cash into assets');advance(s);answer(s);check('1 cells' in s.locator('.production-chain').inner_text(),'new cell lab actually produces inventory');choose(s,'ship');check('Order shipped!' in s.locator('.gameplay-receipt').inner_text(),'fulfilling an order consumes inventory and pays the promised amount')
+    capital=s.locator('.hud-score').inner_text();choose(s,'build-cells');check(s.locator('.hud-score').inner_text()==capital,'station purchase preserves net worth while converting cash into assets');advance(s);answer(s);check('1 cells' in s.locator('.production-chain').inner_text(),'new cell lab actually produces inventory');choose(s,'ship');check('Order shipped!' in s.locator('.gameplay-receipt').inner_text(),'fulfilling an order consumes inventory and pays the promised amount')
    if mode=='rally':
     check(s.locator('.selected-plane').is_visible(),'rally retains the chosen aircraft in its UI');choose(s,'glide');advance(s);answer(s);choose(s,'dive');advance(s);answer(s);check('Boost dive!' in s.locator('.result-reward').inner_text(),'stored boost drives a later racing leg')
    if mode=='keep':
     for _ in range(2):advance(s);answer(s)
-    choose(s,'tower');check('1 bolt towers' in s.locator('[data-gameplay=keep]').inner_text(),'building a tower changes the shared team defense');check(t.locator('[data-gameplay-host=keep]').count()==1,'teacher sees shared crystal, enemy and wave progress')
+    choose(s,'tower');s.locator('[data-act=game-menu]').click();s.locator('#dialog [data-act=game-details]').click();s.wait_for_selector('.game-reader[open]');check('1 bolt towers' in s.locator('.reader-pages').inner_text(),'building a tower changes the shared defense shown in the full field guide');s.keyboard.press('Escape');check(t.locator('[data-gameplay-host=keep]').count()==1,'teacher sees shared crystal, enemy and wave progress')
    check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),mode+' strategic controls fit phone width');s.screenshot(path=str(ROOT/f'checks/strategy-{mode}.png'),full_page=True)
   start('word');check(s.locator('.answer').count()==0 and s.locator('.word-keyboard button').count()>26,'Word Forge replaces four choices with letter clues and a typed answer')
   typed=expected(s);s.locator('#live-word-answer').fill(typed[:2]);other.locator('[data-act=word-letter]').first.click();s.wait_for_timeout(160);check(s.locator('#live-word-answer').input_value()==typed[:2],'peer updates preserve a partially typed word')
@@ -73,7 +73,7 @@ def run():
   guesser.wait_for_timeout(950);guesser.locator('#sketch-guess-input').fill(word);guesser.locator('#sketch-guess-input').press('Enter');guesser.wait_for_selector('[data-artist-word]:visible');check('decoded' in guesser.locator('.sketch-feedback').inner_text(),'correct word guesses score and reveal the completed word')
   guesser.screenshot(path=str(ROOT/'checks/sketch-relay-solved-phone.png'),full_page=True)
   t.locator('[data-sketch-action=sketch-next]').click();artist.wait_for_selector('.sketch-guess-form:not([hidden])');check(not artist.locator('.drawing-tools').is_visible() and guesser.locator('.drawing-tools').is_visible(),'the brush rotates to the next student')
-  check(artist.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'shared drawing and letter clues preserve phone scrolling without horizontal overflow')
+  check(artist.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'shared drawing and letter clues fit the phone viewport without horizontal overflow')
   guesser.screenshot(path=str(ROOT/'checks/sketch-relay-artist-phone.png'),full_page=True)
   check(not errors,'all eight game experiences have no browser JavaScript errors');browser.close()
  print(json.dumps({'checks':len(RESULTS),'passed':sum(r['passed'] for r in RESULTS)},indent=2))

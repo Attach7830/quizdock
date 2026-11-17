@@ -1,13 +1,13 @@
 {
   "name": "quizdock-classroom-arcade",
-  "version": "0.7.1-classroom-beta",
+  "version": "0.8.0-classroom-beta",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy",
     "test": "node --import ./test/register.mjs --test test/*.test.js",
-    "check": "node tools/check-syntax.mjs",
+    "check": "node tools/check-syntax.mjs && node tools/check-sensitive.mjs",
     "test:browser": "python tools/run-browser-tests.py",
     "health": "node tools/healthcheck.mjs",
     "verify": "npm run check && npm test"

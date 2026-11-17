@@ -1,22 +1,32 @@
 # QuizDock · classroom beta
 
-An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, class-linked student accounts, typed practice, and ungraded solo flashcards.
+An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, seven private solo games, typed assignments, independent practice, and class-linked student accounts.
 
-## Release 0.7.1
+## Release 0.8.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This update accepts individual semicolon-separated meanings in typed answers, shuffles card passes in every study/game format, and adds keyboard navigation with a Keys guide. Graded work has its own top-level Assignments tab. New verified Servite Google Workspace students can sign in before enrollment, then enter a class code; their Google name fills the roster. Existing accounts, grading history, class access checks and drafts are retained. See `docs/PRACTICE_NAVIGATION_RELEASE.md`.
+This release fits student live games into the available viewport, including questions, roles, rewards, strategy choices, pause and finished states. Long teacher-authored questions and answers have an explicit paginated reading view. The compact menu holds stats, volume and animation settings. Teacher pages, assignments and ordinary solo study retain normal document scrolling.
+
+The Keys guide supports editable hotkeys with collision checks and Restore defaults. Shortcuts work in flashcards, independent typing and assignments; they pause while typing except for an explicitly assigned modified Check shortcut. Practice time requires focused, active intervals, with blur/focus boundaries checked by server heartbeats.
+
+CSV/TSV imports and JSON cards accept an optional Category (`Grammar`, `Vocabulary`, `Culture`). The editor and exports preserve it. Category filters apply to independent study and solo games; assignments always keep their full snapshot. Existing uncategorized cards remain available under All categories.
+
+Students can launch seven existing games privately from a shared list. Sketch Relay requires classmates. Solo Word Forge is also an assignment presentation: final typed answers use the same grading, full card set, time and submission requirements. Letter clues do not count as answers.
+
+Extra independent typed answers, including private solo Word Forge, earn Jolly Ranchers. Flip flashcards, multiple choice and homework never earn candy. Default: 100 completed typed questions per reward, with a teacher-editable threshold. Each reward expires exactly 30 days after earning; unspent points reset after December 18, 2026 in the class timezone. Teachers can set the next semester date and mark individual claims. Retries cannot duplicate earnings or claims. Balances, claims and expiry records are included in account exports, private backups and scoped erasure. See `docs/STUDY_RELEASE_2026_11_17.md`.
+
+Release 0.7.1 accepts individual semicolon-separated meanings in typed answers, shuffles card passes in every study/game format, and adds keyboard navigation with a Keys guide. Graded work has its own top-level Assignments tab. New verified Servite Google Workspace students can sign in before enrollment, then enter a class code; their Google name fills the roster. Existing accounts, grading history, class access checks and drafts are retained. See `docs/PRACTICE_NAVIGATION_RELEASE.md`.
 
 Release 0.7.0 gave the original six modes distinct strategy and adds Word Forge spelling puzzles plus Sketch Relay, where one student draws privately assigned vocabulary while classmates guess with letter clues. Those six modes retain multiple choice; the two vocabulary modes use their own layouts. New round state preserves existing live rooms, grades and account records. See `docs/DISTINCT_MODE_GAMEPLAY.md`.
 
 The primary domain is `https://srtw.win`; its custom-domain binding is deployed with the existing Worker. The sender is `QuizDock <no-reply@srtw.win>` through the existing Resend connection. Provider verification and Google-origin setup were confirmed by the owner; deployment and delivery checks are separate. See `docs/SRTW_DOMAIN.md`.
 
-Previous updates added large, one-shot event announcements with actual rewards, bigger game animations, five new original purchasable characters and upgraded art for the existing eight. On mobile, four answer tiles occupy the lower two-thirds of the viewport when the prompt fits, including fullscreen; longer content stays scrollable. See `docs/EVENTS_CHARACTERS_MOBILE.md`.
+Previous updates added large, one-shot event announcements with actual rewards, bigger game animations, five new original purchasable characters and upgraded art for the existing eight. That release used a lower-two-thirds mobile grid; release 0.8.0 replaces it with a grid that fits the remaining viewport, including fullscreen. See `docs/EVENTS_CHARACTERS_MOBILE.md`.
 
 Previous updates separate large answer tiles from animated game-result screens, give each Sky Rally role its own aircraft, add typed solo flashcard practice, and replace the short music loops with original 16-bar RPG chip themes. Google student and authorized teacher sign-in, shareable self-enrollment links, shuffled solo passes and all 18 arcade events remain. See `docs/PLAYER_EXPERIENCE.md`. Configure `GOOGLE_CLIENT_ID` before releasing; see `docs/GOOGLE_SIGN_IN.md` and `docs/ARCADE_GOOGLE_RELEASE.md`.
 
-The release integrates the prepared classroom beta with the newer mobile natural-scrolling behavior. Small screens do not force long questions into a fixed-height panel. Animation scenes use a contained canvas; students can hide the scene and open Stats separately.
+Live student scenes use a contained canvas and keep the next action visible. Optional rules and long content use accessible reading pages. Other student and teacher pages keep their document scrolling.
 
 ## Runtime configuration
 
@@ -42,7 +52,7 @@ Existing values continue to be used. New teachers do not gain access merely by t
 
 Typed assignments are distinct from ungraded flashcards. Teachers can require answer attempts or distinct cards; all accepted attempts affect accuracy. Active time is a bounded activity estimate, not proof of attention. Checked answers save on the server. Unsubmitted text drafts are local to the browser tab.
 
-Game score, persistent reward points, and raffle tickets are different quantities. Skins are cosmetic. Replays preserve the PIN and player identity, reset round scores, and archive a separate report. A score-based game still has the teacher’s chosen safety timeout.
+Game score, persistent character currency, Jolly Rancher study points, and raffle tickets are different quantities. Private solo games do not enter class raffles or award character currency. Skins are cosmetic. Replays preserve the PIN and player identity, reset round scores, and archive a separate report. A score-based game still has the teacher’s chosen safety timeout.
 
 ## Validation and operations
 

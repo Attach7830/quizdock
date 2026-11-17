@@ -4,6 +4,11 @@ export function checkSoloAnswer(solo,value){
  const answer=String(value??'').trim();if(!answer||answer.length>300)throw new Error('Type an answer of 1–300 characters.');
  const card=solo.deck.cards[solo.progress.index],checked=solo.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card;
  const result={...gradeTyped(checked,answer,{strictAccents:solo.strictAccents}),answer};
+ return applySoloFeedback(solo,result);
+}
+export function applySoloFeedback(solo,result){
+ if(solo.typedFeedback)return solo.typedFeedback;
+ const card=solo.deck.cards[solo.progress.index];
  solo.typedFeedback=result;solo.typedStats.answered++;if(result.correct)solo.typedStats.correct++;
  // This is only the existing self-study confidence record, never an assignment.
  solo.progress.known=solo.progress.known.filter(id=>id!==card.id);solo.progress.again=solo.progress.again.filter(id=>id!==card.id);

@@ -29,7 +29,7 @@ export function shuffle(list) {
 export function cleanText(value, limit = 500) {
   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, limit);
 }
-export function validateQuestions(input) {
+export function validateQuestions(input,{typedOnly=false}={}) {
   if (!Array.isArray(input) || input.length < MIN_QUESTIONS || input.length > MAX_QUESTIONS) {
     throw new Error(`Import between ${MIN_QUESTIONS} and ${MAX_QUESTIONS} questions.`);
   }
@@ -37,7 +37,7 @@ export function validateQuestions(input) {
     const text = cleanText(raw?.text, 400);
     const answers = Array.isArray(raw?.answers) ? raw.answers.map(a => cleanText(a, 180)) : [];
     const correct = Array.isArray(raw?.correct) ? raw.correct : [raw?.correct];
-    if (!text || answers.length < 2 || answers.length > 4 || answers.some(a => !a)) {
+    if (!text || answers.length < (typedOnly?1:2) || answers.length > (typedOnly?6:4) || answers.some(a => !a)) {
       throw new Error(`Question ${i + 1} must have a prompt and 2–4 nonempty answer options.`);
     }
     if (new Set(answers.map(a => a.toLocaleLowerCase())).size !== answers.length) {

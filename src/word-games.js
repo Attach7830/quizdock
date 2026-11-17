@@ -7,23 +7,24 @@ export const DRAW_SIZES=[3,6,12,24];
 export const MAX_DRAW_POINTS=4000,MAX_DRAW_STROKES=300;
 const letters=s=>[...String(s).normalize('NFC')];
 const alphabetic=c=>/^\p{L}$/u.test(c);
-export function wordCardIndices(questions){return questions.map((q,i)=>({i,word:q.answers[q.correct[0]]})).filter(x=>letters(x.word).length<=40&&letters(x.word).some(alphabetic)).map(x=>x.i);}
+const clueWord=q=>String(q.answers[q.correct[0]]).split(';').map(s=>s.trim()).find(Boolean)||q.answers[q.correct[0]];
+export function wordCardIndices(questions){return questions.map((q,i)=>({i,word:clueWord(q)})).filter(x=>letters(x.word).length<=40&&letters(x.word).some(alphabetic)).map(x=>x.i);}
 export function validateWordDeck(questions){const indices=wordCardIndices(questions);if(!indices.length)throw new Error('Word games need an answer of at most 40 characters containing letters.');return indices;}
 export function prepareWordQuestion(room,p){const draw=drawShuffledCard(p.wordCycle,validateWordDeck(room.questions),p.current?.index);p.wordCycle=draw.cycle;delete p.wordOrder;p.current={index:draw.index,key:randomId(6),order:[]};p.wordPuzzle={key:p.current.key,guesses:[],misses:0};}
 function answerCard(q){return {type:'pair',answer:q.answers[q.correct[0]],alternatives:q.correct.slice(1).map(i=>q.answers[i])};}
 export function gradeWord(q,raw){if(typeof raw!=='string'||!raw.trim()||raw.length>180)throw new Error('Type a word of 1–180 characters.');return gradeTyped(answerCard(q),raw,{strictAccents:true});}
 function masked(word,shown){return letters(word).map((c,i)=>({value:!alphabetic(c)||shown.has(i)?c:'',letter:alphabetic(c)}));}
-export function publicWordQuestion(room,p){if(!p.current)return null;const q=room.questions[p.current.index],word=q.answers[q.correct[0]],puzzle=p.wordPuzzle||{guesses:[],misses:0},shown=new Set(letters(word).map((c,i)=>puzzle.guesses.includes(c.toLocaleLowerCase('es'))?i:-1));return {key:p.current.key,text:q.text,number:p.current.index+1,input:'word',slots:masked(word,shown),guesses:puzzle.guesses,misses:puzzle.misses,hintsUsed:puzzle.guesses.length,...(q.image?{image:q.image,imageAlt:q.imageAlt}:{})};}
+export function publicWordQuestion(room,p){if(!p.current)return null;const q=room.questions[p.current.index],word=clueWord(q),puzzle=p.wordPuzzle||{guesses:[],misses:0},shown=new Set(letters(word).map((c,i)=>puzzle.guesses.includes(c.toLocaleLowerCase('es'))?i:-1));return {key:p.current.key,text:q.text,number:p.current.index+1,input:'word',slots:masked(word,shown),guesses:puzzle.guesses,misses:puzzle.misses,hintsUsed:puzzle.guesses.length,...(q.image?{image:q.image,imageAlt:q.imageAlt}:{})};}
 export function guessWordLetter(room,p,key,letter){
  if(room.status!=='playing'||p.feedback||p.current?.key!==key)throw new Error('This word is no longer active.');
  if(typeof letter!=='string'||letters(letter).length!==1||!alphabetic(letter))throw new Error('Choose one letter.');
  const puzzle=p.wordPuzzle;if(!puzzle||puzzle.key!==key)throw new Error('This word is no longer active.');letter=letter.normalize('NFC').toLocaleLowerCase('es');
  if(puzzle.guesses.includes(letter))return false;if(puzzle.misses>=6)throw new Error('Ink is empty. Type your final word guess.');
- puzzle.guesses.push(letter);const word=room.questions[p.current.index].answers[room.questions[p.current.index].correct[0]].toLocaleLowerCase('es');if(!word.includes(letter))puzzle.misses++;return true;
+ puzzle.guesses.push(letter);const word=clueWord(room.questions[p.current.index]).toLocaleLowerCase('es');if(!word.includes(letter))puzzle.misses++;return true;
 }
 function candidates(room,online){const ids=new Set(online);return Object.values(room.players).filter(p=>!p.deleted&&ids.has(p.id)).sort((a,b)=>a.joinedAt-b.joinedAt||a.id.localeCompare(b.id));}
 export function startSketchWord(room,online,now=Date.now()){
- const turn=(room.sketch?.turn||0)+1,pool=candidates(room,online),artist=pool.length?pool[(turn-1)%pool.length]:null,draw=drawShuffledCard(room.sketchCycle,validateWordDeck(room.questions),room.sketch?.cardIndex),index=draw.index,word=room.questions[index].answers[room.questions[index].correct[0]];
+ const turn=(room.sketch?.turn||0)+1,pool=candidates(room,online),artist=pool.length?pool[(turn-1)%pool.length]:null,draw=drawShuffledCard(room.sketchCycle,validateWordDeck(room.questions),room.sketch?.cardIndex),index=draw.index,word=clueWord(room.questions[index]);
  room.sketchCycle=draw.cycle;
  room.sketch={id:randomId(8),turn,cardIndex:index,word,artistId:artist?.id||null,artists:artist?[artist.id]:[],phase:'drawing',startedAt:now,endsAt:now+60000,nextHintAt:now+15000,revealOrder:shuffle(letters(word).map((c,i)=>alphabetic(c)?i:-1).filter(i=>i>=0)),revealed:[],guessed:[],strokes:[],revision:0,clearEpoch:0,points:0,lastStrokeAt:0,offlineAt:null,reason:''};
  for(const p of Object.values(room.players)){p.feedback=null;p.pendingPlay=null;p.sketchReceipt=null;}
