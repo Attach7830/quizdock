@@ -110,7 +110,7 @@ def run():
     s.screenshot(path=str(ROOT/'checks/flashcards-phone.png'),full_page=True)
     s.locator('[data-act=back-home]').click();s.wait_for_selector('[data-act=tab]');s.locator('[role=tab][data-act=tab][data-tab=wardrobe]').click()
     s.locator('[data-act=skin][data-id=solar]').click();s.wait_for_timeout(200)
-    check('100 reward points' in s.locator('body').inner_text(),'server purchase deducts points')
+    check('100 character points' in s.locator('body').inner_text(),'server purchase deducts points')
     overflow(s,'shop phone')
     s.screenshot(path=str(ROOT/'checks/skins-phone.png'),full_page=True)
     t=page_for(b,'academy-ui.js','teacher',(1440,900));t.wait_for_selector('[data-act=host]')
