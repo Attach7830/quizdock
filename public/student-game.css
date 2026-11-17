@@ -342,6 +342,8 @@ body.game-body .phase-shell .selected-plane{display:flex;line-height:1.1}
 body.game-body .phase-shell #scene-slot.result-scene-slot{min-height:42px}
 @media(max-height:520px) and (max-width:539px){
  body.game-body .phase-shell .result-screen{gap:4px}
+ body.game-body .phase-shell .result-screen .answer-feedback{padding:5px 8px}
+ body.game-body .phase-shell .compact-adventure .gameplay-choices{margin-top:5px}
  body.game-body .phase-shell .wind-forecast{padding:4px 6px}
  body.game-body .phase-shell .wind-forecast>span{font-size:22px;line-height:1}
  body.game-body .phase-shell .wind-forecast>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
