@@ -7,3 +7,10 @@ __pycache__/
 *.pyc
 *.pem
 .DS_Store
+# Private account, grading and recovery downloads
+QuizDock-backup-*.json
+QuizDock-my-data.json
+QuizDock-practice-results.csv
+QuizDock-round-*.json
+QuizDock-round-*.csv
+QuizDock-*-round-*.csv

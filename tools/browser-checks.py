@@ -66,7 +66,7 @@ def page_for(browser,entry,role='student',size=(390,844),session=None):
     page.on('pageerror',lambda e:page.errors.append(str(e)))
     page.route('**/__test/image.svg',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300"><rect width="600" height="300" fill="#dde8eb"/><path d="M170 150L300 45L430 150V275H170Z" fill="#c79b74"/></svg>'))
     page.expose_function('__request',lambda path,data,internal: http(path,data,COOKIES[role]))
-    css=(ROOT/'public/styles.css').read_text()+'\n'+re.sub(r'@import[^;]+;','',(ROOT/'public/platform.css').read_text())
+    css=(ROOT/'public/styles.css').read_text()+'\n'+re.sub(r'@import[^;]+;','',(ROOT/'public/platform.css').read_text())+'\n'+(ROOT/'public/student-game.css').read_text()
     page.set_content('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>'+css+'</style></head><body><div id="app"></div><div id="notice" class="notice" role="status" hidden></div><dialog id="dialog"></dialog></body></html>')
     page.evaluate(PRELUDE,{'source':sources(entry),'entry':entry,'session':session})
     page.wait_for_timeout(400)
@@ -138,11 +138,11 @@ def run():
     g.emulate_media(reduced_motion='no-preference');g.wait_for_timeout(80)
     before=g.locator('canvas').evaluate('(c)=>c.toDataURL()');g.wait_for_timeout(120);after=g.locator('canvas').evaluate('(c)=>c.toDataURL()')
     check(before!=after,'live scene animation changes rendered frames')
-    g.locator('[data-scene=motion]').click();g.wait_for_timeout(50)
+    g.locator('[data-act=game-menu]').click();g.locator('[data-act=scene-motion]').click();g.keyboard.press('Escape');g.wait_for_timeout(50)
     before=g.locator('canvas').evaluate('(c)=>c.toDataURL()');g.wait_for_timeout(120);after=g.locator('canvas').evaluate('(c)=>c.toDataURL()')
     check(before==after,'motion toggle freezes nonessential animation')
-    g.locator('[data-scene=collapse]').click();check(not g.locator('canvas').is_visible(),'hide scene frees mobile space');g.locator('[data-scene=collapse]').click()
-    g.locator('[data-act=stats]').click();check(g.locator('#dialog').is_visible(),'mobile Stats panel accessible');g.keyboard.press('Escape')
+    g.locator('[data-act=game-menu]').click();g.locator('[data-act=scene-collapse]').click();g.keyboard.press('Escape');check(not g.locator('canvas').is_visible(),'hide scene frees mobile space');g.locator('[data-act=game-menu]').click();g.locator('[data-act=scene-collapse]').click();g.keyboard.press('Escape')
+    g.locator('[data-act=game-menu]').click();g.locator('[data-act=stats]').click();check(g.locator('#dialog').is_visible(),'mobile Stats panel accessible');g.keyboard.press('Escape')
     g.wait_for_selector('[data-act=chest]');g.locator('[data-act=chest]').first.click();g.wait_for_selector('[data-act=next]')
     # The first shuffled pass contains all fixtures, including the image and long prompt.
     seen_prompts={initial_prompt}
@@ -170,7 +170,7 @@ def run():
     g.screenshot(path=str(ROOT/'checks/treasure-phone.png'),full_page=True)
     # Actual same-PIN transitions across all six modes.
     for mode in ['fishing','battle','factory','rally','keep','treasure']:
-        if mode=='fishing':g.locator('[data-act=stats]').click()
+        if mode=='fishing':g.locator('[data-act=game-menu]').click();g.locator('[data-act=stats]').click()
         t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');t.locator('#round-mode').select_option(mode);t.locator('[data-act=start]').click()
         g.wait_for_timeout(300)
         title={'treasure':'Treasure Quest','fishing':'Fishing Frenzy','battle':'Battle Arena','factory':'Factory Tycoon','rally':'Sky Rally','keep':'Crystal Keep'}[mode]

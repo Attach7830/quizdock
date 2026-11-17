@@ -1,6 +1,7 @@
 // Dependency-free import, editing and export rules shared by browser and server.
 export const MAX_CARDS = 250;
 export const MAX_LIST_BYTES = 100000;
+export const CARD_CATEGORIES = ['grammar','vocabulary','culture'];
 export const newId = () => crypto.randomUUID();
 const text = value => String(value ?? '').trim().normalize('NFC');
 const norm = value => text(value).toLocaleLowerCase('es').replace(/\s+/g, ' ');
@@ -24,6 +25,8 @@ export function validateCard(raw, {renewId=false}={}) {
   if(!['pair','choice'].includes(type))throw new Error('Card type must be pair or choice.');
   const id=!renewId && /^[a-zA-Z0-9_-]{8,80}$/.test(String(raw.id||''))?String(raw.id):newId();
   const card={id,type,prompt:limitText(raw.prompt,'Prompt',400),image:imageURL(raw.image),imageAlt:limitText(raw.imageAlt||'Question image','Image description',300,false)};
+  const category=text(raw.category).toLowerCase();
+  if(category){if(!CARD_CATEGORIES.includes(category))throw new Error('Category must be Grammar, Vocabulary, or Culture.');card.category=category;}
   if(type==='pair') {
     card.answer=limitText(raw.answer,'Answer',180);
     if(raw.alternatives!=null && !Array.isArray(raw.alternatives))throw new Error('Alternative answers must be an array.');
@@ -47,9 +50,10 @@ export function validateList(raw) {
   return list;
 }
 export const correctAnswers = c => c.type==='pair'?[c.answer,...c.alternatives]:c.correct.map(i=>c.choices[i]);
-export function cardFingerprint(card) {const c=validateCard(card);return JSON.stringify([norm(c.prompt),c.type,correctAnswers(c).map(norm).sort(),c.type==='choice'?c.choices.map(norm):[],c.image,c.imageAlt]);}
-export function compileQuestions(raw) {
+export function cardFingerprint(card) {const c=validateCard(card);return JSON.stringify([norm(c.prompt),c.type,correctAnswers(c).map(norm).sort(),c.type==='choice'?c.choices.map(norm):[],c.image,c.imageAlt,c.category||'']);}
+export function compileQuestions(raw,{typedOnly=false}={}) {
   const list=validateList(raw);if(!list.cards.length)throw new Error('Add cards before starting a game.');
+  if(typedOnly)return list.cards.map(c=>({cardId:c.id,text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i),...(c.image?{image:c.image,imageAlt:c.imageAlt}:{})}));
   const pool=unique(list.cards.flatMap(correctAnswers));
   return list.cards.map((c,i)=>{
     let answers,correct;
@@ -115,12 +119,12 @@ function cardFromRow(row,headers,sourceLine) {
     if(wrong.length)card={type:'choice',prompt,choices:[answer,...wrong],correct:[0]};
     else card={type:'pair',prompt,answer,alternatives:read('Accepted Alternatives','Alternative Answers').split('|').map(text).filter(Boolean)};
   }
-  return validateCard({...card,image,imageAlt},{renewId:true});
+  return validateCard({...card,image,imageAlt,category:read('Category','Question Category')},{renewId:true});
 }
 function adaptJson(raw) {
   if(raw.type==='pair'||raw.type==='choice'||raw.prompt)return validateCard(raw,{renewId:true});
-  if(Array.isArray(raw.answers))return validateCard({type:'choice',prompt:raw.text||raw.question,choices:raw.answers,correct:Array.isArray(raw.correct)?raw.correct:[raw.correct],image:raw.image,imageAlt:raw.imageAlt},{renewId:true});
-  return validateCard({type:'pair',prompt:raw.term||raw.question||raw.front,answer:raw.definition||raw.answer||raw.back,alternatives:raw.alternatives||[],image:raw.image||raw.imageUrl,imageAlt:raw.imageAlt},{renewId:true});
+  if(Array.isArray(raw.answers))return validateCard({type:'choice',category:raw.category,prompt:raw.text||raw.question,choices:raw.answers,correct:Array.isArray(raw.correct)?raw.correct:[raw.correct],image:raw.image,imageAlt:raw.imageAlt},{renewId:true});
+  return validateCard({type:'pair',category:raw.category,prompt:raw.term||raw.question||raw.front,answer:raw.definition||raw.answer||raw.back,alternatives:raw.alternatives||[],image:raw.image||raw.imageUrl,imageAlt:raw.imageAlt},{renewId:true});
 }
 export function parseImport(input,format='auto') {
   const s=String(input||'').replace(/^\uFEFF/,'');
@@ -189,8 +193,8 @@ export function exportList(raw,format='json') {
   const list=validateList(raw);
   if(format==='json')return JSON.stringify({format:'quizdock-list',version:1,...list},null,2);
   if(format!=='csv')throw new Error('Export format must be CSV or JSON.');
-  const header=['Card Type','Question Text','Correct Answer','Accepted Alternatives','Answer 1','Answer 2','Answer 3','Answer 4','Correct Answer(s)','Image URL','Image Alt','QuizDock Safe Text'];
-  const rows=list.cards.map(c=>[c.type,c.prompt,c.type==='pair'?c.answer:'',c.type==='pair'?c.alternatives.join('|'):'',...[0,1,2,3].map(i=>c.type==='choice'?(c.choices[i]||''):''),c.type==='choice'?c.correct.map(i=>i+1).join(','):'',c.image,c.imageAlt,'yes'].map(csvSafe));
+  const header=['Card Type','Question Text','Correct Answer','Accepted Alternatives','Answer 1','Answer 2','Answer 3','Answer 4','Correct Answer(s)','Image URL','Image Alt','Category','QuizDock Safe Text'];
+  const rows=list.cards.map(c=>[c.type,c.prompt,c.type==='pair'?c.answer:'',c.type==='pair'?c.alternatives.join('|'):'',...[0,1,2,3].map(i=>c.type==='choice'?(c.choices[i]||''):''),c.type==='choice'?c.correct.map(i=>i+1).join(','):'',c.image,c.imageAlt,c.category||'','yes'].map(csvSafe));
   return [header,...rows].map(r=>r.map(csvQuote).join(',')).join('\r\n');
 }
 export const escapeHTML = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -1,0 +1,408 @@
+/* Only student live rooms own the viewport. Other pages keep normal scrolling. */
+body.game-body{overflow:hidden;overscroll-behavior:none}
+body.game-body #app{height:min(var(--viewport-height,100dvh),100dvh)}
+body.game-body .phase-shell.game-shell{height:min(var(--viewport-height,100dvh),100dvh)!important;min-height:0;max-width:1440px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;padding:max(4px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(3px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));gap:6px;margin:auto;overflow:hidden}
+body.game-body .phase-shell :where(.live-layout,.game-panel,.game-question,.question-screen,.word-screen,.result-screen,.role-choice,#sketch-slot,.sketch-board){min-height:0;min-width:0}
+body.game-body .phase-shell .game-top{grid-column:auto;padding:0;flex-wrap:nowrap;gap:8px}
+body.game-body .phase-shell .game-top .wordmark{display:grid;place-items:center;flex:none;width:32px;height:32px;background:var(--mint);color:#12283b;border-radius:10px;font-size:22px;font-weight:950}
+body.game-body .phase-shell .game-top>.row{flex-wrap:nowrap;width:auto;gap:5px}
+body.game-body .phase-shell .game-top .btn,body.game-body .phase-shell .keyboard-help-button{min-height:36px;padding:6px 10px;font-size:12px;border-radius:10px}
+body.game-body .phase-shell .game-top [data-act=fullscreen]>span:first-child{font-size:21px;line-height:1}
+body.game-body .phase-shell .game-top .music-controls{margin:0}
+body.game-body .phase-shell .game-top .music-controls label{display:none}
+body.game-body .phase-shell .player-hud{grid-column:auto;flex-wrap:nowrap;gap:8px;padding:0 2px;align-items:center}
+body.game-body .phase-shell .player-hud>div:first-child{flex:1}
+body.game-body .phase-shell .player-hud h1{display:block;font-size:18px;line-height:1.2;max-width:none}
+body.game-body .phase-shell .player-hud p{display:none}
+body.game-body .phase-shell .hud-score{font-size:21px}
+body.game-body .phase-shell .hud-time{font-size:16px}
+body.game-body .phase-shell .selected-plane{margin:1px 0 0;font-size:11px}
+body.game-body .phase-shell .selected-plane svg{width:40px;height:22px}
+body.game-body .phase-shell .player-hud>div:has(.selected-plane)>h1{display:none}
+body.game-body .phase-shell .live-layout{display:flex;height:100%;grid-column:1/-1;padding:0}
+body.game-body .phase-shell .game-panel{flex:1;width:100%;height:100%;min-height:0;padding:clamp(8px,1.5vw,20px);border-radius:20px;overflow:hidden}
+body.game-body .phase-shell .game-question{display:flex;flex-direction:column;flex:1;height:100%;max-height:100%;overflow:hidden;padding:0;scrollbar-gutter:auto}
+body.game-body .phase-shell .game-status{margin:0;text-align:center;min-height:12px;font-size:10px;line-height:12px;color:#b5cadb}
+body.game-body .phase-shell .game-status:empty{display:none}
+body.game-body .phase-shell .eyebrow{font-size:10px;line-height:1.3}
+body.game-body .phase-shell .question-screen{display:flex;flex-direction:column;width:100%;height:100%;max-width:1100px;gap:8px;text-align:center}
+body.game-body .phase-shell .question-screen .phase-heading,body.game-body .phase-shell .word-screen .phase-heading{flex:none;font-size:clamp(20px,3vw,36px);line-height:1.2;margin:0 auto;max-width:50ch;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+body.game-body .phase-shell .question-screen .question-image{flex:0 1 18%;min-height:0;max-width:100%;margin:0;display:flex;justify-content:center}
+body.game-body .phase-shell .question-screen .question-image img{width:auto;max-width:100%;max-height:100%;height:100%;object-fit:contain}
+body.game-body .phase-shell .question-read{flex:none;align-self:center;padding:2px 6px;min-height:24px;font-size:12px;text-decoration:underline;color:#b5ffdf;background:transparent;border:0}
+body.game-body .phase-shell .question-read[hidden]{display:none}
+body.game-body .phase-shell .answer-tiles{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));align-content:stretch;min-height:0;gap:clamp(8px,1.5vw,16px);margin:0}
+body.game-body .phase-shell .answer-tile{height:100%;min-height:0;padding:clamp(10px,2vw,24px);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:clamp(8px,1.4vw,18px);font-size:clamp(18px,2.3vw,32px);line-height:1.25;border-radius:16px;overflow:hidden;box-shadow:none}
+body.game-body .phase-shell .answer-tile b{flex:none;width:30px;height:30px;font-size:14px;border-radius:8px}
+body.game-body .phase-shell .answer-tile span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;min-width:0}
+body.game-body .phase-shell .question-hint{flex:none;min-height:15px;margin:0;font-size:12px;line-height:15px}
+/* Scenes take the space left after feedback and decisions. */
+body.game-body .phase-shell .result-screen{width:100%;height:100%;max-width:none;display:flex;flex-direction:column;gap:8px}
+body.game-body .phase-shell .result-heading{flex:none;gap:10px;padding:0;flex-wrap:nowrap}
+body.game-body .phase-shell .result-heading .phase-heading{font-size:clamp(24px,3.5vw,38px);line-height:1.05;margin:0}
+body.game-body .phase-shell .result-symbol{width:44px;height:44px;font-size:28px;border-radius:14px}
+body.game-body .phase-shell .result-score{font-size:24px}
+body.game-body .phase-shell .result-score small{font-size:10px}
+body.game-body .phase-shell #scene-slot{display:flex;flex:1;min-height:0}
+body.game-body .phase-shell #scene-slot[hidden]{display:none}
+body.game-body .phase-shell .game-scene{display:flex;flex-direction:column;flex:1;min-height:0;width:100%;height:100%;margin:0;overflow:hidden;border-radius:14px}
+body.game-body .phase-shell .scene-top{display:none}
+body.game-body .phase-shell .scene-canvas{flex:1;height:100%;min-height:0;width:100%;border-radius:12px}
+body.game-body .phase-shell .result-scene-slot{min-height:48px}
+body.game-body .phase-shell .result-screen .answer-feedback{flex:none;margin:0;padding:8px 12px;border-radius:12px;line-height:1.3}
+body.game-body .phase-shell .result-reward{font-size:clamp(14px,1.6vw,19px);line-height:1.3}
+body.game-body .phase-shell .correct-answer{display:block;padding:3px 0 0}
+body.game-body .phase-shell .correct-answer small{font-size:11px;margin-right:8px}
+body.game-body .phase-shell .correct-answer strong{font-size:clamp(16px,1.8vw,22px)}
+body.game-body .phase-shell .answer-feedback>.muted{display:none}
+body.game-body .phase-shell .advance-bar{flex:none;margin:0}
+body.game-body .phase-shell .advance-bar .btn{min-height:44px;padding:9px 12px;border-radius:12px;font-size:16px}
+body.game-body .phase-shell .chest-prompt{flex:none;margin:0}
+body.game-body .phase-shell .chest-prompt h3{font-size:15px}
+body.game-body .phase-shell .chest-prompt p{display:none}
+body.game-body .phase-shell .chest-choices{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0}
+body.game-body .phase-shell .chest-choices .route-chest{min-height:82px;padding:8px;gap:5px;border-radius:12px}
+body.game-body .phase-shell .route-chest strong{font-size:14px}
+body.game-body .phase-shell .route-chest small{font-size:11px;line-height:1.3}
+body.game-body .phase-shell .chest-risk{padding:2px 4px;font-size:8px!important;letter-spacing:.5px}
+body.game-body .phase-shell .round-lobby{flex:none;margin:0;padding:10px;text-align:center}
+body.game-body .phase-shell .round-lobby h2{margin:4px 0 6px;font-size:28px}
+body.game-body .phase-shell .round-lobby p{margin:4px 0;font-size:14px}
+body.game-body .phase-shell .compact-adventure{flex:none;margin:0;padding:8px 10px;border-radius:12px}
+body.game-body .phase-shell .adventure-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
+body.game-body .phase-shell .adventure-heading>p{display:none}
+.field-guide{flex:none;font-size:11px;background:transparent;text-decoration:underline;color:#c6fbe8;padding:2px}
+body.game-body .phase-shell .adventure-row{gap:4px;margin:5px 0 0;font-size:12px;line-height:1.3}
+body.game-body .phase-shell .adventure-row>span{gap:5px}
+body.game-body .phase-shell .adventure-charges{gap:3px}
+body.game-body .phase-shell .adventure-charges i{width:12px;height:12px;border-radius:4px}
+body.game-body .phase-shell .gameplay-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+body.game-body .phase-shell .adventure-factory .gameplay-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.game-body .phase-shell .gameplay-choice{min-height:0;gap:4px;padding:8px;border-radius:10px}
+body.game-body .phase-shell .gameplay-choice strong{font-size:14px;line-height:1.2}
+body.game-body .phase-shell .gameplay-choice span,body.game-body .phase-shell .gameplay-choice small{font-size:11px;line-height:1.25}
+body.game-body .phase-shell .gameplay-receipt{padding:6px 8px;margin:6px 0 0;font-size:13px;line-height:1.3;border-radius:8px}
+body.game-body .phase-shell .haul-split{gap:6px}
+body.game-body .phase-shell .haul-split>div{padding:6px 8px;border-radius:8px}
+body.game-body .phase-shell .haul-split small{font-size:10px}
+body.game-body .phase-shell .haul-split strong{display:inline;font-size:22px;margin:0}
+body.game-body .phase-shell .catch-reveal{gap:8px;padding:5px 8px;border-radius:9px}
+body.game-body .phase-shell .catch-reveal .fish-art{width:64px;height:35px}
+body.game-body .phase-shell .catch-reveal h3{font-size:16px;margin:0 0 3px}
+body.game-body .phase-shell .catch-reveal p{font-size:11px}
+body.game-body .phase-shell .arena-forecast strong{font-size:14px}
+body.game-body .phase-shell .arena-forecast p{font-size:12px;line-height:1.3}
+body.game-body .phase-shell .factory-capital{gap:8px;font-size:11px}
+body.game-body .phase-shell .factory-capital span{display:flex;align-items:center;gap:5px}
+body.game-body .phase-shell .factory-capital b{font-size:17px}
+body.game-body .phase-shell .production-chain{gap:5px;margin-top:5px}
+body.game-body .phase-shell .station-card{gap:2px;padding:4px 6px;border-radius:7px}
+body.game-body .phase-shell .station-card small{font-size:9px}
+body.game-body .phase-shell .station-card strong{font-size:13px}
+body.game-body .phase-shell .station-card span{font-size:10px}
+body.game-body .phase-shell .factory-order{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 6px;padding:5px 7px;margin-top:5px;border-radius:8px}
+body.game-body .phase-shell .factory-order strong{font-size:14px}
+body.game-body .phase-shell .factory-order>span{font-size:10px}
+body.game-body .phase-shell .wind-forecast{gap:7px;padding:5px 8px;border-radius:9px}
+body.game-body .phase-shell .wind-forecast>span{font-size:28px}
+body.game-body .phase-shell .wind-forecast h3{font-size:16px;margin:0}
+body.game-body .phase-shell .wind-forecast p{font-size:11px;line-height:1.3}
+body.game-body .phase-shell .keep-wave{margin:0 0 5px;gap:5px}
+body.game-body .phase-shell .keep-wave strong{font-size:16px}
+body.game-body .phase-shell .keep-wave>span{font-size:11px}
+body.game-body .phase-shell .keep-health>span{font-size:11px}
+body.game-body .phase-shell .adventure-meter{height:7px;margin:3px 0 5px}
+body.game-body .phase-shell .forge-progress{display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;padding:0;font-size:13px}
+body.game-body .phase-shell .forge-progress b{font-size:16px}
+body.game-body .phase-shell .role-choice{display:flex;flex-direction:column;gap:8px;height:100%;text-align:center}
+body.game-body .phase-shell .role-choice .phase-heading{margin:0;font-size:clamp(21px,3vw,32px)}
+body.game-body .phase-shell .role-choice>.muted{margin:0;font-size:13px}
+body.game-body .phase-shell .roles{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:10px;margin:0}
+body.game-body .phase-shell .role-card{min-height:0;min-width:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px;gap:8px;border-radius:16px}
+body.game-body .phase-shell .role-card strong{font-size:18px}
+body.game-body .phase-shell .role-card>span:not(.plane-role){font-size:13px}
+body.game-body .phase-shell .role-card>small{font-size:12px}
+body.game-body .phase-shell .plane-preview{max-height:180px;min-height:0;flex:1}
+body.game-body .phase-shell .word-screen{width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+body.game-body .phase-shell .word-prompt{display:flex;flex-direction:column;gap:8px;min-height:0}
+body.game-body .phase-shell .word-screen .question-image{height:70px;margin:0}
+body.game-body .phase-shell .word-screen .question-image img{height:100%;max-height:100%;width:auto;max-width:100%;object-fit:contain}
+body.game-body .phase-shell .word-entry{display:flex;flex-direction:column;min-height:0;gap:8px}
+body.game-body .phase-shell .word-slots{justify-content:center;gap:3px;margin:0}
+body.game-body .phase-shell .word-slot{width:clamp(12px,calc(80vw / var(--letters)),32px);min-width:0;height:32px;font-size:20px;border-radius:5px}
+body.game-body .phase-shell .word-space{width:7px}
+body.game-body .phase-shell .word-ink{margin:0;gap:8px;font-size:11px}
+body.game-body .phase-shell #live-word-form{gap:5px;margin:0}
+body.game-body .phase-shell #live-word-form label{font-size:12px}
+body.game-body .phase-shell .typed-answer{min-height:40px;height:40px;font-size:18px;padding:8px 10px}
+body.game-body .phase-shell #live-word-form .btn{min-height:40px;padding:8px;font-size:15px}
+body.game-body .phase-shell .word-keyboard{grid-template-columns:repeat(9,minmax(0,1fr));gap:4px;margin:0}
+body.game-body .phase-shell .word-keyboard button{min-height:36px;padding:4px;font-size:16px;border-radius:6px}
+body.game-body .phase-shell .word-help{margin:0;font-size:11px;line-height:1.25}
+body.game-body .phase-shell #sketch-slot{display:flex;flex:1;height:100%}
+body.game-body .phase-shell .sketch-board{display:flex;flex-direction:column;flex:1;height:100%;width:100%;max-width:none;gap:6px;margin:0}
+body.game-body .phase-shell .sketch-intro .phase-heading{margin:1px 0 3px;font-size:22px;line-height:1.1}
+body.game-body .phase-shell .sketch-intro p{margin:0;font-size:11px}
+body.game-body .phase-shell .artist-word{flex:none;padding:5px 8px;margin:0;font-size:16px;line-height:1.2}
+body.game-body .phase-shell .drawing-tools{flex:none;margin:0;padding:0;gap:8px;flex-wrap:nowrap}
+body.game-body .phase-shell .ink-palette{gap:4px}
+body.game-body .phase-shell .ink-palette button{width:30px;height:30px;min-height:30px}
+body.game-body .phase-shell .drawing-tools label{font-size:0}
+body.game-body .phase-shell .drawing-tools select{min-height:30px;height:30px;padding:3px;font-size:11px;max-width:80px}
+body.game-body .phase-shell .sketch-surface{flex:1;min-height:0;min-width:0;display:flex;justify-content:center;align-items:center;container-type:size;border:1px solid #8196ab66;background:#0f2033;border-radius:12px;overflow:hidden}
+body.game-body .phase-shell .drawing-canvas{width:min(100cqw,153.846cqh);height:auto;max-height:100%;max-width:100%;aspect-ratio:1000/650;margin:0;border:0;border-radius:0}
+body.game-body .phase-shell .sketch-canvas-footer{flex:none;margin:0;gap:5px;font-size:10px}
+body.game-body .phase-shell .sketch-canvas-footer .btn{min-height:30px;padding:4px 8px;font-size:11px}
+body.game-body .phase-shell .sketch-guess-form{flex:none;gap:5px;margin:0}
+body.game-body .phase-shell .sketch-guess-form>label{font-size:12px}
+body.game-body .phase-shell .sketch-guess-form>.btn{min-height:38px;padding:6px;font-size:15px}
+body.game-body .phase-shell .sketch-quick-accents{margin:0;gap:4px}
+body.game-body .phase-shell .sketch-quick-accents .accent{min-height:28px;height:28px;min-width:30px;font-size:16px;padding:2px 6px}
+body.game-body .phase-shell .sketch-guess-form>.word-help{display:none}
+body.game-body .phase-shell .sketch-feedback{flex:none;padding:6px 8px;margin:0;min-height:0;font-size:12px;line-height:1.3}
+/* Long text uses optional reading pages, never silently disappearing. */
+.game-reader{width:min(760px,calc(100vw - 20px));height:min(680px,calc(var(--viewport-height,100dvh) - 20px));max-height:none;max-width:none;padding:16px;overflow:hidden;border-radius:20px}
+.game-reader[open]{display:flex;flex-direction:column;gap:14px}
+.game-reader>header,.game-reader>footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.game-reader h2{font-size:20px}.game-reader>header .icon-btn{flex:none}
+.reader-viewport{flex:1;min-height:0;overflow:hidden;outline-offset:-2px}
+.reader-pages{height:100%;width:100%;column-count:1;column-gap:32px;column-fill:auto;font-size:18px;line-height:1.5;overflow-wrap:anywhere}
+.reader-pages h3{font-size:18px;margin:0 0 10px;break-after:avoid}.reader-pages p{margin:0 0 18px;orphans:2;widows:2}
+.reader-pages .question-image{margin:0 0 12px;break-inside:avoid;max-height:100%}.reader-pages .question-image img{max-height:calc(var(--viewport-height,100dvh) - 180px);max-width:100%;object-fit:contain}
+.game-reader>footer{font-size:12px}.game-reader .btn{min-height:40px;padding:8px 12px}
+.game-menu{display:flex;flex-direction:column;gap:14px}.game-menu-info{font-size:13px;color:var(--muted)}.game-menu .music-controls{flex-wrap:wrap}
+@media(min-width:960px){
+ body.game-body .phase-shell .result-screen{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(340px,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:20px;align-content:start}
+ body.game-body .phase-shell .result-heading{grid-column:2;grid-row:1}
+ body.game-body .phase-shell .result-scene-slot{grid-column:1;grid-row:1/-1}
+ body.game-body .phase-shell .answer-feedback{grid-column:2;grid-row:2}
+ body.game-body .phase-shell .compact-adventure{grid-column:2;grid-row:3;align-self:start}
+ body.game-body .phase-shell .advance-bar,body.game-body .phase-shell .round-lobby{grid-column:2;grid-row:4}
+ body.game-body .phase-shell .chest-prompt{display:none}
+ body.game-body .phase-shell .chest-choices{grid-column:2;grid-row:4}
+ body.game-body .phase-shell .gameplay-choice{padding:12px}
+}
+@media(max-width:600px){
+ body.game-body .phase-shell.game-shell{gap:5px}
+ body.game-body .phase-shell .game-top .btn,body.game-body .phase-shell .keyboard-help-button{padding:5px 8px;font-size:11px;min-height:36px}
+ body.game-body .phase-shell .fullscreen-label{display:none}
+ body.game-body .phase-shell .game-top .wordmark{width:28px;height:30px;font-size:20px;border-radius:8px}
+ body.game-body .phase-shell .player-hud h1{font-size:16px}
+ body.game-body .phase-shell .game-panel{border-radius:15px}
+ body.game-body .phase-shell .answer-tile{flex-direction:column;align-items:flex-start;justify-content:center;font-size:clamp(18px,5.2vw,28px);gap:8px}
+ body.game-body .phase-shell .answer-tile b{width:25px;height:25px;font-size:12px}
+ body.game-body .phase-shell .roles{grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(3,minmax(0,1fr))}
+ body.game-body .phase-shell .role-card{gap:4px;padding:8px}
+ body.game-body .phase-shell .plane-choices .role-card{display:grid;grid-template-columns:30% minmax(0,1fr);grid-template-rows:auto auto auto auto;text-align:left;align-content:center;column-gap:10px}
+ body.game-body .phase-shell .plane-choices .plane-preview{grid-column:1;grid-row:1/5;height:auto;max-height:100px;width:100%}
+ body.game-body .phase-shell .role-card strong{font-size:16px}
+ body.game-body .phase-shell .role-card>span:not(.plane-role){font-size:12px}
+ body.game-body .phase-shell .role-card>small{font-size:11px}
+}
+@media(max-height:650px){
+ body.game-body .phase-shell .result-screen{gap:5px}
+ body.game-body .phase-shell .result-heading .eyebrow{display:none}
+ body.game-body .phase-shell .result-heading .phase-heading{font-size:24px}
+ body.game-body .phase-shell .result-symbol{width:32px;height:32px;font-size:22px;border-radius:10px}
+ body.game-body .phase-shell .result-score{font-size:20px}
+ body.game-body .phase-shell .compact-adventure{padding:5px 7px}
+ body.game-body .phase-shell .gameplay-choice{padding:6px}
+ body.game-body .phase-shell .gameplay-choice strong{font-size:12px}
+ body.game-body .phase-shell .gameplay-choice span,body.game-body .phase-shell .gameplay-choice small{font-size:10px;line-height:1.2}
+ body.game-body .phase-shell .question-screen .phase-heading,body.game-body .phase-shell .word-screen .phase-heading{font-size:20px;-webkit-line-clamp:3}
+ body.game-body .phase-shell .word-screen,body.game-body .phase-shell .word-prompt,body.game-body .phase-shell .word-entry{gap:5px}
+ body.game-body .phase-shell .word-keyboard button{min-height:30px;font-size:14px}
+ body.game-body .phase-shell .word-slot{height:26px;font-size:17px}
+ body.game-body .phase-shell .sketch-intro .phase-heading{font-size:19px}
+ body.game-body .phase-shell .sketch-board{gap:4px}
+ body.game-body .phase-shell .ink-palette button{width:26px;height:28px;min-height:28px}
+ body.game-body .phase-shell .sketch-feedback{font-size:11px;padding:4px 6px}
+}
+@media(max-height:500px) and (min-width:540px){
+ body.game-body .phase-shell.game-shell{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;column-gap:14px}
+ body.game-body .phase-shell .game-top{grid-column:1;grid-row:1}
+ body.game-body .phase-shell .player-hud{grid-column:2;grid-row:1;gap:10px}
+ body.game-body .phase-shell .player-hud>div:first-child{flex:initial}
+ body.game-body .phase-shell .player-hud h1{font-size:12px}
+ body.game-body .phase-shell .live-layout,body.game-body .phase-shell .game-status{grid-column:1/-1}
+ body.game-body .phase-shell .fullscreen-label{display:none}
+ body.game-body .phase-shell .game-panel{padding:7px}
+ body.game-body .phase-shell .question-screen{gap:5px}
+ body.game-body .phase-shell .question-screen .phase-heading{font-size:18px;-webkit-line-clamp:2}
+ body.game-body .phase-shell .question-screen .question-image{position:absolute;right:24px;top:54px;width:70px;height:48px}
+ body.game-body .phase-shell .question-screen:has(.question-image) .phase-heading{max-width:calc(100% - 160px)}
+ body.game-body .phase-shell .answer-tile{padding:7px 10px;flex-direction:row;align-items:center;font-size:19px}
+ body.game-body .phase-shell .answer-tile span{-webkit-line-clamp:2}
+ body.game-body .phase-shell .result-screen{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:auto auto minmax(0,1fr) auto;gap:5px 10px}
+ body.game-body .phase-shell .result-heading{grid-column:1;grid-row:1}
+ body.game-body .phase-shell .result-scene-slot{grid-column:1;grid-row:2/4}
+ body.game-body .phase-shell .answer-feedback{grid-column:2;grid-row:1;padding:5px 7px}
+ body.game-body .phase-shell .compact-adventure{grid-column:2;grid-row:2/4;align-self:start}
+ body.game-body .phase-shell .advance-bar,body.game-body .phase-shell .round-lobby{grid-column:1/-1;grid-row:4}
+ body.game-body .phase-shell .advance-bar .btn{min-height:36px;padding:6px;font-size:14px}
+ body.game-body .phase-shell .chest-prompt{display:none}
+ body.game-body .phase-shell .chest-choices{grid-column:1/-1;grid-row:4}
+ body.game-body .phase-shell .chest-choices .route-chest{min-height:54px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;padding:5px 8px}
+ body.game-body .phase-shell .route-chest small{grid-column:1/-1}
+ body.game-body .phase-shell .role-choice{gap:5px}
+ body.game-body .phase-shell .role-choice>.muted{display:none}
+ body.game-body .phase-shell .role-choice .phase-heading{font-size:20px}
+ body.game-body .phase-shell .role-card{gap:3px;padding:7px}
+ body.game-body .phase-shell .plane-preview{max-height:75px}
+ body.game-body .phase-shell .role-card strong{font-size:15px}
+ body.game-body .phase-shell .role-card>span:not(.plane-role),body.game-body .phase-shell .role-card>small{font-size:11px}
+ body.game-body .phase-shell .word-screen{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:12px;align-items:center}
+ body.game-body .phase-shell .word-keyboard{grid-template-columns:repeat(12,minmax(0,1fr))}
+ body.game-body .phase-shell .word-keyboard button{min-height:26px;font-size:13px}
+ body.game-body .phase-shell .word-screen .word-slot{width:22px;height:25px;font-size:17px}
+ body.game-body .phase-shell .word-screen .question-image{height:45px}
+ body.game-body .phase-shell .sketch-board{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.8fr);grid-template-rows:auto auto minmax(0,1fr) auto;gap:5px 10px}
+ body.game-body .phase-shell .sketch-intro{grid-column:2;grid-row:1}
+ body.game-body .phase-shell [data-sketch-clues]{grid-column:2;grid-row:2}
+ body.game-body .phase-shell .artist-word{grid-column:2;grid-row:2}
+ body.game-body .phase-shell .sketch-board:has(.artist-word:not([hidden])) [data-sketch-clues]{display:none}
+ body.game-body .phase-shell .drawing-tools{grid-column:2;grid-row:3;align-self:start}
+ body.game-body .phase-shell .sketch-surface{grid-column:1;grid-row:1/4}
+ body.game-body .phase-shell .sketch-canvas-footer{grid-column:1;grid-row:4;flex-wrap:nowrap}
+ body.game-body .phase-shell .sketch-guess-form{grid-column:2;grid-row:3;align-self:start}
+ body.game-body .phase-shell .sketch-feedback{grid-column:2;grid-row:4}
+ .game-reader{padding:10px}.game-reader[open]{gap:7px}.game-reader h2{font-size:16px}.reader-pages{font-size:16px;line-height:1.4}
+}
+@media(max-width:360px){
+ body.game-body .phase-shell.game-shell{padding-left:6px;padding-right:6px}
+ body.game-body .phase-shell .game-top>.row{gap:3px}
+ body.game-body .phase-shell .game-top .btn,body.game-body .phase-shell .keyboard-help-button{padding:5px 6px}
+ body.game-body .phase-shell .answer-tile{padding:9px;font-size:18px}
+ body.game-body .phase-shell .route-chest strong{font-size:12px}
+ body.game-body .phase-shell .route-chest small{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.reader-viewport{scroll-behavior:auto}}
+@media(max-height:500px) and (max-width:539px){
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-keyboard{display:none}
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-help::after{content:' Dismiss the keyboard for letter clues.'}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-intro>.eyebrow,body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-intro p,body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-quick-accents{display:none}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-surface{min-height:40px}
+}
+@media(max-height:650px){
+ body.game-body .phase-shell .result-screen .round-lobby{padding:4px}
+ body.game-body .phase-shell .result-screen .round-lobby h3{font-size:14px;margin:0}
+ body.game-body .phase-shell .result-screen .round-lobby p{font-size:12px;line-height:1.25;margin:2px 0}
+}
+@media(max-height:650px){body.game-body .phase-shell .gameplay-choice strong{font-size:13px}body.game-body .phase-shell .gameplay-choice span{font-size:11px}}
+body.game-body .phase-shell .advance-bar{padding:0}
+body.game-body .phase-shell .result-score{line-height:1.1}
+body.game-body .phase-shell .result-score small{line-height:1.2}
+@media(max-height:520px) and (max-width:539px){
+ /* The reward sentence already names and weighs the catch; keep discoveries,
+    weather and the next water choice beside the animated scene. */
+ body.game-body .phase-shell .adventure-fishing .catch-reveal{display:none}
+ body.game-body .phase-shell .adventure-heading{margin-bottom:4px}
+ body.game-body .phase-shell .adventure-heading>.eyebrow{font-size:9px;letter-spacing:.6px}
+}
+@media(max-height:500px) and (min-width:540px){
+ body.game-body .phase-shell .answer-feedback{grid-column:1;grid-row:2}
+ body.game-body .phase-shell .result-scene-slot{grid-row:3}
+ body.game-body .phase-shell .compact-adventure{grid-column:2;grid-row:1/4}
+ body.game-body .phase-shell .compact-adventure .adventure-heading{display:none}
+ body.game-body .phase-shell .adventure-fishing .catch-reveal{display:none}
+ body.game-body .phase-shell .adventure-factory .production-chain{display:none}
+}
+body.game-body .phase-shell .arena-forecast{padding:5px 8px;margin:0;border-radius:9px}
+body.game-body .phase-shell .arena-forecast p{margin-top:2px}
+@media(max-height:520px) and (max-width:539px){
+ body.game-body .phase-shell .compact-adventure .adventure-heading{display:none}
+ body.game-body .phase-shell .arena-forecast p{display:none}
+ /* Cash and every purchase/ship button stay visible. Detailed station levels
+    and the full order are also available from Menu → Field guide. */
+ body.game-body .phase-shell .adventure-factory .production-chain,body.game-body .phase-shell .adventure-factory .factory-order{display:none}
+}
+body.game-body .phase-shell .result-reward,body.game-body .phase-shell .correct-answer strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+body.game-body .phase-shell .answer-feedback .question-read{font-size:11px;padding:2px;min-height:20px}
+@media(max-height:520px){body.game-body .phase-shell .result-reward,body.game-body .phase-shell .correct-answer strong{-webkit-line-clamp:2}}
+body.game-body:not(:has(.phase-shell)){overflow:auto}
+body.game-body:not(:has(.phase-shell)) #app{height:auto}
+body.game-body .phase-shell .hud-score{line-height:1.1}
+body.game-body .phase-shell .hud-time{line-height:1.2}
+body.game-body .phase-shell #scene-slot.result-scene-slot{min-height:40px}
+body.game-body .phase-shell .factory-capital b{line-height:1.15}
+@media(max-height:520px) and (max-width:539px){
+ body.game-body .phase-shell .role-choice{gap:5px}
+ body.game-body .phase-shell .role-choice>.muted{display:none}
+ body.game-body .phase-shell .roles{gap:6px}
+}
+.game-reader>header{min-height:0;max-width:none;width:100%;padding:0;margin:0}
+.game-reader>header h2{margin:0;line-height:1.2}
+body.game-body .phase-shell .role-card :is(strong,span,small){line-height:1.2}
+@media(max-height:500px) and (min-width:540px){
+ body.game-body .phase-shell .roles{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr)}
+ body.game-body .phase-shell .plane-choices .role-card{display:flex;flex-direction:column;text-align:center}
+ body.game-body .phase-shell .plane-choices .plane-preview{max-height:70px}
+}
+body.game-body .phase-shell .selected-plane{display:flex;line-height:1.1}
+body.game-body .phase-shell #scene-slot.result-scene-slot{min-height:42px}
+@media(max-height:520px) and (max-width:539px){
+ body.game-body .phase-shell .result-screen{gap:4px}
+ body.game-body .phase-shell .wind-forecast{padding:4px 6px}
+ body.game-body .phase-shell .wind-forecast>span{font-size:22px;line-height:1}
+ body.game-body .phase-shell .wind-forecast>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+ body.game-body .phase-shell .wind-forecast h3{font-size:14px;line-height:1.2}
+ body.game-body .phase-shell .wind-forecast p{font-size:10px;line-height:1.2}
+}
+body.game-body .phase-shell .keep-meters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+body.game-body .phase-shell .keep-wave strong{line-height:1.2}
+body.game-body .phase-shell .answer-feedback:has([data-act=read-feedback]:not([hidden])){display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 7px;align-items:center}
+body.game-body .phase-shell .answer-feedback :is(.result-reward,.correct-answer){grid-column:1}
+body.game-body .phase-shell .answer-feedback [data-act=read-feedback]{grid-column:2;grid-row:1/3;min-height:36px}
+@media(max-height:520px) and (max-width:539px){body.game-body .phase-shell .compact-adventure{padding-top:4px;padding-bottom:4px}body.game-body .phase-shell .result-heading .result-score{display:none}}
+@media(max-height:650px) and (max-width:539px){body.game-body .phase-shell .adventure-factory .production-chain{display:none}}
+body.game-body .phase-shell .result-reward{margin:0;padding:0}
+body.game-body .phase-shell .answer-feedback:not(:has(.correct-answer)) [data-act=read-feedback]{grid-row:1}
+body.game-body .phase-shell .word-slot{min-height:0}
+body.game-body .phase-shell .word-prompt,body.game-body .phase-shell .word-entry{flex:none}
+body.game-body .phase-shell .typed-answer{font-size:18px!important;padding:8px 10px!important;line-height:1.2}
+body.game-body .phase-shell .accent-zone{min-height:0;height:0;position:absolute;left:0;right:0;top:-36px;margin:0;pointer-events:none}
+body.game-body .phase-shell .accent-pop{pointer-events:auto}
+.word-clues-open{display:none}
+.word-clues-body{display:grid;gap:10px}.word-clues-body .word-slots{margin:0;gap:3px}.word-clues-body .word-slot{width:22px;min-height:25px;height:25px;font-size:16px}.word-clues-body p{font-size:12px}.word-clues-body .word-keyboard{margin:0;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}.word-clues-body .word-keyboard button{min-height:32px;font-size:16px}
+@media(max-height:520px) and (max-width:539px){
+ body.game-body .phase-shell .word-entry>.word-keyboard,body.game-body .phase-shell .word-entry>.word-help{display:none}
+ body.game-body .phase-shell .word-clues-open{display:block;min-height:32px;padding:5px;font-size:12px}
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-prompt .word-slots,body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-ink{display:none}
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .phase-heading{-webkit-line-clamp:2}
+}
+@media(max-height:380px) and (max-width:539px){
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-prompt>.eyebrow,body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .question-image{display:none}
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .phase-heading{font-size:18px}
+ body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-prompt{gap:3px}
+ body.game-body .phase-shell #live-word-form label{line-height:1.2}
+ body.game-body .phase-shell #live-word-form .btn{min-height:36px}
+ .word-clues-body .word-keyboard button{min-height:28px}
+}
+body.game-body .phase-shell .drawing-tools{flex-wrap:wrap}
+body.game-body .phase-shell .drawing-tools label{min-width:0}
+body.game-body .phase-shell .drawing-tools select{min-width:0;width:70px;max-width:70px}
+body.game-body .phase-shell .sketch-feedback{font-size:12px!important;line-height:1.3}
+@media(max-height:650px){body.game-body .phase-shell .sketch-feedback{font-size:11px!important}}
+body.game-body .phase-shell #scene-slot:has(.game-scene.collapsed){min-height:0!important;height:0;flex:none;overflow:hidden}
+body.game-body .phase-shell .word-help{font-size:11px!important;line-height:1.3}
+@media(max-height:650px){body.game-body .phase-shell .word-prompt{gap:4px}body.game-body .phase-shell .word-screen .question-image{height:60px}}
+@media(max-height:650px) and (max-width:539px){body.game-body .phase-shell .word-many-letters .word-entry>.word-keyboard{display:none}body.game-body .phase-shell .word-many-letters .word-clues-open{display:block;min-height:32px;padding:5px;font-size:12px}}
+@media(max-height:520px) and (max-width:539px){body.game-body .phase-shell .word-many-letters .word-prompt>.word-slots{display:none}}
+body.game-body .phase-shell .sketch-board:has(.artist-word:not([hidden])) [data-sketch-clues]{display:none}
+@media(max-height:650px){body.game-body .phase-shell .sketch-board .word-slots{gap:2px}body.game-body .phase-shell .sketch-board .word-slot{font-size:14px}}
+@media(max-height:380px) and (max-width:539px){
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus){gap:2px}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-canvas-footer{display:none}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-intro .phase-heading{margin:0;font-size:15px;line-height:1.1}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .word-slot{height:22px}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-guess-form>label{line-height:1.2}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-guess-form>.btn{min-height:36px}
+ body.game-body .phase-shell .sketch-board:has(#sketch-guess-input:focus) .sketch-feedback{padding:3px 6px}
+}
+@media(max-height:500px) and (min-width:540px){
+ body.game-body .phase-shell .sketch-intro>.eyebrow{display:block;font-size:9px;line-height:1.2}
+ body.game-body .phase-shell .sketch-intro .phase-heading{font-size:18px;line-height:1.1;margin:0}
+ body.game-body .phase-shell .sketch-intro p{font-size:10px;line-height:1.2}
+ body.game-body .phase-shell .sketch-board .word-slot{width:clamp(10px,calc(200px / var(--letters)),20px);height:22px;font-size:14px}
+ body.game-body .phase-shell .sketch-quick-accents{display:none}
+}

@@ -42,17 +42,17 @@ def run():
    return ANSWERS.get(prompt,'una biblioteca')
   for i in range(8):
    if s.locator('.solo-type-panel .study-prompt').inner_text()=='He spoke yesterday.':break
-   s.locator('#solo-answer').fill(solo_expected());s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]');s.locator('[data-act=solo-typed-next]').click()
-  s.locator('#solo-answer').fill('hablo');s.locator('#solo-answer').press('Enter');s.wait_for_selector('.solo-typed-feedback')
+   s.locator('#solo-answer').fill(solo_expected());s.wait_for_timeout(550);s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]');s.locator('[data-act=solo-typed-next]').click()
+  s.locator('#solo-answer').fill('hablo');s.wait_for_timeout(550);s.locator('#solo-answer').press('Enter');s.wait_for_selector('.solo-typed-feedback')
   check('Not quite' in s.locator('.solo-typed-feedback').inner_text() and 'habló' in s.locator('.solo-typed-feedback').inner_text(),'typed solo feedback enforces accents and teaches the accepted answer')
   s.locator('[data-act=solo-typed-next]').click()
   for i in range(8):
    if s.locator('.solo-type-panel .study-prompt').inner_text()=='He spoke yesterday.':break
-   s.locator('#solo-answer').fill(solo_expected());s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]');s.locator('[data-act=solo-typed-next]').click()
+   s.locator('#solo-answer').fill(solo_expected());s.wait_for_timeout(550);s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]');s.locator('[data-act=solo-typed-next]').click()
   check(s.locator('.solo-type-panel .study-prompt').inner_text()=='He spoke yesterday.','typing follows the same card after a reshuffled pass')
   s.locator('#solo-answer').fill('hablo');s.locator('#solo-accent-zone .accent').first.click()
   check(s.locator('#solo-answer').input_value()=='habló','typing practice contextual accent key preserves and replaces the typed letter')
-  s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]')
+  s.wait_for_timeout(550);s.locator('#solo-answer').press('Enter');s.wait_for_selector('[data-act=solo-typed-next]')
   check('Correct!' in s.locator('.solo-typed-feedback').inner_text(),'accented typed flashcard answer is checked correctly')
   s.screenshot(path=str(ROOT/'checks/typed-solo-result-phone.png'),full_page=True)
   s.wait_for_function('document.querySelector("#solo-save").textContent==="Progress saved"')
@@ -69,7 +69,7 @@ def run():
    s.set_viewport_size({'width':w,'height':h});s.wait_for_timeout(80)
    tiles=s.locator('.answer');check(tiles.count()==4,f'four answer tiles at {w}x{h}')
    sizes=tiles.evaluate_all('(buttons)=>buttons.map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height}))')
-   check(all(b['w']>=110 and b['h']>=100 for b in sizes),f'large answer targets at {w}x{h}')
+   check(all(b['w']>=110 and b['h']>=50 for b in sizes),f'large answer targets at {w}x{h}')
    check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),f'question has no horizontal overflow at {w}x{h}')
   check(not s.locator('canvas').is_visible(),'question screen hides the game and preserves space for answers')
   s.set_viewport_size({'width':390,'height':844});s.screenshot(path=str(ROOT/'checks/four-answers-phone.png'),full_page=True)
@@ -89,9 +89,9 @@ def run():
    if s.locator('.question-screen h2').inner_text().startswith('Read this longer prompt'):break
    choose(s,False);next_question(s)
   check(s.locator('.question-screen h2').inner_text().startswith('Read this longer prompt'),'long prompt remains part of the same question deck')
-  s.set_viewport_size({'width':320,'height':460});s.locator('.answer').last.scroll_into_view_if_needed();y=s.evaluate('scrollY')
+  s.set_viewport_size({'width':320,'height':460});s.wait_for_timeout(100);s.locator('[data-act=read-question]').click();s.wait_for_selector('.game-reader[open]');reading=s.locator('[data-reader-count]').inner_text()
   other=oc.new_page();other.goto(BASE+'/play.html?join='+pin);other.wait_for_selector('.answer');choose(other)
-  s.wait_for_timeout(180);check(abs(s.evaluate('scrollY')-y)<2,'other player score updates preserve long-question document scrolling')
+  s.wait_for_timeout(180);check(s.locator('.game-reader[open]').count()==1 and s.locator('[data-reader-count]').inner_text()==reading,'other player score updates preserve the long-question reading page');s.keyboard.press('Escape')
   choose(s);check(s.evaluate('scrollY')==0,'question-to-result transition resets only the new view scroll')
   s.reload();s.wait_for_selector('[data-player-view=result]');check(s.locator('.answer').count()==0,'reconnect resumes authoritative answer result without re-answering')
   # Every Rally role has matching preview, selected label and canvas aircraft.

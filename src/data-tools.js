@@ -6,7 +6,7 @@ const bytes=s=>new TextEncoder().encode(s);
 const jsonSize=v=>bytes(JSON.stringify(v)).length;
 const sid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(v);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const PERSONAL_PREFIXES=['member:','enrollment:','practice:','solo:','outcome:','outcome-index:','outcome-week:','class-outcome-week:','raffle:'];
+const PERSONAL_PREFIXES=['member:','enrollment:','practice:','solo:','outcome:','outcome-index:','outcome-week:','class-outcome-week:','raffle:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:'];
 export const DATA_ACTIONS=['status','backup','restore-preview','restore','delete-student','delete-account','retention-preview','retention-save','retention-run','erasure-status','personal-export','diagnostics'];
 async function scan(store,prefix='',maximum=MAX_RECORDS){
  const out=new Map();let start;
@@ -41,7 +41,7 @@ export class DataTools {
   // Lists belong to the teacher, not the class, so include reusable lists in either export.
   await add(`list:${user.id}:`);await add(`index:${user.id}:`);
   for(const c of classes){records.set('class:'+c.id,c);records.set(`class-owner:${user.id}:${c.id}`,c);if(c.code)records.set('class-code:'+c.code,c.id);
-   for(const prefix of ['member:','assignment-index:','shared:','shared-index:'])await add(prefix+c.id+':');
+   for(const prefix of ['member:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:'])await add(prefix+c.id+':');
    for(const m of (await scan(this.store,'member:'+c.id+':')).values()){const k=`enrollment:${m.userId}:${c.id}`,v=await this.store.get(k);if(v)records.set(k,v);await add(`solo:${m.userId}:${c.id}:`);}
    for(const a of (await scan(this.store,'assignment-index:'+c.id+':')).values()){assignmentIds.add(a.id);const v=await this.store.get('assignment:'+a.id);if(v)records.set('assignment:'+a.id,v);await add('practice:'+a.id+':');}
   }
@@ -68,7 +68,7 @@ export class DataTools {
    if(k.startsWith('class-code:'))return classes.get(v)?.ownerId===user.id&&classes.get(v).code===k.slice(11);
    if(k.startsWith('assignment:'))return v.ownerId===user.id&&classes.get(v.classId)?.ownerId===user.id;
    if(k.startsWith('outcome:'))return v.ownerId===user.id;
-   if(['member:','enrollment:','assignment-index:','shared:','shared-index:'].some(pre=>k.startsWith(pre)))return classes.get(v.classId)?.ownerId===user.id;
+   if(['member:','enrollment:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:'].some(pre=>k.startsWith(pre)))return classes.get(v.classId)?.ownerId===user.id;
    if(k.startsWith('practice:'))return assignments.get(v.assignmentId)?.ownerId===user.id;
    if(k.startsWith('solo:'))return classes.get(k.split(':')[2])?.ownerId===user.id;return false;
   };
@@ -117,10 +117,11 @@ export class DataTools {
   for(const [k,v]of all){
    const studentKey=k===`account:${target}`||k===`student-code:${target}`||k===`code:${target}`||k.startsWith(`reward:${target}:`)||k.startsWith(`reward-day:${target}:`)||k.startsWith(`rate:academy:send-email:${target}`)||k.startsWith(`rate:email:${target}`)||k.startsWith(`solo:${target}:`);
    const member=(k.startsWith('member:')||k.startsWith('enrollment:'))&&v.userId===target&&(!scope||v.classId===scope);
+   const study=k.startsWith('study-')&&v.userId===target&&(!scope||v.classId===scope);
    const practice=k.startsWith('practice:')&&v.userId===target&&(!scope||assignmentClasses.get(v.assignmentId)===scope);
    const session=k.startsWith('session:')&&v.owner===target;
    const solo=k.startsWith(`solo:${target}:`)&&(!scope||k.split(':')[2]===scope);
-   if(member||practice||solo||!scope&&(studentKey||session)){await this.store.delete(k);deleted++;continue;}
+   if(member||practice||solo||study||!scope&&(studentKey||session)){await this.store.delete(k);deleted++;continue;}
    if(/^(outcome:|outcome-index:|outcome-week:|class-outcome-week:)/.test(k)&&(!scope||v.classId===scope)&&v.players?.some(x=>x.accountId===target)){const clean=structuredClone(v);clean.players=clean.players.filter(x=>x.accountId!==target);await this.store.put(k,clean);redacted++;}
    if(k.startsWith('raffle:')&&(!scope||k.startsWith('raffle:'+user.id+':')&&(v.classId===scope||!v.classId))&&v.entries?.some(e=>e.accountId===target)){
     // An all-class draw is removed rather than retaining a cross-class identity in a historical snapshot.
@@ -142,6 +143,7 @@ export class DataTools {
   // Raffle snapshots and ungraded progress also expire under the selected policy.
   for(const [k,v]of await scan(this.store,'raffle:'+user.id+':'))if(v.drawnAt<cutoff)await this.store.delete(k);
   for(const c of await this.classes(user.id))for(const m of (await scan(this.store,'member:'+c.id+':')).values())for(const [k,v]of await scan(this.store,`solo:${m.userId}:${c.id}:`))if(v.updatedAt<cutoff)await this.store.delete(k);
+  for(const c of await this.classes(user.id))for(const prefix of ['study-attempt:','study-game:'])for(const [k,v]of await scan(this.store,prefix+c.id+':'))if((v.at||v.updatedAt)<cutoff)await this.store.delete(k);
   await this.store.put('data:last-retention:'+user.id,{at:Date.now(),...result});return result;
  }
  async route(action,p,token){
@@ -149,7 +151,7 @@ export class DataTools {
   const user=await this.academy.identity(token);
   if(action==='status')return {role:user.role,email:user.email,classes:user.role==='teacher'?(await this.classes(user.id)).map(c=>({id:c.id,name:c.name})):[],policy:user.role==='teacher'?await this.policy(user.id):null,lastRestore:await this.store.get('data:last-restore:'+user.id)||null,lastRetention:await this.store.get('data:last-retention:'+user.id)||null,pendingCleanup:[...(await scan(this.store,'data:privacy-job:')).values()].filter(j=>j.owner===user.id&&!j.completed).length};
   if(action==='diagnostics'){this.academy.teacher(user);const key='data:probe:'+uid(),nonce=uid();await this.store.put(key,nonce);const storage=await this.store.get(key)===nonce;await this.store.delete(key);return {storage,emailConfigured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),emailDelivery:'not-tested',at:Date.now()};}
-  if(action==='personal-export'){const records=[];for(const [k,v]of await scan(this.store,'',50000))if(k===`account:${user.id}`||k.startsWith(`enrollment:${user.id}:`)||k.startsWith(`solo:${user.id}:`)||k.startsWith(`reward:${user.id}:`)||k.startsWith('practice:')&&v.userId===user.id)records.push([k,k.startsWith('practice:')?{...v,lease:null,lastBeat:0,lastAnswer:0}:v]);const result={format:'quizdock-personal-export',createdAt:Date.now(),records};ensure(jsonSize(result)<=MAX_BYTES,'Personal export exceeds the safe limit.',413);return result;}
+  if(action==='personal-export'){const records=[];for(const [k,v]of await scan(this.store,'',50000))if(k===`account:${user.id}`||k.startsWith(`enrollment:${user.id}:`)||k.startsWith(`solo:${user.id}:`)||k.startsWith(`reward:${user.id}:`)||(k.startsWith('practice:')||k.startsWith('study-'))&&v.userId===user.id)records.push([k,k.startsWith('practice:')?{...v,lease:null,lastBeat:0,lastAnswer:0}:v]);const result={format:'quizdock-personal-export',createdAt:Date.now(),records};ensure(jsonSize(result)<=MAX_BYTES,'Personal export exceeds the safe limit.',413);return result;}
   if(action==='backup')return this.backup(user,p);
   if(action==='restore-preview')return this.restore(user,{...p,preview:true});
   if(action==='restore')return this.restore(user,p);
