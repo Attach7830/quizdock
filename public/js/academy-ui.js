@@ -4,7 +4,7 @@ import {$,esc,api,post,notice,dateLabel,timeLabel,download,csv,topbar,empty,opti
 import {createPracticeClock} from './practice-clock.js';
 import {practiceMarkup,practiceCluesMarkup,PRACTICE_GUIDE} from './practice-view.js';
 import {openGameReader,closeGameReader} from './game-reader.js';
-import {wardrobeMarkup} from './wardrobe-ui.js';
+import {wardrobeMarkup,wardrobeResults} from './wardrobe-ui.js';
 import {itemById,cleanEquipment} from './item-catalog.js';
 import {wordSlots,SPANISH_LETTERS} from './word-game-ui.js';
 import {createScene} from './scenes.js';
@@ -22,6 +22,9 @@ const music=createArcadeMusic(),practiceScene=createScene();let practiceMode='ty
 const root=$('#app');let home=null,tab='overview',screen='home',lists=[],challenge=null,loginKind='student',loginEmail='',practice=null,solo=null,report=null,raffle=null,raffleDraw=null;
 if(new URLSearchParams(location.search).has('wardrobe'))tab='wardrobe';
 let wardrobeSlot='hat',wardrobePreview=null;
+let wardrobeFilters={search:'',availability:'all',sort:'price'};
+const wardrobeState=()=>({...wardrobeFilters,slot:wardrobeSlot,preview:wardrobePreview});
+function filterWardrobe(){const results=$('#wardrobe-results');if(results&&home)results.innerHTML=wardrobeResults(home.user,wardrobeState());}
 let hubView=['assignments','expeditions'].includes(new URLSearchParams(location.search).get('view'))?new URLSearchParams(location.search).get('view'):'arcade';let expeditionHome=null,expeditionBusy=false;
 let pendingClassCode=new URLSearchParams(location.search).get('class')||'',inviteName='';
 const classLink=code=>`${location.origin}/?class=${encodeURIComponent(code)}`;
@@ -36,7 +39,7 @@ const listsOptions=()=>lists.map(l=>option(l.id,`${l.title} · ${l.count} cards`
 const formValues=form=>Object.fromEntries(new FormData(form));
 const progressTrack=(n,max)=>`<div class="progress-track"><span style="width:${Math.min(100,max?Math.max(0,n/max)*100:100)}%"></span></div>`;
 function currentMonday(){const text=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),d=new Date(text+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);return d.toISOString().slice(0,10);}
-function frame(content){closeGameReader();document.body.classList.toggle('practice-body',screen==='practice');practiceScene.setVisible(false);practiceScene.el.remove();root.innerHTML=topbar(home?.user,hubView)+`<main class="wrap">${content}</main>`;}
+function frame(content){const journeyOpen=$('.journey-book')?.open;closeGameReader();document.body.classList.toggle('practice-body',screen==='practice');practiceScene.setVisible(false);practiceScene.el.remove();root.innerHTML=topbar(home?.user,hubView)+`<main class="wrap">${content}</main>`;if(journeyOpen)$('.journey-book')?.setAttribute('open','');}
 function login(){
  screen='login';
  const student=loginKind==='student';
@@ -54,7 +57,7 @@ function renderHome(){if(!home)return;if(home.user.role==='student'&&!home.class
  if(tab==='overview'){content=`<div class="grid2"><section class="panel"><div class="panel-title"><h2>Class games</h2><span class="pill live">LIVE</span></div>${liveCards()}</section><section class="panel"><h2>${teacher?'Your classroom arcade':'Solo study'}</h2><p class="muted" style="margin:12px 0 20px">${teacher?'Choose a saved list to host a game, or share flashcards from your class roster.':'Use shared lists for flashcards, typed practice, or solo games.'}</p><button class="btn primary" data-act="tab" data-tab="${teacher?'classes':'practice'}">${teacher?'Manage classes':'Open solo study'} →</button><p class="form-note" style="margin-top:18px">Graded work has its own <a href="/?view=assignments" data-hub-view="assignments">Assignments tab</a> in the top navigation.</p></section></div>`;}
  else if(tab==='classes'){content=`<div class="panel-title"><h2>${teacher?'Your classes':'Linked classes'}</h2><button class="btn primary" data-act="${teacher?'new-class':'join-class'}">${teacher?'Create class':'Join another class'}</button></div><div class="grid3">${courseCards()}</div>`;}
  else if(tab==='practice'){content=`<div class="panel-title"><div><h2>Solo flashcards</h2><p class="muted">Flip cards, type answers, or play a solo game. Independent study is ungraded.</p></div></div><div class="grid3">${home.sharedLists.map(d=>`<article class="panel course-card"><span class="course-icon">▣</span><h3>${esc(d.title)}</h3><p class="muted">${esc(d.className)} · ${d.count} cards</p><button class="btn primary" data-act="solo" data-class="${d.classId}" data-id="${d.listId}">Study flashcards →</button><button class="btn ghost" data-act="solo-game-picker" data-class="${d.classId}" data-id="${d.listId}">Play a solo game →</button></article>`).join('')||empty('No flashcard lists shared yet','Your teacher can share saved lists with your class.')}</div>`;}
- else if(tab==='wardrobe')content=wardrobeMarkup(home.user,{slot:wardrobeSlot,preview:wardrobePreview})+outfitPresets(home.user);
+ else if(tab==='wardrobe')content=wardrobeMarkup(home.user,wardrobeState())+outfitPresets(home.user);
  else if(tab==='rewards')content=studyRewardsMarkup();
  else if(tab==='raffle')content=raffleMarkup();
  frame(intro+content);
@@ -172,6 +175,8 @@ async function action(button){const d=button.dataset;if(soloBusy&&d.act?.startsW
  else if(d.act==='claim-study-reward'){button.disabled=true;try{await api('study-rewards-claim',{classId:d.class,userId:d.user,awardId:d.award,requestId:d.request});rewardsView=await api('study-rewards',{classId:d.class});renderHome();notice('Jolly Rancher marked claimed.');}catch(err){button.disabled=false;throw err;}}
  else if(d.act==='item-preview'){const item=itemById(d.id);if(item){wardrobePreview={...cleanEquipment(wardrobePreview||home.user.equipment),[item.slot]:item.id};renderHome();$('.wardrobe-studio')?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});}}
  else if(d.act==='item-preview-reset'){wardrobePreview=null;renderHome();}
+ else if(d.act==='item-goal'){button.disabled=true;const result=await api('item-goal',{itemId:d.id});home.user=result.user;renderHome();notice(d.id?'Savings goal saved.':'Savings goal cleared.');}
+ else if(d.act==='wardrobe-filters-reset'){wardrobeSlot='all';wardrobeFilters={search:'',availability:'all',sort:'price'};renderHome();}
  else if(d.act==='item-buy'||d.act==='item-equip'||d.act==='item-remove'){button.disabled=true;try{const result=await api(d.act==='item-buy'?'buy-item':d.act==='item-equip'?'equip-item':'remove-item',d.act==='item-remove'?{slot:d.slot}:{itemId:d.id});home.user=result.user;wardrobePreview=null;renderHome();notice('Outfit saved. Wear it in your next game.');}catch(error){button.disabled=false;throw error;}}
  else if(d.act==='skin'){const r=await api(d.own==='true'?'equip-skin':'buy-skin',{skinId:d.id});home.user=r.user;wardrobePreview=null;renderHome();notice('Character equipped. It will appear the next time you join a game.');}
  else if(d.act==='assignment-report')await openAssignmentReport(d.id);
@@ -183,8 +188,8 @@ document.addEventListener('submit',async e=>{if(e.target.method==='dialog')retur
 document.addEventListener('pointerdown',e=>{if(e.target.closest('[data-act="accent"],[data-act="solo-accent"]'))e.preventDefault();if(e.isTrusted)lastInteraction=Date.now();});
 document.addEventListener('keydown',e=>{if(e.isTrusted)lastInteraction=Date.now();});
 document.addEventListener('click',async e=>{if(handleWordWorkshopClick(e.target))return;const link=e.target.closest('a[data-hub-view]');if(link&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.shiftKey&&e.button===0){e.preventDefault();changeHubView(link.dataset.hubView);return;}const b=e.target.closest('[data-act]');if(!b||b.disabled)return;try{await action(b);}catch(err){notice(err.message,true);b.disabled=false;}});
-document.addEventListener('input',e=>{if(solo&&e.target.id==='solo-answer')solo.typedDraft=e.target.value;});
-document.addEventListener('change',async e=>{if(e.target.id==='expedition-class'){await loadExpedition(e.target.value);return;}if(e.target.id==='practice-activity'){try{practice=await api('practice-activity',{assignmentId:practice.assignment.id,lease:practice.lease,questionKey:practice.question.key,activity:e.target.value});$('#practice-activity-body').innerHTML=activityMarkup(practice.word.activity,'typed-answer')+(practice.word.activity?.kind==='crossword'?crosswordMarkup(practice.word.crossword):'')+(practice.word.activity?.kind==='chain'?`<p>${practice.word.chain} consecutive correct answers</p>`:'');}catch(error){notice(error.message,true);}return;}if(e.target.id==='wardrobe-slot'){wardrobeSlot=e.target.value;renderHome();}if(solo&&e.target.id==='solo-strict-accents')solo.strictAccents=e.target.checked;if(solo&&e.target.id==='solo-category'){try{if(soloBusy)return;await soloSaves;await openSolo(solo.classId,solo.listId,e.target.value);}catch(err){notice(err.message,true);}}});
+document.addEventListener('input',e=>{if(e.target.id==='wardrobe-search'){wardrobeFilters.search=e.target.value;filterWardrobe();}if(solo&&e.target.id==='solo-answer')solo.typedDraft=e.target.value;});
+document.addEventListener('change',async e=>{if(e.target.id==='expedition-class'){await loadExpedition(e.target.value);return;}if(e.target.id==='practice-activity'){try{practice=await api('practice-activity',{assignmentId:practice.assignment.id,lease:practice.lease,questionKey:practice.question.key,activity:e.target.value});$('#practice-activity-body').innerHTML=activityMarkup(practice.word.activity,'typed-answer')+(practice.word.activity?.kind==='crossword'?crosswordMarkup(practice.word.crossword):'')+(practice.word.activity?.kind==='chain'?`<p>${practice.word.chain} consecutive correct answers</p>`:'');}catch(error){notice(error.message,true);}return;}if(e.target.id==='wardrobe-slot'){wardrobeSlot=e.target.value;filterWardrobe();}if(e.target.id==='wardrobe-availability'){wardrobeFilters.availability=e.target.value;filterWardrobe();}if(e.target.id==='wardrobe-sort'){wardrobeFilters.sort=e.target.value;filterWardrobe();}if(solo&&e.target.id==='solo-strict-accents')solo.strictAccents=e.target.checked;if(solo&&e.target.id==='solo-category'){try{if(soloBusy)return;await soloSaves;await openSolo(solo.classId,solo.listId,e.target.value);}catch(err){notice(err.message,true);}}});
 $('#dialog').addEventListener('close',()=>{music.stop();if(screen==='practice')$('#typed-answer')?.focus({preventScroll:true});});
 document.addEventListener('change',async e=>{if(e.target.id==='reward-class'){try{rewardsView=await api('study-rewards',{classId:e.target.value});renderHome();}catch(err){notice(err.message,true);}}if(e.target.id==='student-class-code')googleLogin();if(e.target.matches('#host-form select[name=mode]'))music.enter({mode:e.target.value,status:'playing'});});
 window.addEventListener('popstate',()=>changeHubView(['assignments','expeditions'].includes(new URLSearchParams(location.search).get('view'))?new URLSearchParams(location.search).get('view'):'arcade',false));

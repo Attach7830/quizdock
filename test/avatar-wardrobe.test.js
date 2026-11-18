@@ -18,10 +18,10 @@ async function fixture(points=190){
 }
 
 test('avatar item catalog has distinct original art, safe prices and the requested absurd trophies',()=>{
- assert.equal(AVATAR_ITEMS.length,20);assert.equal(new Set(AVATAR_ITEMS.map(i=>i.id)).size,20);
+ assert.equal(AVATAR_ITEMS.length,100);assert.equal(new Set(AVATAR_ITEMS.map(i=>i.id)).size,100);
  assert.equal(itemById('million-stick').price,1000000);assert.equal(itemById('billion-party-hat').price,1000000000);
- const art=AVATAR_ITEMS.map(item=>{assert.ok(Number.isSafeInteger(item.price)&&item.price>0);return characterMarkup(skinById('mint',{[item.slot]:item.id}));});
- assert.equal(new Set(art).size,20);assert.ok(art.every(markup=>markup!==characterMarkup(skinById('mint'))));
+ const art=AVATAR_ITEMS.map(item=>{assert.ok(item.quest?item.price===null&&Number.isSafeInteger(item.quest.goal)&&item.quest.goal>0:Number.isSafeInteger(item.price)&&item.price>0);return characterMarkup(skinById('mint',{[item.slot]:item.id}));});
+ assert.equal(new Set(art).size,100);assert.ok(art.every(markup=>markup!==characterMarkup(skinById('mint'))));
  assert.deepEqual(cleanEquipment({hat:'million-stick',hand:'million-stick',face:'<script>',unknown:'paper-boat'}),{hand:'million-stick'});
  const skin=skinById('mint',{hat:'paper-boat',hand:'rubber-duck'});assert.equal(characterParts(skin),characterParts(skin));assert.notEqual(characterMarkup(skin),characterMarkup(skinById('mint',{hat:'paper-boat'})));
 });

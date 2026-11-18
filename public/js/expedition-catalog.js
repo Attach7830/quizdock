@@ -1,3 +1,4 @@
+import {AVATAR_ITEMS} from './item-catalog.js';
 // Shared presentation data. The room server owns resources, choices and awards.
 export const EXPEDITION_VERSION=1;
 export const INTENSITIES={calm:{name:'Calm',eventEvery:8,rareEvery:5},standard:{name:'Standard',eventEvery:5,rareEvery:4},chaotic:{name:'Chaotic',eventEvery:3,rareEvery:3}};
@@ -25,7 +26,15 @@ export const COLLECTIONS=[
  {id:'classroom',name:'Classroom adventurer',items:['paper-boat','safety-goggles','magic-pencil','cardboard-wings']},
  {id:'kitchen',name:'Extremely prepared',items:['banana-hat','rubber-duck','pizza-shield','giant-spoon']},
  {id:'cosmic',name:'Cosmic nonsense',items:['star-shades','laser-eyes','sparkle-cloud','galactic-potatoes']},
- {id:'absurd',name:'Perfectly reasonable purchases',items:['million-stick','billion-party-hat','duck-council','portable-throne']}
+ {id:'absurd',name:'Perfectly reasonable purchases',items:['million-stick','billion-party-hat','duck-council','portable-throne']},
+ {id:'pocket-money',name:'Pocket money, enormous personality',items:['tin-foil-hat','googly-eyes','squeaky-hammer','backpack-snail','floating-spoons']},
+ {id:'breakfast',name:'Breakfast has escaped',items:['toast-hat','baguette-mustache','baguette-saber','sandwich-jetpack','toast-satellites']},
+ {id:'weather',name:'The forecast is deeply confusing',items:['satellite-dish','tiny-weather','pocket-tornado','tiny-tornado-engine','miniature-rain']},
+ {id:'office',name:'This outfit could have been an email',items:['bureaucratic-beard','tiny-whiteboard','mailbox-of-mystery','tiny-office']},
+ {id:'underwater',name:'The fish have formed a committee',items:['fishbowl-helmet','fish-tank-glasses','fish-on-a-stick','aquarium-backpack','cosmic-jellyfish']},
+ {id:'questionable-engineering',name:'Questionable engineering society',items:['wizard-traffic-light','snorkeling-tuba','plunger-of-destiny','shopping-cart-wings','confetti-emergency']},
+ {id:'long-way-home',name:'The very long way home',items:['origami-dragon','quest-snail','kindness-lantern','courier-cape','bookshelf-wings','curious-fireflies']},
+ {id:'beyond-horizon',name:'Beyond the horizon',items:['library-castle','quest-cosmic-goose','all-seeing-toast','council-scepter','cloud-train','wandering-island','universe-in-a-jar','phoenix-of-revision']}
 ];
 export const ACHIEVEMENTS=[
  {id:'first-steps',name:'First expedition',stat:'rounds',goal:1},
@@ -42,6 +51,21 @@ export const PERSONAL_QUESTS=[
  {id:'support',name:'Help the expedition',target:3,metric:'support'},
  {id:'solve',name:'Build a rhythm',target:5,metric:'correct'}
 ];
+// Account goals use saved expedition totals across classes. No daily streak or deadline.
+export const JOURNEY_TRACKS=[
+ {stat:'correct',name:'The learning odyssey',unit:'correct answers',goals:[25,100,500,2500,10000,100000],titles:['A bright beginning','Finding your voice','Paper dragon keeper','Page turner','Walking encyclopedia','Keeper of the sky library']},
+ {stat:'rounds',name:'A thousand adventures',unit:'finished rounds',goals:[5,20,50,200,500,2000],titles:['Passport ready','Frequent explorer','Bookshelf aviator','Beyond the map','Old hand at adventure','The wandering classroom']},
+ {stat:'support',name:'Leave nobody behind',unit:'team contributions',goals:[10,50,100,500,2000,10000],titles:['A helping hand','Reliable teammate','Lantern bearer','The team remembers','Beacon of the class','Honorary duck councillor']},
+ {stat:'discoveries',name:'A world of wonders',unit:'discoveries',goals:[12,40,100,500,1500,5000],titles:['What is over there?','Curiosity collector','Firefly friend','Map of mysteries','Very curious indeed','A universe of wonders']},
+ {stat:'rescues',name:'The long way home',unit:'couriers rescued',goals:[5,20,50,250,1000,10000],titles:['First rescue route','Cloud patrol','Courier captain','Guardian of the skies','No courier forgotten','Conductor of the rescue express']},
+ {stat:'accurateRounds',name:'Steady hands, sharp mind',unit:'accurate rounds',goals:[5,10,25,100,300,1000],titles:['A steady start','Finding focus','Spectacularly focused','Calm under pressure','Precision adventurer','The breakfast oracle']},
+ {stat:'improvements',name:'Better than yesterday',unit:'personal bests improved',goals:[3,5,10,50,150,500],titles:['A little better','Another new best','A second wind','Rewriting the record','Never done learning','Phoenix of revision']},
+ {stat:'quests',name:'Just one more side quest',unit:'personal quests completed',goals:[3,10,25,100,500,2500],titles:['An interesting detour','Quest notebook','The patient snail','Side quest specialist','The detour is the destination','The eternal quest goose']}
+];
+export const journeyUnit=stat=>JOURNEY_TRACKS.find(track=>track.stat===stat)?.unit||stat;
+export function journeyMilestones(stats={}){
+ return JOURNEY_TRACKS.flatMap(track=>track.goals.map((goal,i)=>({id:`${track.stat}-${goal}`,stat:track.stat,goal,name:track.titles[i],track:track.name,unit:track.unit,value:Math.max(0,Number(stats[track.stat])||0),reward:AVATAR_ITEMS.find(item=>item.quest?.stat===track.stat&&item.quest.goal===goal)?.id||null})));
+}
 export const BUILD_MOVES=[
  {id:'spark',name:'Spark',description:'Fire + wind combine into a storm strike.',element:'fire'},
  {id:'frost',name:'Frost',description:'Frost + wind combine into a protecting veil.',element:'frost'},

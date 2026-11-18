@@ -1,1 +1,1 @@
-export const RELEASE='classroom-release-2026-11-17.3';
+export const RELEASE='classroom-release-2026-11-17.4';

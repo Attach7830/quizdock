@@ -1,4 +1,5 @@
 import {ensure} from './library-domain.js';
+import {JourneyService} from './journey-service.js';
 import {ownedEquipment,cleanEquipment} from '../public/js/item-catalog.js';
 import {CHAPTERS,HUB_BUILDINGS,AQUARIUM_DECOR,HANGAR_COLORS,HANGAR_TRAILS,HANGAR_EMBLEMS,ACHIEVEMENTS,COLLECTIONS} from '../public/js/expedition-catalog.js';
 const MODES=CHAPTERS.map(c=>c.mode),count=(v,max=1000000)=>Math.max(0,Math.min(max,Number.isSafeInteger(v)?v:0));
@@ -22,7 +23,7 @@ export class ExpeditionService {
    const receipt=`expedition-receipt:${c}:${u}:${outcome.roundId}`;const p=await this.passport(c,u);if(await this.store.get(receipt)){passports[u]=p;continue;}
    const answered=count(result.answered,10000),correct=Math.min(answered,count(result.correct,10000));if(!answered&&!count(result.stats?.support,1000)){passports[u]=p;continue;}
    const score=count(Math.floor(result.score)),old=p.best[outcome.mode];p.stats.rounds++;p.stats.correct+=correct;p.stats.answered+=answered;p.stats.rescues+=count(result.rescues,1000);
-   for(const metric of ['support','discoveries'])p.stats[metric]+=count(result.stats?.[metric],10000);
+   for(const metric of ['support','discoveries','quests'])p.stats[metric]=(p.stats[metric]||0)+count(result.stats?.[metric],10000);
    if(answered>=5&&correct/answered>=.9)p.stats.accurateRounds++;
    if(!p.modes.includes(outcome.mode))p.modes.push(outcome.mode);
    if(!old||score>old.score){if(old)p.stats.improvements++;p.best[outcome.mode]={score,correct,answered,roundId:outcome.roundId,at:outcome.finishedAt,timeline:(result.timeline||[]).slice(-60).map(t=>({answered:count(t.answered,10000),score:count(Math.floor(t.score))}))};}
@@ -30,6 +31,7 @@ export class ExpeditionService {
    p.hubTokens+=Math.floor((p.stats.correct-correct)/5+correct/5)-Math.floor((p.stats.correct-correct)/5);p.stats.modes=p.modes.length;
    for(const a of ACHIEVEMENTS)if(p.stats[a.stat]>=a.goal&&!p.achievements[a.id])p.achievements[a.id]=outcome.finishedAt;
    p.updatedAt=Date.now();await this.store.put({[this.key(c,u)]:p,[receipt]:{classId:c,userId:u,roundId:outcome.roundId,at:Date.now()}});passports[u]=p;contribution+=correct;
+   await new JourneyService(this.store).sync(await this.academy.profile(u),p);
   }
   if(!await this.store.get(roundKey)){
    world.counts[outcome.mode]+=contribution;while(world.chapter<CHAPTERS.length&&world.counts[CHAPTERS[world.chapter].mode]>=CHAPTERS[world.chapter].goal)world.chapter++;
@@ -45,7 +47,7 @@ export class ExpeditionService {
   const c=await this.academy.course(p.classId,user),profile=await this.passport(c.id,user.id),world=await this.world(c.id);
   if(action==='home'){
    const gallery=[...(await this.store.list({prefix:`expedition-gallery:${c.id}:`,reverse:true,limit:12})).values()];gallery.sort((a,b)=>b.at-a.at);
-   return {class:{id:c.id,name:c.name},passport:profile,world,gallery:gallery.slice(0,12).map(g=>({roundId:g.roundId,at:g.at,frames:g.frames.map(({artistAccounts,...frame})=>frame)})),collections:COLLECTIONS.map(collection=>({...collection,owned:collection.items.filter(id=>user.ownedItems?.includes(id))})),presets:user.outfitPresets||[],hangar:cleanHangar(user.hangar),hangarRescues:await this.rescueTotal(user.id)};
+   return {class:{id:c.id,name:c.name},passport:profile,world,journey:await new JourneyService(this.store).summary(user.id),gallery:gallery.slice(0,12).map(g=>({roundId:g.roundId,at:g.at,frames:g.frames.map(({artistAccounts,...frame})=>frame)})),collections:COLLECTIONS.map(collection=>({...collection,owned:collection.items.filter(id=>user.ownedItems?.includes(id))})),presets:user.outfitPresets||[],hangar:cleanHangar(user.hangar),hangarRescues:await this.rescueTotal(user.id)};
   }
   ensure(user.role==='student','Use a student account to customize your expedition.',403);
   if(action==='aquarium'){
@@ -61,12 +63,12 @@ export class ExpeditionService {
   const profile=await this.academy.profile(user.id),presets=profile.outfitPresets||[];
   if(p.operation==='save'){ensure(presets.length<5,'Keep up to five outfit presets.');const name=title(p.name,28);ensure(name,'Name your outfit.');presets.push({id:crypto.randomUUID(),name,skin:profile.skin,equipment:ownedEquipment(profile)});}
   else{const at=presets.findIndex(x=>x.id===p.id);ensure(at>=0,'Outfit preset not found.',404);if(p.operation==='delete')presets.splice(at,1);else{ensure(p.operation==='equip','Choose save, equip, or delete.');const outfit=presets[at];ensure(profile.owned.includes(outfit.skin),'Unlock this avatar first.');const valid=cleanEquipment(outfit.equipment);ensure(Object.values(valid).every(id=>profile.ownedItems?.includes(id)),'An outfit item is no longer owned.');profile.skin=outfit.skin;profile.equipment=valid;}}
-  profile.outfitPresets=presets;await this.store.put('account:'+user.id,profile);return {user:{...profile,role:user.role}};
+  profile.outfitPresets=presets;await this.store.put('account:'+user.id,profile);return {user:await new JourneyService(this.store).sync({...profile,role:user.role})};
  }
  async rescueTotal(userId){const memberships=await this.academy.rows(`enrollment:${userId}:`,201);let rescues=0;for(const m of memberships)if(m.active)rescues+=(await this.passport(m.classId,userId)).stats.rescues||0;return rescues;}
  async hangar(p,user){
   const rescues=await this.rescueTotal(user.id);
   const value=cleanHangar(p);for(const [key,catalog]of [['paint',HANGAR_COLORS],['trail',HANGAR_TRAILS],['emblem',HANGAR_EMBLEMS]])ensure(catalog.find(x=>x.id===value[key]).need<=rescues,'Rescue more couriers to unlock this hangar decoration.');
-  const profile=await this.academy.profile(user.id);profile.hangar=value;await this.store.put('account:'+user.id,profile);return {user:{...profile,role:user.role}};
+  const profile=await this.academy.profile(user.id);profile.hangar=value;await this.store.put('account:'+user.id,profile);return {user:await new JourneyService(this.store).sync({...profile,role:user.role})};
  }
 }
