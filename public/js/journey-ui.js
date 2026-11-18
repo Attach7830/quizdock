@@ -1,0 +1,16 @@
+import {esc,avatar} from './ui.js';
+import {skinById} from './catalog.js';
+import {AVATAR_ITEMS,itemById} from './item-catalog.js';
+import {JOURNEY_TRACKS,journeyMilestones} from './expedition-catalog.js';
+
+const number=value=>Number(value||0).toLocaleString('en-US');
+const meter=(value,goal,label)=>`<progress max="${goal}" value="${Math.min(value,goal)}" aria-label="${esc(label)}"></progress>`;
+function milestoneMarkup(m,user){
+ const earned=m.value>=m.goal,reward=itemById(m.reward),owned=user.ownedItems?.includes(m.reward);
+ return `<li class="journey-milestone ${earned?'earned':''}" data-milestone="${m.id}"><span class="journey-badge" aria-hidden="true">${earned?'✦':'◇'}</span><div><strong>${esc(m.name)}</strong><small>${number(Math.min(m.value,m.goal))} / ${number(m.goal)} ${esc(m.unit)}${earned?' · Complete':''}</small>${reward?`<div class="journey-reward">${avatar(skinById(user.skin,{[reward.slot]:reward.id}),'mini')}<span>${owned?'In your wardrobe':'Accessory reward'}: <b>${esc(reward.name)}</b></span></div>`:''}</div></li>`;
+}
+export function journeyMarkup(user,journey=user.journey||{}){
+ const milestones=journeyMilestones(journey.stats),complete=milestones.filter(m=>m.value>=m.goal).length;
+ const next=JOURNEY_TRACKS.map(track=>milestones.find(m=>m.stat===track.stat&&m.value<m.goal)).filter(Boolean).sort((a,b)=>b.value/b.goal-a.value/a.goal).slice(0,3);
+ return `<section class="panel journey-section" data-journey><div class="panel-title"><div><div class="eyebrow">Always another adventure</div><h2>Your next horizons</h2></div><span class="pill">${complete} / ${milestones.length} milestones</span></div><p class="muted">Short quests, semester projects and legendary journeys. Your progress adds up across saved class expeditions, with no daily streak or quest deadline.</p><div class="journey-next">${next.map(m=>`<article data-next-milestone="${m.id}"><small>${esc(m.track)}</small><h3>${esc(m.name)}</h3>${meter(m.value,m.goal,m.name)}<p>${number(m.goal-m.value)} more ${esc(m.unit)}</p>${m.reward?`<strong class="journey-next-reward">Unlocks ${esc(itemById(m.reward).name)}</strong>`:''}</article>`).join('')||'<p>You reached every horizon in this quest book. Your collection is extraordinary.</p>'}</div><details class="journey-book"><summary>Open your quest book · ${milestones.length} milestones · ${AVATAR_ITEMS.filter(item=>item.quest).length} accessory rewards</summary><p class="form-note">Finish teacher-hosted or solo expedition rounds to save progress. Accurate rounds need at least five answers and 90% accuracy. Personal quests are the repeatable quests inside Adventure. Flashcards and assignments use their own progress. Existing saved adventures count; personal quest totals start with this update.</p><div class="journey-tracks">${JOURNEY_TRACKS.map(track=>{const all=milestones.filter(m=>m.stat===track.stat),next=all.find(m=>m.value<m.goal),value=journey.stats?.[track.stat]||0;return `<article class="journey-track" data-journey-track="${track.stat}"><h3>${esc(track.name)}</h3><p>${number(value)} ${esc(track.unit)} · ${all.filter(m=>m.value>=m.goal).length} / ${all.length} milestones</p>${next?meter(value,next.goal,track.name):'<span class="pill done">Every milestone earned</span>'}<ol>${all.map(m=>milestoneMarkup(m,user)).join('')}</ol></article>`;}).join('')}</div></details></section>`;
+}

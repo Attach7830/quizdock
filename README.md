@@ -1,10 +1,10 @@
 # QuizDock · classroom beta
 
-Release 0.10.0 adds expeditions across all eight existing modes, a shared class island, persistent discoveries and personal bests, drawing variations, a word workshop and saved outfits. The public [About page](https://srtw.win/about.html) introduces the worlds with changing scroll illustrations and free avatar previews. See [the 60-idea implementation guide](docs/EXPEDITIONS.md).
+Release 0.11.0 expands the avatar wardrobe to 100 original accessories, adds search and saved savings targets, and introduces 48 adventure milestones with 16 exclusive accessory rewards. Goals range from early wins to 100,000 correct answers. See [accessories and horizons](docs/ACCESSORIES_AND_HORIZONS.md). The public [About page](https://srtw.win/about) introduces the existing eight game worlds with changing scroll illustrations and free avatar previews; [the expedition guide](docs/EXPEDITIONS.md) covers their mechanics.
 
 An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, seven private solo games, typed assignments, independent practice, and class-linked student accounts.
 
-## Release 0.10.0
+## Release 0.11.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
@@ -14,7 +14,7 @@ Desktop Treasure Quest chest choices occupy a full-width row with large labels a
 
 Word Forge assignment practice keeps the prompt, typed answer and actions in a compact screen at 100% zoom. Letter clues keep whole words together, count only letters, and show punctuation separately; a letter panel and full prompt/feedback readers retain longer content. Google sign-in uses its official button without the white iframe surround.
 
-Avatar wardrobe adds 20 original accessories across hats, face, held items, back items and auras. Previewing is free; server-checked purchases use character points and save ownership and equipped slots to the existing account. Existing thirteen base characters, prices and purchases are preserved. The Million Point Stick costs 1,000,000 character points; the Billion Point Party Hat costs 1,000,000,000. All outfits are cosmetic, and the current daily earning limit is unchanged. Saved outfits appear in live games, survive replay and are included in personal account exports.
+Avatar wardrobe offers 100 original accessories across hats, face, held items, back items and auras. Previewing is free; server-checked purchases use character points and save ownership and equipped slots to the existing account. Sixteen accessories unlock from account-wide expedition milestones without spending points. Existing thirteen base characters, prices and purchases are preserved. Shop prices range from 10 to 1,000,000,000,000 character points, including the original Million Point Stick and Billion Point Party Hat. All outfits are cosmetic, and the current daily earning limit is unchanged. Saved outfits appear in live games, leaderboards and class rosters, survive replay and are included in personal account exports.
 
 The Keys guide supports editable hotkeys with collision checks and Restore defaults. Shortcuts work in flashcards, independent typing and assignments; they pause while typing except for an explicitly assigned modified Check shortcut. Practice time requires focused, active intervals, with blur/focus boundaries checked by server heartbeats.
 

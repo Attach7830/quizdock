@@ -1,4 +1,5 @@
 import {itemById} from './item-catalog.js';
+import {extraItemParts} from './extra-item-art.js';
 
 // Original vector accessories use the same geometry on SVG portraits and canvas.
 export function avatarItemParts(equipment,layer){
@@ -6,8 +7,11 @@ export function avatarItemParts(equipment,layer){
  const circle=(x,y,r,fill,stroke='#eaf7ff',width=1.5)=>path(`M${x-r} ${y}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 -${2*r} 0`,fill,stroke,width);
  const star=(x,y,r,color)=>path(`M${x} ${y-r}l${r*.3} ${r*.7} ${r*.7} ${r*.3}-${r*.7} ${r*.3}-${r*.3} ${r*.7}-${r*.3}-${r*.7}-${r*.7}-${r*.3} ${r*.7}-${r*.3}Z`,color,null,0);
  const duck=(x,y,scale=1)=>{path(`M${x-12*scale} ${y}q${7*scale} ${9*scale} ${22*scale} 0q${5*scale}-${8*scale}-${4*scale}-${11*scale}q-${8*scale}-${2*scale}-${10*scale} ${5*scale}Z`,'#ffdf78','#fff4bf',1);circle(x+5*scale,y-12*scale,7*scale,'#ffe899','#fff4bf',1);path(`M${x+10*scale} ${y-13*scale}l${7*scale} ${2*scale}-${7*scale} ${3*scale}Z`,'#ff9e62',null,0);circle(x+7*scale,y-14*scale,1.2*scale,'#23334e',null,0);};
- for(const id of Object.values(equipment||{})){
+ const items=Object.values(equipment||{});
+ if(layer==='back')items.sort((a,b)=>Number(itemById(a)?.slot!=='aura')-Number(itemById(b)?.slot!=='aura'));
+ for(const id of items){
   const item=itemById(id);if(!item||(['back','aura'].includes(item.slot)?'back':'front')!==layer)continue;
+  parts.push(...extraItemParts(id));
   if(id==='paper-boat')path('M-31 -59L0 -80L31 -59L20 -51L-20 -51Z','#f8e8c6','#856c69',1.5);
   if(id==='banana-hat'){path('M-29 -66Q2 -49 23 -78Q30 -62 10 -53Q-11 -45 -29 -66Z','#ffe278','#fff5bf',2);path('M-28 -66L-33 -71M23 -78L27 -82','none','#715640',3);}
   if(id==='traffic-cone'){path('M-29 -53L-8 -82L13 -53Z','#ff9c62','#ffedd4',2);path('M-17 -69L0 -69L6 -60L-23 -60Z','#fff5dc',null,0);path('M-35 -52L20 -52L23 -46L-37 -46Z','#ef795d','#ffedd4',1.5);}

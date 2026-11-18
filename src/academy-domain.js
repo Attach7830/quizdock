@@ -1,4 +1,5 @@
 import {ExpeditionService} from './expedition-service.js';
+import {JourneyService} from './journey-service.js';
 import {WORD_ACTIVITIES,makeCrossword,publicCrossword} from './word-activities.js';
 import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository} from './library-domain.js';
 import {correctAnswers,validateList,CARD_CATEGORIES} from '../public/js/list-model.js';
@@ -58,6 +59,7 @@ export class AcademyService {
   const session=uid()+uid();await this.store.put('session:'+await hash(session),{email,owner:userId,kind:'student',issuedAt:now,expiresAt:now+7*DAY});await this.store.delete(key);return response({ok:true},200,{'set-cookie':cookie(session)});
  }
  async home(user){
+  if(user.role==='student')user=await new JourneyService(this.store).sync(user);
   const classes=user.role==='teacher'?(await this.rows('class-owner:'+user.id+':')).filter(c=>!c.archived):await Promise.all((await this.rows('enrollment:'+user.id+':')).filter(m=>m.active).map(async m=>{const c=await this.store.get('class:'+m.classId);return c&&!c.archived?{id:c.id,name:c.name,timezone:c.timezone}:null;})).then(a=>a.filter(Boolean));
   const result={user,classes,assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,avatarItems:AVATAR_ITEMS,now:Date.now()};
   for(const c of classes){
@@ -190,15 +192,20 @@ export class AcademyService {
    if(action==='remove-item'){ensure(Object.hasOwn(ITEM_SLOTS,p.slot),'Choose a valid item slot.');delete equipment[p.slot];}
    else{
     const item=itemById(p.itemId);ensure(item,'Unknown avatar item.');
-    if(action==='buy-item'&&!owned.includes(item.id)){ensure(Number.isSafeInteger(profile.points)&&profile.points>=item.price,'You need more character points.');profile.points-=item.price;owned.push(item.id);}
+    if(action==='buy-item'&&!owned.includes(item.id)){ensure(!item.quest,'Earn this accessory through its expedition quest.',403);ensure(Number.isSafeInteger(profile.points)&&profile.points>=item.price,'You need more character points.');profile.points-=item.price;owned.push(item.id);}
     ensure(owned.includes(item.id),'Unlock this item first.',403);equipment[item.slot]=item.id;
    }
-   profile.ownedItems=owned;profile.equipment=equipment;await this.store.put('account:'+user.id,profile);return response({user:{...profile,role:user.role}});
+   profile.ownedItems=owned;profile.equipment=equipment;if(owned.includes(profile.wardrobeGoal))delete profile.wardrobeGoal;await this.store.put('account:'+user.id,profile);return response({user:await new JourneyService(this.store).sync({...profile,role:user.role})});
+  }
+  if(action==='item-goal'){
+   const profile=await this.profile(user.id),item=p.itemId?itemById(p.itemId):null;
+   if(p.itemId){ensure(item&&!item.quest,'Choose a shop item as your savings goal.');ensure(!profile.ownedItems?.includes(item.id),'You already own this item.');profile.wardrobeGoal=item.id;}else delete profile.wardrobeGoal;
+   await this.store.put('account:'+user.id,profile);return response({user:await new JourneyService(this.store).sync({...profile,role:user.role})});
   }
   if(action==='buy-skin'||action==='equip-skin'){
    const skin=SKINS.find(s=>s.id===p.skinId);ensure(skin,'Unknown character skin.');const profile=await this.profile(user.id);
    if(action==='buy-skin'&&!profile.owned.includes(skin.id)){ensure(profile.points>=skin.price,'You need more reward points.');profile.points-=skin.price;profile.owned.push(skin.id);}
-   ensure(profile.owned.includes(skin.id),'Unlock this skin first.',403);profile.skin=skin.id;await this.store.put('account:'+user.id,profile);return response({user:{...profile,role:user.role}});
+   ensure(profile.owned.includes(skin.id),'Unlock this skin first.',403);profile.skin=skin.id;await this.store.put('account:'+user.id,profile);return response({user:await new JourneyService(this.store).sync({...profile,role:user.role})});
   }
   if(action==='raffle-preview'||action==='raffle-draw'||action==='raffle-history'){
    this.teacher(user);let timezone=DEFAULT_ZONE;if(p.classId){const c=await this.course(p.classId,user,true);timezone=c.timezone;}

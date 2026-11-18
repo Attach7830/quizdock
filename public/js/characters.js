@@ -63,7 +63,7 @@ export function characterParts(skin={}){
   path('M-29 -30L-19 -48L0 -37L19 -48L29 -30L16 -16L0 -13L-16 -16Z',a,s,1.5);path('M-20 -32L-6 -28L-15 -23Z',s);path('M20 -32L6 -28L15 -23Z',s);path('M-4 -20L0 -17L4 -20Z',p);
  }
  parts.push(...avatarItemParts(equipment,'front'));
- if(geometry.size>=128)geometry.delete(geometry.keys().next().value);geometry.set(key,parts);return parts;
+ if(geometry.size>=256)geometry.delete(geometry.keys().next().value);geometry.set(key,parts);return parts;
 }
 export function characterMarkup(skin){
  return `<svg class="character-art" viewBox="-66 -84 132 140" aria-hidden="true" focusable="false">${characterParts(skin).map(p=>`<path d="${p.d}" fill="${p.fill}"${p.stroke?` stroke="${p.stroke}" stroke-width="${p.width}" stroke-linecap="round" stroke-linejoin="round"`:''} opacity="${p.opacity}"/>`).join('')}</svg>`;

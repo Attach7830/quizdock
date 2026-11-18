@@ -2,6 +2,7 @@
 import https from 'node:https';import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';
 import gateway from '../src/library-worker.js';import {TeacherLibrary} from '../src/library-service.js';import {QuizRoom} from '../src/worker.js';import {AcademyService} from '../src/academy-domain.js';import {ListRepository,hash,uid} from '../src/library-domain.js';import {validateCard} from '../public/js/list-model.js';import {context,namespace,Socket} from '../test/memory-runtime.js';
 import {googleClientId,googleJwk,googleToken} from '../test/google-fixture.js';
+import {ExpeditionService} from '../src/expedition-service.js';
 const root=path.resolve(import.meta.dirname,'..'),config={TEACHER_EMAILS:'teacher@example.com',EMAIL_FROM:'login@example.com',RESEND_API_KEY:'local-test-key',GOOGLE_CLIENT_ID:googleClientId},libraryCtx=context(),library=new TeacherLibrary(libraryCtx,config),rooms=new Map(),env={...config,TEACHER_LIBRARY:namespace(library)};
 async function getRoom(pin){if(!rooms.has(pin)){const ctx=context(),room=new QuizRoom(ctx,env);await ctx.boot;rooms.set(pin,{ctx,room});}return rooms.get(pin);}
 env.ROOMS={idFromName:n=>n,get:pin=>({fetch:async(u,i)=>{const {room}=await getRoom(pin);return room.fetch(u instanceof Request?u:new Request(u,i));}})};
@@ -21,6 +22,7 @@ const server=https.createServer({key:fs.readFileSync(root+'/checks/dev-key.pem')
 const url=new URL(req.url,'https://localhost:9443');
 if(url.pathname==='/__test/login'){const role=url.searchParams.get('role')||'student';res.setHeader('Set-Cookie',`__Host-quizdock-library=${tokens[role]}; Path=/; Secure; HttpOnly; SameSite=Lax`);res.setHeader('content-type','application/json');res.end('{}');return;}
 if(url.pathname==='/__test/fixture'){res.setHeader('content-type','application/json');res.end(JSON.stringify({classId:klass.id,classCode:klass.code,listId,assignmentId:assignment.id}));return;}
+if(url.pathname==='/__test/journey-progress'&&req.method==='POST'){const id=await hash('alex@example.com'),service=new ExpeditionService(libraryCtx.storage,svc),passport=await service.passport(klass.id,id);Object.assign(passport.stats,{correct:499,rounds:49});await libraryCtx.storage.put(service.key(klass.id,id),passport);res.setHeader('content-type','application/json');res.end('{}');return;}
 if(url.pathname==='/__test/google-credential'){let raw='';for await(const c of req)raw+=c;const p=JSON.parse(raw);res.setHeader('content-type','application/json');res.end(JSON.stringify({credential:await googleToken(p.nonce,{email:p.email||'casey@example.com',name:p.name||'Casey Google',sub:p.email||'casey-google',...(String(p.email).endsWith('@servitehs.org')?{hd:'servitehs.org'}:{})})}));return;}
 if(url.pathname.startsWith('/__test/ws/')){let data='';for await(const c of req)data+=c;const p=JSON.parse(data||'{}');let out={};
 if(url.pathname.endsWith('/open')){const {ctx,room}=await getRoom(p.pin),ws=new Socket(),sid=uid();ctx.sockets.push(ws);testSockets.set(sid,{room,ws});out={sid};}
