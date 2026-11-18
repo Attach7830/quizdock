@@ -63,8 +63,8 @@ export function grantGameplayReward(room,p,rng=randomInt){
  }else if(room.mode==='battle'){
   const points=60+Math.min(p.streak*10,50);p.score+=points;s.turns++;if(s.turns%3===0)s.arena=nextDifferent(ARENAS,s.arena,rng);reward={text:`+${points} accuracy points. Choose your arena move.`,points,effect:{type:'prepare'}};
  }else if(room.mode==='factory'){
-  reward=grantAnswerReward(room,p);s.cycles++;s.fuel=Math.min(6,s.fuel+2);s.stock.gears+=s.stations.press*2;s.stock.cells+=s.stations.cells;
-  const bots=Math.min(s.stations.assembler,s.stock.gears,s.stock.cells);s.stock.gears-=bots;s.stock.cells-=bots;s.stock.bots+=bots;
+  reward=grantAnswerReward(room,p);s.cycles++;s.fuel=Math.min(6,s.fuel+2);if(!room.expedition)s.stock.gears+=s.stations.press*2;if(!room.expedition)s.stock.cells+=s.stations.cells;
+  const bots=room.expedition?0:Math.min(s.stations.assembler,s.stock.gears,s.stock.cells);s.stock.gears-=bots;s.stock.cells-=bots;s.stock.bots+=bots;
   if(s.cycles%5===0)s.market=nextDifferent(STATIONS.map(x=>({id:x.part})),s.market,rng);
   reward={...reward,text:`${reward.text} Your line produced parts${bots?` and ${bots} bot${bots===1?'':'s'}`:''}.`,effect:{type:'production',bots}};
  }else if(room.mode==='rally'){
@@ -83,7 +83,7 @@ export function grantGameplayReward(room,p,rng=randomInt){
   if(!k.participants.includes(p.id))k.participants.push(p.id);if(!k.contributors.includes(p.id))k.contributors.push(p.id);
   if(!advanceWave(room,rng)){
    const size=clamp(room.gameplay.activePlayers||Object.keys(room.players).length,1,45),ready=k.participants.length>=Math.max(1,Math.ceil(size*.5))||k.steps>=Math.max(4,size*2);
-   if(ready){const enemy=ENEMIES.find(e=>e.id===k.enemy),damage=Math.max(2,enemy.damage+Math.floor(k.wave/3)*2-Math.min(14,k.towers.ward*4));k.crystal=Math.max(0,k.crystal-damage);k.lastOutcome=`${enemy.name} dealt ${damage} crystal damage.`;k.participants=[];k.steps=0;if(k.crystal===0){k.lastStand++;k.crystal=120;k.lastOutcome='Last stand! The crystal reformed with 120 health. Keep defending.';}}
+   if(ready){const enemy=ENEMIES.find(e=>e.id===k.enemy),damage=Math.max(2,enemy.damage+Math.floor(k.wave/3)*2-Math.min(14,k.towers.ward*4)-(room.expedition?.keep?.wardBonus||0)-(room.expedition&&p.expedition?.modeState?.front===room.expedition.keep.front?2:0));k.crystal=Math.max(0,k.crystal-damage);k.lastOutcome=`${enemy.name} dealt ${damage} crystal damage.`;k.participants=[];k.steps=0;if(k.crystal===0){k.lastStand++;k.crystal=120;k.lastOutcome='Last stand! The crystal reformed with 120 health. Keep defending.';}}
   }
   reward={...reward,text:`${reward.text} · Your class dealt ${damage} damage. ${k.lastOutcome}`,effect:{...reward.effect,damage}};
  }
@@ -141,7 +141,7 @@ export function resolveGameplayChoice(room,p,id,choice,rng=randomInt,now=Date.no
  if(room.mode==='keep'){
   const k=room.gameplay.keep;
   if(choice==='barrage'){s.supplies--;const damage=Math.min(k.enemyHp,18);k.enemyHp-=damage;reward={text:`Crystal barrage! ${damage} damage dealt to ${ENEMIES.find(e=>e.id===k.enemy).name}.`,effect:{type:'charge',amount:damage}};}
-  if(choice==='tower'){s.supplies-=3;const tower=k.towers.bolt<=k.towers.ward?'bolt':'ward';k.towers[tower]++;reward={text:`${tower==='bolt'?'Bolt':'Ward'} tower built! Your whole class is stronger.`,effect:{type:'upgrade',tower}};}
+  if(choice==='tower'){s.supplies-=3;const tower=k.towers.bolt<=k.towers.ward?'bolt':'ward';k.towers[tower]++;if(room.expedition?.keep){const grid=room.expedition.keep.grid,at=grid.findIndex((x,i)=>!x&&i<room.expedition.keep.openCells);if(at>=0)grid[at]={type:tower,level:1,playerId:p.id};}reward={text:`${tower==='bolt'?'Bolt':'Ward'} tower built! Your whole class is stronger.`,effect:{type:'upgrade',tower}};}
   if(choice==='repair'){s.supplies-=2;const restored=Math.min(40,300-k.crystal);k.crystal+=restored;reward={text:`Crystal restored! ${restored} shared health repaired.`,effect:{type:'repair',amount:restored}};}
   if(choice==='save')reward={text:`${s.supplies} supplies saved for your next defense.`,effect:{type:'plan'}};
   if(advanceWave(room,rng))reward.text+=' '+k.lastOutcome;

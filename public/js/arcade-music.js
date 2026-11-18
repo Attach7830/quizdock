@@ -5,7 +5,7 @@ export {CHIP_TUNES} from './chip-score.js';
 export function createArcadeMusic({view = window, doc = document} = {}) {
  let enabled = true, volume = .3, active = false, status = 'lobby', mode = 'treasure';
  let audio = null, master = null, synth = null, timer = null, step = 0, nextAt = 0, disposed = false;
- const cues = new Set();
+ let layers;const cues = new Set();
  try { enabled = view.localStorage.getItem('qd-music') !== 'off';
   const saved = view.localStorage.getItem('qd-music-volume');
   if (saved !== null && Number.isFinite(+saved)) volume = Math.max(0, Math.min(1, +saved));
@@ -31,7 +31,7 @@ export function createArcadeMusic({view = window, doc = document} = {}) {
   // A suspended/background tab never queues missed bars on its return.
   if (nextAt < audio.currentTime) nextAt = audio.currentTime + .025;
   while (nextAt < audio.currentTime + .18) {
-   synth.play(score,step,nextAt);
+   synth.play(score,step,nextAt,layers);
    nextAt += tick; step++;
   }
  }
@@ -86,6 +86,7 @@ export function createArcadeMusic({view = window, doc = document} = {}) {
  return {
   controls: () => `<div class="music-controls" role="group" aria-label="Original 8-bit RPG music"><button type="button" class="btn ghost small" data-music="toggle" aria-pressed="${enabled}" aria-label="${!enabled?'Turn on 8-bit music':playing()?'Mute 8-bit music':'Play 8-bit music'}">${label()}</button><label>Volume<input data-music="volume" aria-label="Music volume" type="range" min="0" max="100" value="${Math.round(volume * 100)}"></label></div>`,
   enter(next = {}) {
+   const adventure=next.expedition,state=adventure?.state,boss=state?.boss||state?.ship||state?.obstacle||state?.guardian;layers=adventure?(boss?.phase===3||adventure.cinema&&adventure.tick-(adventure.cinema.tick??-100)<4?3:boss?.phase===2||adventure.tick>=10?2:1):undefined;
    const nextMode = next.mode || mode, nextStatus = next.status || 'lobby';
    const nextTune=CHIP_TUNES[nextStatus==='lobby'?'lobby':nextMode]||CHIP_TUNES.lobby;
    if (tune() !== nextTune) { stopVoices(); step = 0; }

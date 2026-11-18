@@ -413,3 +413,4 @@ body.game-body .phase-shell .sketch-board:has(.artist-word:not([hidden])) [data-
  body.game-body .phase-shell .sketch-board .word-slot{width:clamp(10px,calc(200px / var(--letters)),20px);height:22px;font-size:14px}
  body.game-body .phase-shell .sketch-quick-accents{display:none}
 }
+@media(max-height:650px) and (max-width:539px){body.game-body .phase-shell .word-screen:has(.question-image) .word-keyboard button{min-height:32px}}

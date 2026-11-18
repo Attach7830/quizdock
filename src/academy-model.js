@@ -27,7 +27,7 @@ export function gameSettings(raw={}){
  const kind=raw.kind??'time',minutes=Number(raw.minutes??10),target=Number(raw.target??1000);
  ensure(['time','score'].includes(kind),'Choose time or target score.');ensure(Number.isInteger(minutes)&&minutes>=1&&minutes<=60,'Game time must be 1–60 minutes.');
  ensure(Number.isInteger(target)&&target>=1&&target<=1000000,'Target score must be 1–1,000,000.');
- return {kind,minutes,target,allowLate:raw.allowLate!==false};
+ const extra={};if(raw.engagement===true){ensure(['calm','standard','chaotic'].includes(raw.intensity||'standard'),'Choose an event intensity.');ensure(['auto','forge','crossword','repair','affixes','chain'].includes(raw.wordActivity||'auto'),'Choose a word activity.');ensure(['auto','classic','duo','relay','constraint','story','compound'].includes(raw.sketchFormat||'auto'),'Choose a drawing format.');Object.assign(extra,{engagement:true,intensity:raw.intensity||'standard',wordActivity:raw.wordActivity||'auto',sketchFormat:raw.sketchFormat||'auto'});}return {kind,minutes,target,allowLate:raw.allowLate!==false,...extra};
 }
 export function rankedParticipants(rows){
  const sorted=rows.filter(p=>p.answered>0).slice().sort((a,b)=>b.score-a.score||b.correct-a.correct||a.name.localeCompare(b.name));

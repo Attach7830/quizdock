@@ -29,7 +29,7 @@ export function createChipSynth(audio,output){
   source.start(at);source.stop(at+duration+.01);
  }
  return {
-  play(score,step,at){const tick=15/score.bpm;for(const event of chipFrame(score,step))voice(event.note,at,event.duration*tick,event.voice,event.level);},
+  play(score,step,at,layers){const tick=15/score.bpm;for(const event of chipFrame(score,step)){if(layers===1&&['harmony','arp','snare'].includes(event.voice)||layers===2&&event.voice==='harmony')continue;voice(event.note,at,event.duration*tick,event.voice,event.level);}},
   cue(correct,score,at){const chord=score.chords[0],notes=correct?[chord[0]+12,chord[1]+12,chord[2]+12,chord[0]+24]:[chord[0]+12,chord[0]+10,chord[0]+7];notes.forEach((n,i)=>voice(n,at+i*.095,.17,correct?'lead':'harmony',correct?.16:.11));},
   stop(){for(const source of voices){try{source.stop();source.disconnect();}catch{}}voices.clear();}
  };

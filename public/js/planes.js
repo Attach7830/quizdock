@@ -1,3 +1,4 @@
+import {HANGAR_COLORS,HANGAR_EMBLEMS,HANGAR_TRAILS} from './expedition-catalog.js';
 // Original aircraft silhouettes shared by the choice cards and live canvas.
 export const PLANES = {
  sprinter:{name:'Comet Racer',tagline:'Built for straight-line speed',color:'#ffae65',trim:'#ffe8b0',wing:'#cf6356',
@@ -11,17 +12,19 @@ export const PLANES = {
   wings:[[-13,7],[-68,49],[22,29],[39,9]],tail:[[-48,8],[-71,-26],[-65,17]],engines:[[50,9]],flame:true}
 };
 export const planeByRole = role => PLANES[role] || PLANES.sprinter;
+function appearance(role,value){const base=planeByRole(role);return value?{...base,color:HANGAR_COLORS.find(c=>c.id===value.paint)?.color||base.color,emblem:HANGAR_EMBLEMS.find(e=>e.id===value.emblem)?.symbol||'✦',trail:HANGAR_TRAILS.some(t=>t.id===value.trail)?value.trail:'cloud'}:base;}
 const points = polygon => polygon.map(p=>p.join(',')).join(' ');
-export function planeMarkup(role) {
- const p=planeByRole(role);
- return `<svg class="plane-preview" viewBox="-110 -55 220 120" aria-hidden="true" focusable="false" data-plane="${PLANES[role]?role:'sprinter'}"><ellipse cx="0" cy="51" rx="79" ry="7" fill="#091a3155"/><path d="M-100 1h33m-30 20h24m-12 19h18" stroke="${p.trim}" stroke-width="3" stroke-linecap="round" opacity=".4"/><polygon points="${points(p.wings)}" fill="${p.wing}" stroke="${p.trim}" stroke-width="1.5"/><polygon points="${points(p.tail)}" fill="${p.wing}"/><polygon points="${points(p.body)}" fill="${p.color}" stroke="${p.trim}" stroke-width="1.5"/><path d="M-35 13h66" stroke="${p.trim}" stroke-width="4"/><path d="M-13 1q0-29 28-21L29 0Z" fill="#1c3c61" stroke="${p.trim}" stroke-width="2"/><path d="M-5-7l14-9" stroke="#c6f6ff" stroke-width="3"/>${p.engines.map(([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="5" ry="17" fill="#e9ffffaa"/>`).join('')}</svg>`;
+export function planeMarkup(role,value) {
+ const p=appearance(role,value);
+ return `<svg class="plane-preview" viewBox="-110 -55 220 120" aria-hidden="true" focusable="false" data-plane="${PLANES[role]?role:'sprinter'}"><ellipse cx="0" cy="51" rx="79" ry="7" fill="#091a3155"/>${p.trail==='none'?'':`<path d="M-100 1h33m-30 20h24m-12 19h18" stroke="${p.trail==='aurora'?'#c9b4ff':p.trail==='stars'?'#ffdf97':p.trim}" stroke-width="${p.trail==='aurora'?7:3}" stroke-linecap="round" opacity=".6"/>`}<polygon points="${points(p.wings)}" fill="${p.wing}" stroke="${p.trim}" stroke-width="1.5"/><polygon points="${points(p.tail)}" fill="${p.wing}"/><polygon points="${points(p.body)}" fill="${p.color}" stroke="${p.trim}" stroke-width="1.5"/><path d="M-35 13h66" stroke="${p.trim}" stroke-width="4"/><path d="M-13 1q0-29 28-21L29 0Z" fill="#1c3c61" stroke="${p.trim}" stroke-width="2"/><path d="M-5-7l14-9" stroke="#c6f6ff" stroke-width="3"/>${p.emblem?`<text x="-32" y="17" font-size="14" fill="#172a47">${p.emblem}</text>`:''}${p.engines.map(([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="5" ry="17" fill="#e9ffffaa"/>`).join('')}</svg>`;
 }
-export function drawPlane(ctx,role,x,y,scale=1,propeller=1,boost=0) {
- const p=planeByRole(role);
+export function drawPlane(ctx,role,x,y,scale=1,propeller=1,boost=0,value) {
+ const p=appearance(role,value);
  const polygon=(vertices,fill)=>{ctx.beginPath();vertices.forEach(([a,b],i)=>i?ctx.lineTo(a,b):ctx.moveTo(a,b));ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=p.trim;ctx.lineWidth=1.3;ctx.stroke();};
  ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+ if(value&&p.trail!=='none'){ctx.save();ctx.strokeStyle=p.trail==='aurora'?'#c7b5ff88':p.trail==='stars'?'#ffdc9188':'#b2f2e155';ctx.lineWidth=p.trail==='aurora'?10:5;ctx.beginPath();ctx.moveTo(-65,16);ctx.lineTo(-120,16+propeller*4);ctx.stroke();if(p.trail==='stars'){ctx.fillStyle='#ffe4a2';for(let i=0;i<3;i++)ctx.fillRect(-84-i*15,11+i%2*7,4,4);}ctx.restore();}
  if(boost&&p.flame)polygon([[-60,12],[-100-boost*22,17],[-60,22]],'#ffda88');
- polygon(p.wings,p.wing);polygon(p.tail,p.wing);polygon(p.body,p.color);
+ polygon(p.wings,p.wing);polygon(p.tail,p.wing);polygon(p.body,p.color);if(p.emblem){ctx.font='14px system-ui';ctx.fillStyle='#18334d';ctx.fillText(p.emblem,-32,17);}
  ctx.strokeStyle=p.trim;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-35,13);ctx.lineTo(31,13);ctx.stroke();
  for(const [a,b] of p.engines){ctx.beginPath();ctx.ellipse(a,b,3,8+Math.abs(propeller)*14,0,0,Math.PI*2);ctx.fillStyle='#e6ffffbb';ctx.fill();}
  ctx.restore();

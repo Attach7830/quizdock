@@ -1,5 +1,5 @@
 import {roleById} from '../public/js/catalog.js';
-import {imageURL} from '../public/js/list-model.js';
+import {imageURL,wordMetadata} from '../public/js/list-model.js';
 import {drawShuffledCard} from '../public/js/card-order.js';
 // Portable base rules for six modes; new-round strategy lives in gameplay.js.
 export const MODES = ['treasure', 'fishing', 'battle', 'factory', 'rally', 'keep', 'word', 'sketch'];
@@ -49,7 +49,7 @@ export function validateQuestions(input,{typedOnly=false}={}) {
     }
     const cardId=/^[a-zA-Z0-9_-]{8,80}$/.test(String(raw?.cardId||''))?String(raw.cardId):crypto.randomUUID();
     const image=imageURL(raw?.image);
-    return { cardId, text, answers, correct: indices, ...(image?{image,imageAlt:cleanText(raw?.imageAlt||'Question image',300)}:{}) };
+    return { cardId, text, ...wordMetadata(raw), answers, correct: indices, ...(image?{image,imageAlt:cleanText(raw?.imageAlt||'Question image',300)}:{}) };
   });
   if(new Set(result.map(q=>q.cardId)).size!==result.length)throw new Error('Question card identifiers must be unique.');
   return result;
