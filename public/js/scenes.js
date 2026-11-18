@@ -1,3 +1,4 @@
+import {drawExpeditionWorld} from './expedition-scenes.js';
 import {gameplayBackdrop,factoryWorld,gameplayForeground,wordWorld} from './scene-gameplay.js';
 import {skinById,GAME_TYPES} from './catalog.js';
 import {drawCharacter} from './characters.js';
@@ -83,7 +84,7 @@ export function createScene(){
  }
  function rally(W,t,p){clouds(W,t*3,'#c8e7ed22');for(let i=0;i<4;i++){const y=145+i*13;line([[0,y],[W,y]],'#c4dcec13',1);}const progress=Math.min(.9,(state?.me?.score||0)/(state?.settings?.target||1000));const x=85+progress*Math.max(0,W-180)+(event?.type==='correct'?Math.sin(p*Math.PI)*8:0),lane={rings:80,glide:106,dive:132},target=lane[state?.me?.adventure?.line]||106,y=(event?.type==='route'&&canMove()?(lane[event.fromRoute]||106)+(target-(lane[event.fromRoute]||106))*Math.min(1,p*2):target)+Math.sin(t*2)*3;
   for(let i=0;i<5;i++){const sx=(W-(t*80+i*73)%(W+90));line([[sx,80+i*23],[sx+22,80+i*23]],'#b9effd33',2);}
-  ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(t)*.03);drawPlane(ctx,state?.me?.roleType,0,0,1,Math.sin(t*23),event?.type==='correct'?Math.sin(p*Math.PI):0);avatar(-3,-8,.62,state?.me?.skin);ctx.restore();
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(t)*.03);drawPlane(ctx,state?.me?.roleType,0,0,1,Math.sin(t*23),event?.type==='correct'?Math.sin(p*Math.PI):0,state?.me?.hangar);avatar(-3,-8,.62,state?.me?.skin);ctx.restore();
 
   const fx=W*.88;line([[fx,50],[fx,170]],'#d4e1ea99',3);for(let r=0;r<4;r++)for(let c=0;c<5;c++)rr(fx+c*8,50+r*8,8,8,0,(c+r)%2?'#1e3149':'#d9edf0');
  }
@@ -101,7 +102,7 @@ export function createScene(){
   ctx.save();ctx.translate(0,offset);
   gameplayBackdrop(ctx,state,W,t);
   const scenes={treasure:chest,fishing,battle,factory,rally,keep};if(!wordWorld(ctx,state,W,t,p,event)&&(state.mode!=='factory'||!factoryWorld(ctx,state,W,t,p,event)))scenes[state.mode]?.(W,t,p);
-  gameplayForeground(ctx,state,W,t,p,event);
+  drawExpeditionWorld(ctx,state,W,t);gameplayForeground(ctx,state,W,t,p,event);
   ctx.restore();
   if(['correct','chest','upgrade'].includes(event?.type))rewardBurst(ctx,state.mode,W,H,p,moving);
   if(event?.delta&&p>0&&p<1){ctx.save();ctx.globalAlpha=Math.min(1,(1-p)*3);ctx.font='bold 15px system-ui';ctx.textAlign='center';const label=`${event.delta>0?'+':'−'}${Math.abs(Math.round(event.delta))}`,width=ctx.measureText(label).width+24;rr(W*.5-width*.5,25-p*8,width,26,13,'#122938dd',event.delta>0?'#8feac9':'#edbf98');ctx.fillStyle=event.delta>0?'#b5f7db':'#ffe0bb';ctx.fillText(label,W*.5,43-p*8);ctx.restore();}
@@ -109,5 +110,5 @@ export function createScene(){
   if(event?.type==='incorrect'){ctx.save();ctx.globalAlpha=.22*(1-p);ctx.fillStyle='#f68888';ctx.fillRect(0,0,W,H);ctx.restore();}
   if(state.status!=='playing'&&state.status!=='finished'){ctx.fillStyle='#09172c55';ctx.fillRect(0,0,W,H);}ctx.setTransform(1,0,0,1,0,0);
  }
- labels();return {el,setVisible(value){presented=!!value;el.hidden=!presented;redraw();},mount(parent){if(parent&&!parent.contains(el))parent.append(el);redraw();},update,dispose(){cancelAnimationFrame(frame);resize.disconnect();media.removeEventListener('change',motionChanged);document.removeEventListener('visibilitychange',redraw);if(audio)audio.close().catch(()=>{});el.remove();}};
+ labels();return {el,setMotion(value){motion=!!value;labels();redraw();},setVisible(value){presented=!!value;el.hidden=!presented;redraw();},mount(parent){if(parent&&!parent.contains(el))parent.append(el);redraw();},update,dispose(){cancelAnimationFrame(frame);resize.disconnect();media.removeEventListener('change',motionChanged);document.removeEventListener('visibilitychange',redraw);if(audio)audio.close().catch(()=>{});el.remove();}};
 }

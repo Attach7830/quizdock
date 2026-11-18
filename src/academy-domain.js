@@ -1,3 +1,5 @@
+import {ExpeditionService} from './expedition-service.js';
+import {WORD_ACTIVITIES,makeCrossword,publicCrossword} from './word-activities.js';
 import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository} from './library-domain.js';
 import {correctAnswers,validateList,CARD_CATEGORIES} from '../public/js/list-model.js';
 import {SKINS} from '../public/js/catalog.js';
@@ -73,8 +75,8 @@ export class AcademyService {
   return {a,key,p};
  }
  nextPracticeCard(a,p){const draw=drawShuffledCard(p.cardCycle,a.cards.map((_,i)=>i),p.cardIndex);p.cardIndex=draw.index;p.cardCycle=draw.cycle;}
- practiceWord(a,p){const card=a.cards[p.cardIndex],answers=correctAnswers(card);return {room:{status:'playing',questions:[{text:card.prompt,answers,correct:answers.map((_,i)=>i),image:card.image,imageAlt:card.imageAlt}]},player:{current:{key:p.questionKey,index:0},feedback:p.feedback,wordPuzzle:p.wordPuzzle?.key===p.questionKey?p.wordPuzzle:{key:p.questionKey,guesses:[],misses:0}}};}
- viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:publicWordQuestion(word.room,word.player),feedback:p.feedback,clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
+ practiceWord(a,p){const card=a.cards[p.cardIndex],answers=correctAnswers(card);return {room:{status:'playing',questions:[{text:card.prompt,answers,correct:answers.map((_,i)=>i),image:card.image,imageAlt:card.imageAlt,hint:card.hint,example:card.example,repair:card.repair,parts:card.parts}],expedition:{},settings:{wordActivity:p.wordActivity||'forge'}},player:{current:{key:p.questionKey,index:0},feedback:p.feedback,wordPuzzle:p.wordPuzzle?.key===p.questionKey?p.wordPuzzle:{key:p.questionKey,guesses:[],misses:0}}};}
+ viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:{...publicWordQuestion(word.room,word.player),...(p.wordCrossword?{crossword:publicCrossword(p.wordCrossword,a.cards.map((c,i)=>p.cardStats[c.id]?.correct?i:-1).filter(i=>i>=0),p.cardIndex)}:{}),chain:p.wordChain||0},feedback:p.feedback,clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
  async practiceAction(action,payload,user){
   const {a,key,p}=await this.practice(payload.assignmentId,user),now=Date.now();
   if(action==='practice-open'){p.lease=uid();p.lastBeat=now;p.lastAnswer=now;p.focusActive=false;p.focusVersion=0;await this.store.put(key,p);return this.viewPractice(a,p);}
@@ -85,6 +87,7 @@ export class AcademyService {
    p.submittedAt=now;p.late=now>a.dueAt;await this.store.put(key,p);return this.viewPractice(a,p);
   }
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
+  if(action==='practice-activity'){ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);ensure(WORD_ACTIVITIES.includes(payload.activity),'Choose a word activity.');p.wordActivity=payload.activity;if(payload.activity==='crossword'&&!p.wordCrossword)p.wordCrossword=makeCrossword(a.cards.map(c=>({text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i)})),(min,max)=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return min+a[0]%(max-min+1);});await this.store.put(key,p);return this.viewPractice(a,p);}
   if(action==='practice-letter'){
    ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);
    const word=this.practiceWord(a,p);guessWordLetter(word.room,word.player,p.questionKey,payload.letter);p.wordPuzzle=word.player.wordPuzzle;await this.store.put(key,p);return this.viewPractice(a,p);
@@ -106,7 +109,7 @@ export class AcademyService {
   ensure(!p.feedback&&payload.questionKey===p.questionKey,'This prompt is no longer active. Refresh practice.',409);
   ensure(now-(p.lastSubmittedAt||0)>=500,'Please answer a little more slowly.',429);const input=String(payload.answer??'').trim();ensure(input.length>0&&input.length<=300,'Type an answer of 1–300 characters.');
   const card=a.cards[p.cardIndex],graded=gradeTyped(card,input,a.rules),stats=p.cardStats[card.id]||{prompt:card.prompt,correct:0,incorrect:0,firstCorrect:graded.correct};
-  if(graded.correct){stats.correct++;p.correct++;}else stats.incorrect++;p.cardStats[card.id]=stats;p.answered++;
+  if(graded.correct){stats.correct++;p.correct++;}else stats.incorrect++;p.cardStats[card.id]=stats;p.answered++;p.wordChain=graded.correct?(p.wordChain||0)+1:0;
   p.feedback={correct:graded.correct,expected:graded.expected,answer:input,prompt:card.prompt};p.lastMutation=mutationId;p.lastInput=String(payload.answer);p.lastAnswer=now;p.lastSubmittedAt=now;p.updatedAt=now;
   await this.store.put(key,p);return this.viewPractice(a,p);
  }
@@ -135,12 +138,13 @@ export class AcademyService {
   if(action==='login-request'||action==='login-verify'){ensure(!this.config.GOOGLE_CLIENT_ID,'Use Sign in with Google for student accounts.',400);return this.login(action,p,ip);}
   if(action==='status'){let user=null;try{user=await this.identity(token);}catch{}return response({configured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),googleConfigured:!!this.config.GOOGLE_CLIENT_ID,user});}
   const user=await this.identity(token);
+  if(action.startsWith('expedition-'))return response(await new ExpeditionService(this.store,this).route(action.slice(11),p,user));
   if(action==='home')return response(await this.home(user));
   if(action==='join-class'){await this.rate('join:'+user.id,15);const c=await this.byCode(p.code,user.email),old=await this.enrollment(user.id,c.id);ensure(!old||old.active,'Ask your teacher to restore your class access.',403);await this.enroll(c.id,user.id,user.email,old?.name||user.name);return response({ok:true});}
   if(action==='create-class'){
    this.teacher(user);const existing=await this.rows('class-owner:'+user.id+':',101);ensure(existing.length<100,'Maximum 100 classes.');const name=text(p.name);ensure(name,'Name your class.');const classId=uid(),code=uid().replaceAll('-','').slice(0,10).toUpperCase();const emailDomain=text(p.emailDomain,100).toLowerCase();ensure(!emailDomain||/^[a-z0-9.-]+\.[a-z]{2,}$/.test(emailDomain),'Enter a school domain without @.');const c={id:classId,name,ownerId:user.id,code,timezone:zone(p.timezone||DEFAULT_ZONE),emailDomain,allowCode:p.allowCode!==false,createdAt:Date.now()};await this.store.put({['class:'+classId]:c,['class-owner:'+user.id+':'+classId]:c,['class-code:'+code]:classId});return response({class:c});
   }
-  if(action==='class-detail'){const c=await this.course(p.classId,user,true);return response({class:c,members:(await this.rows('member:'+c.id+':',201)).filter(m=>!m.erased)});}
+  if(action==='class-detail'){const c=await this.course(p.classId,user,true),members=await Promise.all((await this.rows('member:'+c.id+':',201)).filter(m=>!m.erased).map(async member=>{const profile=await this.profile(member.userId);return {...member,appearance:{skin:profile?.owned?.includes(profile.skin)?profile.skin:'mint',equipment:ownedEquipment(profile||{})}};}));return response({class:c,members});}
   if(action==='roster-add'){
    const c=await this.course(p.classId,user,true);ensure(Array.isArray(p.students)&&p.students.length<=100,'Add at most 100 students at once.');const validated=p.students.map(r=>({email:cleanEmail(r.email),name:text(r.name)}));for(const r of validated){ensure(r.name.length>=2,'Every roster entry needs a name.');if(c.emailDomain)ensure(r.email.endsWith('@'+c.emailDomain),'A roster email does not match the school domain.');}
    const ids=await Promise.all(validated.map(r=>hash(r.email))),existing=new Set((await this.rows('member:'+c.id+':',201)).map(m=>m.userId));ensure(new Set([...existing,...ids]).size<=200,'This roster would exceed the 200-student limit.');for(let i=0;i<validated.length;i++){const r=validated[i];await this.enroll(c.id,ids[i],r.email,r.name);}return response({ok:true});
@@ -164,13 +168,13 @@ export class AcademyService {
    await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'This list is not shared with your class.',404);
    const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose Grammar, Vocabulary, Culture, or All categories.');
    const categories=Object.fromEntries(['all',...CARD_CATEGORIES].map(c=>[c,c==='all'?deck.cards.length:deck.cards.filter(card=>card.category===c).length]));
-   return response({deck:{...deck,cards:deck.cards.filter(card=>category==='all'||card.category===category)},category,categories,progress:await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]}});
+   const progress=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]},cards=deck.cards.filter(card=>(category==='all'||card.category===category)&&(!p.recovery||(progress.cardStats?.[card.id]?.misses||0)>(progress.cardStats?.[card.id]?.recoveries||0)));return response({deck:{...deck,cards},category,categories,recovery:!!p.recovery,progress});
   }
   if(action==='solo-answer'){
    ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card,'This card is not in the shared list.',404);const key=`solo:${user.id}:${p.classId}:${p.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]},mutationId=id(p.mutationId),answer=String(p.answer??'').trim();ensure(answer&&answer.length<=300,'Type an answer of 1–300 characters.');
    const receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);if(receipt){ensure(receipt.cardId===card.id&&receipt.answer===answer,'That answer identifier was already used.',409);return response({feedback:receipt.feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});}
    ensure(Date.now()-(progress.lastTyped?.at||0)>=500,'Take a moment before checking another answer.',429);
-   const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
+   const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.cardStats=progress.cardStats||{};const stat=progress.cardStats[card.id]||{misses:0,recoveries:0};if(!feedback.correct)stat.misses++;else if(stat.recoveries<stat.misses)stat.recoveries++;progress.cardStats[card.id]=stat;progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
   }
   if(action==='study-rewards'||action==='study-rewards-settings'||action==='study-rewards-claim'){
    this.teacher(user);const course=await this.course(p.classId,user,true),rewards=new StudyRewards(this.store);
@@ -179,7 +183,7 @@ export class AcademyService {
    const members=(await this.rows('member:'+course.id+':',201)).filter(m=>m.active&&!m.erased);return response({class:course,students:await Promise.all(members.map(async m=>({userId:m.userId,name:m.name,email:m.email,...await rewards.summary(course,m.userId)})))});
   }
   if(action==='solo-save'){
-   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
+   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...(prior?.cardStats?{cardStats:prior.cardStats}:{}),...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
   }
   if(['buy-item','equip-item','remove-item'].includes(action)){
    const profile=await this.profile(user.id),owned=Array.isArray(profile.ownedItems)?profile.ownedItems:[],equipment=ownedEquipment(profile);

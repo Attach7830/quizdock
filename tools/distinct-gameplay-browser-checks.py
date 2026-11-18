@@ -9,6 +9,8 @@ def check(ok,name):
 def account(browser,role,width=390,height=844):
  ctx=browser.new_context(ignore_https_errors=True,viewport={'width':width,'height':height},reduced_motion='reduce');ctx.request.get(BASE+'/__test/login?role='+role);return ctx
 def dismiss(page):
+ cinema=page.locator('.exp-cinema[open] [data-cinema-close]')
+ if cinema.count():cinema.click()
  b=page.locator('.event-flash-dismiss')
  if b.count() and b.is_visible():b.click()
 def expected(page):
@@ -46,7 +48,14 @@ def run():
     choose(s,'charge');check('1/3 charges' in s.locator('.gameplay-receipt').inner_text(),'battle stores a real charge');advance(s);answer(s);choose(s,'strike');check('Charged strike' in s.locator('.gameplay-receipt').inner_text(),'charged strike is a distinct server-resolved attack')
    if mode=='factory':
     for _ in range(2):advance(s);answer(s)
-    capital=s.locator('.hud-score').inner_text();choose(s,'build-cells');check(s.locator('.hud-score').inner_text()==capital,'station purchase preserves net worth while converting cash into assets');advance(s);answer(s);check('1 cells' in s.locator('.production-chain').inner_text(),'new cell lab actually produces inventory');choose(s,'ship');check('Order shipped!' in s.locator('.gameplay-receipt').inner_text(),'fulfilling an order consumes inventory and pays the promised amount')
+    capital=s.locator('.hud-score').inner_text();choose(s,'build-cells');check(s.locator('.hud-score').inner_text()==capital,'station purchase preserves net worth while converting cash into assets');advance(s);answer(s)
+    check('0 cells' in s.locator('.production-chain').inner_text(),'new cell lab routes its first parcel before warehouse delivery')
+    for _ in range(5):
+     s.locator('[data-act=game-menu]').first.click()
+     repair=s.locator('[data-exp-action=repair]')
+     if repair.count() and repair.is_enabled():repair.click();s.wait_for_timeout(120)
+     s.keyboard.press('Escape');advance(s);answer(s)
+    check(re.search(r'[1-9][0-9]* cells',s.locator('.production-chain').inner_text()) is not None,'real conveyor journey delivers cell inventory');choose(s,'ship');check('Order shipped!' in s.locator('.gameplay-receipt').inner_text(),'fulfilling an order consumes delivered inventory and pays the promised amount')
    if mode=='rally':
     check(s.locator('.selected-plane').is_visible(),'rally retains the chosen aircraft in its UI');choose(s,'glide');advance(s);answer(s);choose(s,'dive');advance(s);answer(s);check('Boost dive!' in s.locator('.result-reward').inner_text(),'stored boost drives a later racing leg')
    if mode=='keep':

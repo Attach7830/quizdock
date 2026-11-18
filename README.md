@@ -1,8 +1,10 @@
 # QuizDock · classroom beta
 
+Release 0.10.0 adds expeditions across all eight existing modes, a shared class island, persistent discoveries and personal bests, drawing variations, a word workshop and saved outfits. The public [About page](https://srtw.win/about.html) introduces the worlds with changing scroll illustrations and free avatar previews. See [the 60-idea implementation guide](docs/EXPEDITIONS.md).
+
 An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, seven private solo games, typed assignments, independent practice, and class-linked student accounts.
 
-## Release 0.9.0
+## Release 0.10.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 

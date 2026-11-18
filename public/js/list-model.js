@@ -19,6 +19,11 @@ export function imageURL(value) {
   if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw new Error('Image URLs cannot contain login credentials or scripts.');
   return u.href;
 }
+export function wordMetadata(raw){
+ const meta={};for(const key of ['hint','example','repair'])if(text(raw[key]))meta[key]=limitText(raw[key],key,400);
+ if(raw.parts!=null){if(!Array.isArray(raw.parts)||raw.parts.length<2||raw.parts.length>6)throw new Error('Word parts must be an array of 2–6 pieces.');meta.parts=raw.parts.map(v=>limitText(v,'Word part',80));}
+ return meta;
+}
 export function validateCard(raw, {renewId=false}={}) {
   if(!raw || typeof raw!=='object' || Array.isArray(raw))throw new Error('A card must be an object.');
   const type=raw.type || (Array.isArray(raw.choices)?'choice':'pair');
@@ -39,7 +44,7 @@ export function validateCard(raw, {renewId=false}={}) {
     if(!Array.isArray(raw.correct)||!raw.correct.length||raw.correct.some(i=>!Number.isInteger(i)||i<0||i>=card.choices.length))throw new Error('Mark at least one valid correct choice.');
     card.correct=[...new Set(raw.correct)];
   }
-  return card;
+  Object.assign(card,wordMetadata(raw));if(card.parts&&norm(card.parts.join(''))!==norm(correctAnswers(card)[0].split(';')[0]))throw new Error('Word parts must join to form the first accepted answer.');return card;
 }
 export function validateList(raw) {
   if(!raw || typeof raw!=='object')throw new Error('Invalid list.');
@@ -50,10 +55,10 @@ export function validateList(raw) {
   return list;
 }
 export const correctAnswers = c => c.type==='pair'?[c.answer,...c.alternatives]:c.correct.map(i=>c.choices[i]);
-export function cardFingerprint(card) {const c=validateCard(card);return JSON.stringify([norm(c.prompt),c.type,correctAnswers(c).map(norm).sort(),c.type==='choice'?c.choices.map(norm):[],c.image,c.imageAlt,c.category||'']);}
+export function cardFingerprint(card) {const c=validateCard(card);return JSON.stringify([norm(c.prompt),c.type,correctAnswers(c).map(norm).sort(),c.type==='choice'?c.choices.map(norm):[],c.image,c.imageAlt,c.category||'',...(Object.keys(wordMetadata(c)).length?[wordMetadata(c)]:[])]);}
 export function compileQuestions(raw,{typedOnly=false}={}) {
   const list=validateList(raw);if(!list.cards.length)throw new Error('Add cards before starting a game.');
-  if(typedOnly)return list.cards.map(c=>({cardId:c.id,text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i),...(c.image?{image:c.image,imageAlt:c.imageAlt}:{})}));
+  if(typedOnly)return list.cards.map(c=>({cardId:c.id,text:c.prompt,...wordMetadata(c),answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i),...(c.image?{image:c.image,imageAlt:c.imageAlt}:{})}));
   const pool=unique(list.cards.flatMap(correctAnswers));
   return list.cards.map((c,i)=>{
     let answers,correct;
@@ -65,7 +70,7 @@ export function compileQuestions(raw,{typedOnly=false}={}) {
       answers=[c.answer,...alternatives.slice(offset),...alternatives.slice(0,offset)].slice(0,4);correct=[0];
       if(answers.length<2)throw new Error(`Card ${i+1} needs a distractor for live games. Add another distinct answer to the list or give this card explicit choices.`);
     }
-    return {cardId:c.id,text:c.prompt,answers,correct,...(c.image?{image:c.image,imageAlt:c.imageAlt}:{})};
+    return {cardId:c.id,text:c.prompt,...wordMetadata(c),answers,correct,...(c.image?{image:c.image,imageAlt:c.imageAlt}:{})};
   });
 }
 // RFC-style quoted fields, including embedded line breaks. Row numbers identify source lines.
@@ -119,12 +124,12 @@ function cardFromRow(row,headers,sourceLine) {
     if(wrong.length)card={type:'choice',prompt,choices:[answer,...wrong],correct:[0]};
     else card={type:'pair',prompt,answer,alternatives:read('Accepted Alternatives','Alternative Answers').split('|').map(text).filter(Boolean)};
   }
-  return validateCard({...card,image,imageAlt,category:read('Category','Question Category')},{renewId:true});
+  return validateCard({...card,image,imageAlt,category:read('Category','Question Category'),hint:read('Hint','Meaning Hint'),example:read('Example','Example Sentence'),repair:read('Repair','Sentence To Repair'),...(read('Word Parts','Parts')?{parts:read('Word Parts','Parts').split('|')}:{} )},{renewId:true});
 }
 function adaptJson(raw) {
   if(raw.type==='pair'||raw.type==='choice'||raw.prompt)return validateCard(raw,{renewId:true});
-  if(Array.isArray(raw.answers))return validateCard({type:'choice',category:raw.category,prompt:raw.text||raw.question,choices:raw.answers,correct:Array.isArray(raw.correct)?raw.correct:[raw.correct],image:raw.image,imageAlt:raw.imageAlt},{renewId:true});
-  return validateCard({type:'pair',category:raw.category,prompt:raw.term||raw.question||raw.front,answer:raw.definition||raw.answer||raw.back,alternatives:raw.alternatives||[],image:raw.image||raw.imageUrl,imageAlt:raw.imageAlt},{renewId:true});
+  if(Array.isArray(raw.answers))return validateCard({type:'choice',...wordMetadata(raw),category:raw.category,prompt:raw.text||raw.question,choices:raw.answers,correct:Array.isArray(raw.correct)?raw.correct:[raw.correct],image:raw.image,imageAlt:raw.imageAlt},{renewId:true});
+  return validateCard({type:'pair',...wordMetadata(raw),category:raw.category,prompt:raw.term||raw.question||raw.front,answer:raw.definition||raw.answer||raw.back,alternatives:raw.alternatives||[],image:raw.image||raw.imageUrl,imageAlt:raw.imageAlt},{renewId:true});
 }
 export function parseImport(input,format='auto') {
   const s=String(input||'').replace(/^\uFEFF/,'');
@@ -193,8 +198,8 @@ export function exportList(raw,format='json') {
   const list=validateList(raw);
   if(format==='json')return JSON.stringify({format:'quizdock-list',version:1,...list},null,2);
   if(format!=='csv')throw new Error('Export format must be CSV or JSON.');
-  const header=['Card Type','Question Text','Correct Answer','Accepted Alternatives','Answer 1','Answer 2','Answer 3','Answer 4','Correct Answer(s)','Image URL','Image Alt','Category','QuizDock Safe Text'];
-  const rows=list.cards.map(c=>[c.type,c.prompt,c.type==='pair'?c.answer:'',c.type==='pair'?c.alternatives.join('|'):'',...[0,1,2,3].map(i=>c.type==='choice'?(c.choices[i]||''):''),c.type==='choice'?c.correct.map(i=>i+1).join(','):'',c.image,c.imageAlt,c.category||'','yes'].map(csvSafe));
+  const extra=list.cards.some(c=>Object.keys(wordMetadata(c)).length)>0;const header=['Card Type','Question Text','Correct Answer','Accepted Alternatives','Answer 1','Answer 2','Answer 3','Answer 4','Correct Answer(s)','Image URL','Image Alt','Category','QuizDock Safe Text',...(extra?['Hint','Example','Repair','Word Parts']:[])];
+  const rows=list.cards.map(c=>[c.type,c.prompt,c.type==='pair'?c.answer:'',c.type==='pair'?c.alternatives.join('|'):'',...[0,1,2,3].map(i=>c.type==='choice'?(c.choices[i]||''):''),c.type==='choice'?c.correct.map(i=>i+1).join(','):'',c.image,c.imageAlt,c.category||'','yes',...(extra?[c.hint||'',c.example||'',c.repair||'',c.parts?.join('|')||'']:[])].map(csvSafe));
   return [header,...rows].map(r=>r.map(csvQuote).join(',')).join('\r\n');
 }
 export const escapeHTML = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
