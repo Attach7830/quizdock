@@ -1,0 +1,136 @@
+/* Scope the viewport layout to an open graded assignment. Ordinary pages and
+   software-keyboard-sized windows keep their normal document scrolling. */
+.word-word{display:inline-flex;align-items:center;gap:inherit;max-width:100%;min-width:0;flex:0 1 auto}
+.word-word .word-slot{flex:0 1 auto;min-width:0}
+.word-word .word-punctuation{width:auto;min-width:5px}
+.practice-read{background:transparent;color:#b8f9e0;text-decoration:underline;font-size:12px;align-self:start;padding:2px 0;min-height:24px}
+.practice-clue-dialog{display:grid;gap:12px}.practice-clue-dialog .word-slots{margin:0;gap:4px}.practice-clue-dialog .word-slot{width:26px;min-height:30px;font-size:20px}.practice-clue-dialog .word-keyboard{width:100%;margin:0;gap:5px}.practice-clue-dialog .word-keyboard button{min-height:34px;font-size:18px}
+.assignment-practice .practice-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.assignment-practice .practice-due{font-size:12px;margin-top:4px}
+.assignment-practice .practice-word-counts{font-size:11px;color:#dbc8f2;text-align:center}
+.assignment-practice .practice-content{display:grid;gap:20px}
+.assignment-practice .practice-question,.assignment-practice .practice-response{min-width:0}
+.assignment-practice .practice-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.assignment-practice .practice-response{display:grid;gap:12px}
+@media(min-height:560px),(min-width:760px) and (min-height:500px){
+ body.practice-body{overflow:hidden;overscroll-behavior:none}
+ body.practice-body #app{height:min(var(--viewport-height,100dvh),100dvh);display:grid;grid-template-rows:auto minmax(0,1fr)}
+ body.practice-body .topbar{min-height:46px;width:100%;max-width:1440px;padding:6px 16px;gap:10px;flex-wrap:nowrap}
+ body.practice-body .topbar .wordmark{font-size:18px;gap:7px}
+ body.practice-body .brand-tile{width:28px;height:28px;font-size:19px}
+ body.practice-body .topbar nav{gap:4px;flex-wrap:nowrap}
+ body.practice-body .topbar nav a,body.practice-body .topbar .subtle{padding:6px 9px;font-size:12px}
+ body.practice-body .topbar .keyboard-help-button{min-height:32px;padding:5px 8px}
+ body.practice-body main.wrap{width:100%;height:100%;max-width:1440px;min-height:0;padding:6px 16px 10px;display:flex}
+ body.practice-body .assignment-practice{max-width:1360px;width:100%;height:100%;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:8px}
+ .assignment-practice .practice-header{margin:0;flex-wrap:nowrap;align-items:center;gap:10px}
+ .assignment-practice .practice-header>div{min-width:0}
+ .assignment-practice .practice-header .eyebrow{font-size:9px;margin:0 0 3px}
+ .assignment-practice .practice-header h1{font-size:24px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+ .assignment-practice .practice-header .btn{min-height:34px;font-size:12px;padding:7px 10px;flex:none}
+ .assignment-practice .hub-tabs{margin:0;gap:5px;flex-wrap:nowrap}
+ .assignment-practice .hub-tabs button{min-height:34px;font-size:12px;padding:6px 10px}
+ .assignment-practice .practice-toolbar>.btn{min-height:34px;font-size:12px;padding:6px 10px}
+ .assignment-practice #requirements{min-height:0}
+ .assignment-practice .stat-line{gap:8px}
+ .assignment-practice .metric{padding:7px 10px;border-radius:10px}
+ .assignment-practice .metric b{font-size:20px;line-height:1.1}
+ .assignment-practice .metric small{font-size:10px;line-height:1.2;margin-top:3px}
+ .assignment-practice .progress-track{height:4px;margin:4px 0 0}
+ .assignment-practice .study-panel{min-height:0;height:100%;margin:0;padding:14px;gap:10px;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+ .assignment-practice .practice-prompt-meta{min-height:22px;gap:6px}
+ .assignment-practice .practice-prompt-meta .save-state{font-size:11px}
+ .assignment-practice .practice-content{min-height:0;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px}
+ .assignment-practice .practice-question{min-height:0;display:flex;flex-direction:column;justify-content:center;gap:10px}
+ .assignment-practice .study-prompt{flex:none;font-size:clamp(22px,2.3vw,34px);line-height:1.2;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+ .assignment-practice .question-image{min-height:0;flex:0 1 25%;max-height:140px;margin:0;display:flex;justify-content:center}
+ .assignment-practice .question-image img{height:100%;max-height:100%;max-width:100%;object-fit:contain}
+ .assignment-practice .assignment-forge-clues{margin:0;gap:7px;flex:none}
+ .assignment-practice .word-slots{gap:4px;margin:0;max-width:100%}
+ .assignment-practice .word-slot{width:28px;min-height:32px;font-size:22px}
+ .assignment-practice .word-space{width:10px;font-size:20px}
+ .assignment-practice .word-word .word-punctuation{width:auto}
+ .assignment-practice .practice-response{min-height:0;display:flex;flex-direction:column;justify-content:center;gap:10px}
+ .assignment-practice #answer-form{gap:8px}
+ .assignment-practice .typed-answer{font-size:22px!important;padding:11px 12px!important;line-height:1.2}
+ .assignment-practice .entry-shell label{line-height:1.2}
+ .assignment-practice .accent-zone{position:absolute;top:-35px;left:0;right:0;min-height:0;height:0;margin:0;pointer-events:none}
+ .assignment-practice .accent-zone .accent-pop{pointer-events:auto}
+ .assignment-practice .accent-tools{gap:5px;flex-wrap:wrap}
+ .assignment-practice .accent-tools .accent{min-height:30px;min-width:30px;padding:4px}
+ .assignment-practice #answer-form>.btn,.assignment-practice [data-act=practice-next]{min-height:42px;padding:8px 12px;font-size:16px}
+ .assignment-practice #accent-help{font-size:11px;line-height:1.35}
+ .assignment-practice .practice-feedback{margin:0;flex:none;padding:10px;font-size:14px;line-height:1.3}
+ .assignment-practice .practice-feedback p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:5px;line-height:1.3}
+ .assignment-practice #practice-game-scene{display:flex;flex:1;min-height:60px;max-height:300px}
+ .assignment-practice #practice-game-scene .game-scene{width:100%;height:100%;min-height:0;display:flex;flex-direction:column;margin:0;overflow:hidden}
+ .assignment-practice #practice-game-scene .scene-top{display:none}
+ .assignment-practice #practice-game-scene .scene-canvas{flex:1;height:100%;min-height:0}
+ .assignment-practice .practice-actions{flex-wrap:nowrap}
+ .assignment-practice .practice-actions .btn{min-height:36px;padding:6px 10px;font-size:13px}
+ .assignment-practice .practice-actions .form-note{font-size:10px}
+ .assignment-practice .practice-submitted{grid-row:1/-1;align-self:center;text-align:center}
+}
+@media(min-height:560px) and (max-width:759px){
+ body.practice-body .topbar{min-height:38px;padding:4px 8px;gap:5px}
+ body.practice-body .topbar .wordmark{font-size:0;gap:0}
+ body.practice-body .topbar .beta,body.practice-body .nav-name,body.practice-body .topbar [href='/data.html'],body.practice-body .topbar [data-act=logout]{display:none}
+ body.practice-body .topbar nav a{font-size:11px;padding:5px 7px}
+ body.practice-body main.wrap{padding:4px 8px 7px}
+ .assignment-practice{gap:6px}
+ .assignment-practice .practice-header h1{font-size:19px;-webkit-line-clamp:1}
+ .assignment-practice .practice-header .eyebrow{display:none}
+ .assignment-practice .practice-due{font-size:10px;margin-top:2px}
+ .assignment-practice .practice-header .btn{max-width:135px;font-size:10px;padding:5px 7px;min-height:32px}
+ .assignment-practice .practice-toolbar{gap:5px}
+ .assignment-practice .hub-tabs button,.assignment-practice .practice-toolbar>.btn{min-height:30px;font-size:10px;padding:5px 7px}
+ .assignment-practice .metric{padding:5px 7px}
+ .assignment-practice .metric b{font-size:17px}
+ .assignment-practice .metric small{font-size:9px;margin-top:2px}
+ .assignment-practice .stat-line{gap:5px}
+ .assignment-practice .study-panel{padding:9px;gap:7px;border-radius:15px}
+ .assignment-practice .practice-content{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px}
+ .assignment-practice .practice-question{gap:6px}
+ .assignment-practice .study-prompt{font-size:22px;-webkit-line-clamp:3}
+ .assignment-practice .word-slot{width:22px;min-height:26px;font-size:18px}
+ .assignment-practice .assignment-forge-clues{gap:4px}
+ .assignment-practice .practice-response{gap:5px}
+ .assignment-practice #practice-game-scene{max-height:160px}
+ .assignment-practice #answer-form{gap:5px}
+ .assignment-practice .typed-answer{font-size:18px!important;padding:8px 10px!important}
+ .assignment-practice #answer-form>.btn,.assignment-practice [data-act=practice-next]{min-height:36px;padding:6px;font-size:14px}
+ .assignment-practice .practice-actions .form-note{display:none}
+ .assignment-practice .practice-actions .btn{width:100%;min-height:32px;font-size:12px}
+}
+@media(min-height:500px) and (max-height:700px){
+ .assignment-practice .practice-header h1{font-size:20px;-webkit-line-clamp:1}
+ .assignment-practice .practice-header .eyebrow{display:none}
+ .assignment-practice .practice-due{margin-top:2px;font-size:10px}
+ .assignment-practice .metric{padding-top:5px;padding-bottom:5px}
+ .assignment-practice .metric b{font-size:18px}
+ .assignment-practice .assignment-forge-clues>.word-slots{display:none}
+ .assignment-practice .practice-question{gap:5px}
+ .assignment-practice .study-prompt{font-size:21px;-webkit-line-clamp:3}
+ .assignment-practice .practice-word-counts{line-height:1.2;font-size:10px}
+ .assignment-practice .practice-question .question-image{max-height:60px}
+ .assignment-practice .practice-actions .form-note{display:none}
+ .assignment-practice .practice-response{gap:6px}
+ .assignment-practice .practice-feedback{padding:8px;font-size:13px}
+ .assignment-practice .practice-feedback p{-webkit-line-clamp:1;margin-top:4px}
+}
+
+@media(min-height:500px) and (max-height:700px) and (max-width:759px){.assignment-practice #practice-game-scene{display:none}}
+@media(min-height:560px) and (max-height:700px) and (max-width:759px){
+ .assignment-practice .practice-question{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;align-content:center;gap:4px 6px}
+ .assignment-practice .practice-question>.question-image{display:none}
+ .assignment-practice .study-prompt{grid-column:1/-1;align-self:center;font-size:18px;-webkit-line-clamp:2}
+ .assignment-practice .practice-question>.practice-read{grid-column:1;grid-row:2;align-self:center;font-size:11px}
+ .assignment-practice .assignment-forge-clues{grid-column:2;grid-row:2}
+ .assignment-practice .practice-word-counts,.assignment-practice #accent-help{display:none}
+ .assignment-practice .assignment-forge-clues .word-ink{font-size:10px;gap:4px}
+ .assignment-practice .assignment-forge-clues .btn{font-size:10px;padding:5px;min-height:28px}
+ .assignment-practice .accent-tools{gap:3px}
+ .assignment-practice .accent-tools .accent{min-width:28px;min-height:28px;font-size:16px;padding:2px}
+}
+
+.practice-clue-dialog .word-word-long{flex-wrap:wrap;justify-content:center;gap:4px;padding:6px;border:1px solid #80679e;border-radius:8px}.practice-clue-dialog .word-word-long::before{content:attr(data-letter-count) " letters";flex-basis:100%;font-size:11px;text-align:center;color:#e5d4f6}

@@ -1,6 +1,7 @@
 import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository} from './library-domain.js';
 import {correctAnswers,validateList,CARD_CATEGORIES} from '../public/js/list-model.js';
 import {SKINS} from '../public/js/catalog.js';
+import {AVATAR_ITEMS,ITEM_SLOTS,itemById,ownedEquipment} from '../public/js/item-catalog.js';
 import {DEFAULT_ZONE,zone,localDay,weekStart,addDays,dateTimeInZone,gradeTyped,practiceRules,progressSummary,raffleEntries,weightedWinner,rankedParticipants} from './academy-model.js';
 import {StudyRewards,rewardPolicy} from './study-rewards.js';
 import {publicWordQuestion,guessWordLetter} from './word-games.js';
@@ -56,7 +57,7 @@ export class AcademyService {
  }
  async home(user){
   const classes=user.role==='teacher'?(await this.rows('class-owner:'+user.id+':')).filter(c=>!c.archived):await Promise.all((await this.rows('enrollment:'+user.id+':')).filter(m=>m.active).map(async m=>{const c=await this.store.get('class:'+m.classId);return c&&!c.archived?{id:c.id,name:c.name,timezone:c.timezone}:null;})).then(a=>a.filter(Boolean));
-  const result={user,classes,assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,now:Date.now()};
+  const result={user,classes,assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,avatarItems:AVATAR_ITEMS,now:Date.now()};
   for(const c of classes){
    if(user.role==='student'){const course=await this.store.get('class:'+c.id);result.studyRewards.push(await new StudyRewards(this.store).summary(course,user.id,result.now));}
    for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...a,className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,progress:p?progressSummary(p,a.rules):null});}
@@ -179,6 +180,16 @@ export class AcademyService {
   }
   if(action==='solo-save'){
    await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
+  }
+  if(['buy-item','equip-item','remove-item'].includes(action)){
+   const profile=await this.profile(user.id),owned=Array.isArray(profile.ownedItems)?profile.ownedItems:[],equipment=ownedEquipment(profile);
+   if(action==='remove-item'){ensure(Object.hasOwn(ITEM_SLOTS,p.slot),'Choose a valid item slot.');delete equipment[p.slot];}
+   else{
+    const item=itemById(p.itemId);ensure(item,'Unknown avatar item.');
+    if(action==='buy-item'&&!owned.includes(item.id)){ensure(Number.isSafeInteger(profile.points)&&profile.points>=item.price,'You need more character points.');profile.points-=item.price;owned.push(item.id);}
+    ensure(owned.includes(item.id),'Unlock this item first.',403);equipment[item.slot]=item.id;
+   }
+   profile.ownedItems=owned;profile.equipment=equipment;await this.store.put('account:'+user.id,profile);return response({user:{...profile,role:user.role}});
   }
   if(action==='buy-skin'||action==='equip-skin'){
    const skin=SKINS.find(s=>s.id===p.skinId);ensure(skin,'Unknown character skin.');const profile=await this.profile(user.id);

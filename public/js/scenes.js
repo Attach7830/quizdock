@@ -23,7 +23,7 @@ export function createScene(){
  function roundKey(s){return s?`${s.pin}:${s.roundNumber}:${s.startedAt}:${s.mode}`:'';}
  function update(next){
   if(roundKey(next)!==roundKey(previous)){event=null;special=null;previous=null;delete el.dataset.eventId;}
-  state=next;el.dataset.character=skinById(next?.me?.skin).id;el.dataset.plane=next?.mode==='rally'?next.me?.roleType||'':'';el.querySelector('.scene-name').textContent=(GAME_TYPES[next?.mode]?.name||'Your adventure')+(next?.mode==='rally'&&next.me?.roleType?` · ${planeByRole(next.me.roleType).name}`:'');
+  state=next;el.dataset.equipment=Object.values(next?.me?.equipment||{}).join(',');el.dataset.character=skinById(next?.me?.skin).id;el.dataset.plane=next?.mode==='rally'?next.me?.roleType||'':'';el.querySelector('.scene-name').textContent=(GAME_TYPES[next?.mode]?.name||'Your adventure')+(next?.mode==='rally'&&next.me?.roleType?` · ${planeByRole(next.me.roleType).name}`:'');
   if(previous?.me&&next?.me&&(next.status==='playing'||next.status==='finished'&&next.me?.feedback)){
    const score=s=>s.mode==='treasure'?s.me.coins:s.mode==='factory'?s.me.cash:s.me.score;const delta=score(next)-score(previous);
    if(next.me.answered>previous.me.answered&&next.me.feedback){event={type:next.me.feedback.correct?'correct':'incorrect',start:performance.now(),effect:next.me.feedback.effect};if(next.me.feedback.correct)chime();}
@@ -47,7 +47,7 @@ export function createScene(){
  function poly(points,color){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=color;ctx.fill();}
  function glow(x,y,r,color){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'#ffffff00');ellipse(x,y,r,r,g);}
  function star(x,y,r,color){const p=[];for(let i=0;i<8;i++){const a=i*Math.PI/4;p.push([x+Math.cos(a)*(i%2?r*.28:r),y+Math.sin(a)*(i%2?r*.28:r)]);}poly(p,color);}
- function avatar(x,y,scale=1,skin='mint',tilt=0){drawCharacter(ctx,x,y,scale,skinById(skin),tilt);}
+ function avatar(x,y,scale=1,skin='mint',tilt=0,equipment=state.me?.equipment){drawCharacter(ctx,x,y,scale,skinById(skin,equipment),tilt);}
  function clouds(W,t,color='#a1bad91a'){for(let i=0;i<5;i++){const x=((i*W*.27+t*(7+i)%W)%(W+160))-80,y=28+(i%3)*28;ellipse(x,y,48,12,color);ellipse(x-13,y-9,24,17,color);ellipse(x+18,y-5,31,14,color);}}
  function water(W,t,y=150){ctx.fillStyle='#16435b';ctx.fillRect(0,y,W,60);for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(0,y+j*12);for(let x=0;x<=W+10;x+=8)ctx.lineTo(x,y+j*12+Math.sin(x*.023+t*1.3+j)*4);ctx.lineTo(W,200);ctx.lineTo(0,200);ctx.closePath();ctx.fillStyle=['#21596a','#27768166','#32929144'][j];ctx.fill();}for(let i=0;i<12;i++){const x=(i*87+t*11)%(W+40)-20;line([[x,175+i%3*6],[x+18,175+i%3*6]],'#82d6d92c',1.5);}}
  function coin(x,y,r=7,alpha=1){ctx.save();ctx.globalAlpha=alpha;ellipse(x,y,r,r,'#e1a54b');ellipse(x,y,r*.76,r*.76,'#ffda86');ctx.strokeStyle='#9c6d31';ctx.lineWidth=1;ctx.stroke();line([[x,y-r*.4],[x,y+r*.4]],'#af7e37',1.7);ctx.restore();}
@@ -69,7 +69,7 @@ export function createScene(){
   for(let i=0;i<3;i++){const fx=(i*W*.31+t*8)%(W+50)-25;ellipse(fx,177+i%2*8,13,5,'#9ce4d82b');poly([[fx-10,177+i%2*8],[fx-20,172+i%2*8],[fx-20,182+i%2*8]],'#9ce4d82b');}
  }
  function battle(W,t,p){const x=W*.29,y=W*.71;glow(W*.5,100,160,'#bba2ff1e');ellipse(W*.5,166,W*.37,28,'#675c8d33');ellipse(W*.5,160,W*.35,25,'#27374f');ctx.strokeStyle='#766da866';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(W*.5,160,W*.35,25,0,0,Math.PI*2);ctx.stroke();
-  const hit=event?.type==='correct'&&p>.48?Math.sin((p-.48)*24)*5*(1-p):0;avatar(x,124,.98,state?.me?.skin,['incorrect','hit'].includes(event?.type)?Math.sin(p*23)*.05:Math.sin(t)*.025);const rival=state?.players?.find(s=>s.id===event?.effect?.targetId)||state?.players?.find(s=>s.id!==state.me?.id);avatar(y+hit,124,.98,rival?.skin||'coral',hit*.007);
+  const hit=event?.type==='correct'&&p>.48?Math.sin((p-.48)*24)*5*(1-p):0;avatar(x,124,.98,state?.me?.skin,['incorrect','hit'].includes(event?.type)?Math.sin(p*23)*.05:Math.sin(t)*.025);const rival=state?.players?.find(s=>s.id===event?.effect?.targetId)||state?.players?.find(s=>s.id!==state.me?.id);avatar(y+hit,124,.98,rival?.skin||'coral',hit*.007,rival?.equipment||{});
   rr(x-36,174,72,5,3,'#1a263e');rr(x-36,174,72*(state?.me?.hp??100)/100,5,3,'#7fe6bb');rr(y-36,174,72,5,3,'#1a263e');rr(y-36,174,72*(rival?.hp??100)/100,5,3,'#d58caa');
   if(event?.type==='correct'&&(!state.gameplay||event.effect?.type==='attack')){const q=Math.max(0,Math.min(1,(p-.12)/.48)),ox=x+35+(y-x-70)*q;for(let i=6;i>=0;i--)ellipse(ox-i*9,112,Math.max(2,12-i),Math.max(2,8-i),'#b4ffee'+['22','33','55','77','99','bb','ff'][6-i]);glow(ox,112,30,'#7ce7ff55');if(p>.55)particles(y,115,(p-.55)/.45,'gold',18);}
   ctx.fillStyle='#cee4ef';ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText('YOU',x,32);ctx.fillText((rival?.name||'RIVAL').slice(0,18),y,32);

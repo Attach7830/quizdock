@@ -36,5 +36,5 @@ export const SKINS = [
  {id:'sunforge',name:'Sunforge Sentinel',price:350,primary:'#ffd58b',secondary:'#985044',accent:'#fff3c4',shape:'sentinel',rarity:'Legendary'},
  {id:'kitsune',name:'Nightfall Kitsune',price:450,primary:'#e7b4ff',secondary:'#64448c',accent:'#fff0e3',shape:'fox',rarity:'Legendary'}
 ];
-export const skinById = id => SKINS.find(s=>s.id===id)||SKINS[0];
+export const skinById = (id,equipment) => {const skin=SKINS.find(s=>s.id===id)||SKINS[0];return equipment?{...skin,equipment}:skin;};
 export const roleById = (mode,id) => PLAYER_TYPES[mode]?.find(r=>r.id===id);

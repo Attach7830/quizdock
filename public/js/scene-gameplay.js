@@ -27,7 +27,7 @@ export function factoryWorld(ctx,state,W,t,p,event){
   text(ctx,s.stock[station.part]+' '+station.part,x,187,station.color,9);if(on&&event?.type==='correct')glow(ctx,x,115,40,'#b4ffcf'+(p<.8?'45':'18'));
  });
  for(let i=0;i<4;i++){const x=28+(t*25+i*79)%(W-60);box(ctx,x,137,17,17,['#deb47a','#9fdfcd','#c0a1ef'][i%3],'#d4eedc',2);}
- drawCharacter(ctx,28,139,.38,skinById(state.me.skin));text(ctx,'ORDER: '+s.order.quantity+' '+s.order.part+' → $'+s.order.payout,W*.5,23,'#ffe3ac',10);return true;
+ drawCharacter(ctx,28,139,.38,skinById(state.me.skin,state.me.equipment));text(ctx,'ORDER: '+s.order.quantity+' '+s.order.part+' → $'+s.order.payout,W*.5,23,'#ffe3ac',10);return true;
 }
 export function gameplayForeground(ctx,state,W,t,p,event){
  const s=state.me?.adventure;if(!state.gameplay||!s)return;
@@ -66,7 +66,7 @@ export function gameplayForeground(ctx,state,W,t,p,event){
 export function wordWorld(ctx,state,W,t,p,event){
  if(state.mode!=='word')return false;const s=state.me?.adventure||{solved:0,constellations:0},cx=W*.61,cy=113;
  glow(ctx,cx,cy,105,'#d1a9ff44');ellipse(ctx,W*.5,175,W*.37,17,'#0a1f3855');
- drawCharacter(ctx,W*.2,132,.78,skinById(state.me?.skin),Math.sin(t)*.025);
+ drawCharacter(ctx,W*.2,132,.78,skinById(state.me?.skin,state.me?.equipment),Math.sin(t)*.025);
  ctx.save();ctx.translate(cx,cy);ctx.rotate(Math.sin(t*.7)*.025);ctx.beginPath();ctx.moveTo(-60,-34);ctx.lineTo(0,-20);ctx.lineTo(60,-34);ctx.lineTo(60,35);ctx.lineTo(0,45);ctx.lineTo(-60,35);ctx.closePath();ctx.fillStyle='#7d65ac';ctx.fill();ctx.strokeStyle='#e8ccff';ctx.lineWidth=3;ctx.stroke();
  for(const sign of [-1,1]){ctx.beginPath();ctx.moveTo(sign*4,-16);ctx.lineTo(sign*54,-28);ctx.lineTo(sign*54,29);ctx.lineTo(sign*4,38);ctx.closePath();ctx.fillStyle='#fff1d0';ctx.fill();for(let i=0;i<4;i++)line(ctx,sign*12,-4+i*9,sign*45,-11+i*9,'#a18fb6',2);}
  glow(ctx,0,-12,48,'#e5c1ff55');text(ctx,'✦',0,12,'#9a67c9',37);ctx.restore();

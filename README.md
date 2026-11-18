@@ -2,11 +2,17 @@
 
 An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, seven private solo games, typed assignments, independent practice, and class-linked student accounts.
 
-## Release 0.8.0
+## Release 0.9.0
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 
-This release fits student live games into the available viewport, including questions, roles, rewards, strategy choices, pause and finished states. Long teacher-authored questions and answers have an explicit paginated reading view. The compact menu holds stats, volume and animation settings. Teacher pages, assignments and ordinary solo study retain normal document scrolling.
+This release fits student live games and graded practice into the available viewport, including questions, roles, rewards, strategy choices, pause and finished states. Long teacher-authored questions and answers have an explicit paginated reading view. The compact menu holds stats, volume and animation settings. Teacher pages, assignment lists and ordinary solo study retain normal document scrolling. Very short software-keyboard views retain natural practice scrolling.
+
+Desktop Treasure Quest chest choices occupy a full-width row with large labels and at least 160-pixel-tall buttons when the window is at least 960 by 560 pixels. Short windows and phones retain compact choices so the complete game fits on screen.
+
+Word Forge assignment practice keeps the prompt, typed answer and actions in a compact screen at 100% zoom. Letter clues keep whole words together, count only letters, and show punctuation separately; a letter panel and full prompt/feedback readers retain longer content. Google sign-in uses its official button without the white iframe surround.
+
+Avatar wardrobe adds 20 original accessories across hats, face, held items, back items and auras. Previewing is free; server-checked purchases use character points and save ownership and equipped slots to the existing account. Existing thirteen base characters, prices and purchases are preserved. The Million Point Stick costs 1,000,000 character points; the Billion Point Party Hat costs 1,000,000,000. All outfits are cosmetic, and the current daily earning limit is unchanged. Saved outfits appear in live games, survive replay and are included in personal account exports.
 
 The Keys guide supports editable hotkeys with collision checks and Restore defaults. Shortcuts work in flashcards, independent typing and assignments; they pause while typing except for an explicitly assigned modified Check shortcut. Practice time requires focused, active intervals, with blur/focus boundaries checked by server heartbeats.
 

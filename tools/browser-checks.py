@@ -66,7 +66,7 @@ def page_for(browser,entry,role='student',size=(390,844),session=None):
     page.on('pageerror',lambda e:page.errors.append(str(e)))
     page.route('**/__test/image.svg',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300"><rect width="600" height="300" fill="#dde8eb"/><path d="M170 150L300 45L430 150V275H170Z" fill="#c79b74"/></svg>'))
     page.expose_function('__request',lambda path,data,internal: http(path,data,COOKIES[role]))
-    css=(ROOT/'public/styles.css').read_text()+'\n'+re.sub(r'@import[^;]+;','',(ROOT/'public/platform.css').read_text())+'\n'+(ROOT/'public/student-game.css').read_text()
+    css=(ROOT/'public/styles.css').read_text()+'\n'+(ROOT/'public/practice.css').read_text()+'\n'+(ROOT/'public/wardrobe.css').read_text()+'\n'+re.sub(r'@import[^;]+;','',(ROOT/'public/platform.css').read_text())+'\n'+(ROOT/'public/student-game.css').read_text()
     page.set_content('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>'+css+'</style></head><body><div id="app"></div><div id="notice" class="notice" role="status" hidden></div><dialog id="dialog"></dialog></body></html>')
     page.evaluate(PRELUDE,{'source':sources(entry),'entry':entry,'session':session})
     page.wait_for_timeout(400)

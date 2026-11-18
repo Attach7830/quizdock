@@ -28,6 +28,14 @@ def answer(page,correct=True):
  else:
   choices=page.locator('.answer span').all_inner_texts();choice=expected if correct else next(c for c in choices if c!=expected);page.locator('.answer').filter(has=page.get_by_text(choice,exact=True)).click()
  page.wait_for_selector('[data-player-view=result]');dismiss(page)
+def desktop_chests(page):
+ for w,h in [(960,560),(1024,600),(1280,720),(1366,768),(1536,864),(1920,1080)]:
+  page.set_viewport_size({'width':w,'height':h});fit(page,f'desktop treasure choices fit {w}x{h}')
+  d=page.evaluate('''()=>{const area=document.querySelector('.game-question').getBoundingClientRect();return {width:area.width,cards:[...document.querySelectorAll('[data-act=chest]')].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,title:parseFloat(getComputedStyle(e.querySelector('strong')).fontSize),hint:parseFloat(getComputedStyle(e.querySelector('small')).fontSize)}})}}''')
+  cards=d['cards'];check(len(cards)==3 and all(c['h']>=159 and c['title']>=22 and c['hint']>=14 for c in cards) and max(c['y'] for c in cards)-min(c['y'] for c in cards)<1 and sum(c['w'] for c in cards)>=d['width']*.9,f'desktop treasure choices use large readable cards across the panel at {w}x{h}: '+json.dumps(d))
+  if w in [1366,1920]:page.screenshot(path=str(ROOT/f'checks/treasure-desktop-{w}x{h}.png'))
+ page.set_viewport_size({'width':1280,'height':480});fit(page,'short desktop treasure window retains reachable compact choices')
+ page.set_viewport_size({'width':1366,'height':768});page.locator('[data-act=chest]').first.focus();check(page.locator('[data-act=chest]').first.evaluate('(e)=>document.activeElement===e'),'desktop treasure choices remain keyboard focusable')
 def run():
  with sync_playwright() as p:
   browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or None,headless=True,args=['--no-sandbox'])
@@ -43,7 +51,7 @@ def run():
     for page in [s,o]:page.locator('[data-act=role]').first.click()
    s.wait_for_selector('[data-player-view=question]');matrix(s,mode+'-question');answer(s,False);matrix(s,mode+'-wrong');s.locator('[data-act=next]').click();s.wait_for_selector('[data-player-view=question]');answer(s)
    matrix(s,mode+'-reward')
-   if mode=='treasure':s.locator('[data-act=chest]').first.click();s.wait_for_selector('[data-act=next]');dismiss(s);matrix(s,'treasure-opened')
+   if mode=='treasure':desktop_chests(s);s.keyboard.press('Space');s.wait_for_selector('[data-act=next]');dismiss(s);matrix(s,'treasure-opened')
    if mode=='word':
     s.locator('[data-act=next]').click();s.wait_for_selector('#live-word-answer');s.set_viewport_size({'width':390,'height':340});s.locator('#live-word-answer').focus();s.locator('#live-word-answer').fill('saved draft');fit(s,'Word Forge with software keyboard space')
    t.locator('[data-act=pause]').click();s.wait_for_selector('[data-player-view=paused]');matrix(s,mode+'-paused');t.locator('[data-act=resume]').click();

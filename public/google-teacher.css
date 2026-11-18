@@ -1,4 +1,7 @@
 .teacher-google-options { display:grid; gap:10px; min-width:0; margin:4px 0 18px; }
+/* The Google iframe is transparent around its official button. Inheriting the
+   page's dark color scheme makes Chromium paint that surround white. */
+.google-signin,.teacher-google-button { color-scheme:light; }
 .teacher-google-button { min-width:0; max-width:100%; overflow-wrap:anywhere; }
 .teacher-google-button p { margin:0 0 10px; font-size:13px; line-height:1.5; }
 .teacher-google-help { margin:0; color:var(--muted,#a6b8d3); font-size:12px; line-height:1.5; }

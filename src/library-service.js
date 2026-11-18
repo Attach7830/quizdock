@@ -1,3 +1,4 @@
+import {ownedEquipment} from '../public/js/item-catalog.js';
 import {startTeacherGoogleLogin, readTeacherGoogleAttempt, finishTeacherGoogleLogin, teacherGoogleConfigured} from './teacher-google-login.js';
 import {verifyGoogleCredential} from './google-auth.js';
 import {DataTools,flushPrivacyJobs,runRetentionPolicies} from './data-tools.js';
@@ -68,7 +69,7 @@ export class TeacherLibrary extends DurableObject {
     }
     if(action.startsWith('academy:'))return new AcademyService(this.store,this.config).route(action.slice(8),p,token,ip,googleIdentity);
     if(action==='solo-game-source'){
-      const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);ensure(user.role==='student','Use a student account for solo games.',403);const course=await svc.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${p.listId}`);ensure(deck,'This list is not shared with your class.',404);ensure(['treasure','fishing','battle','factory','rally','keep','word'].includes(p.mode),'Choose a solo-compatible game.');const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose a valid category.');const cards=deck.cards.filter(c=>category==='all'||c.category===category);ensure(cards.length,'No cards in this category.');await svc.rate('solo-game:'+user.id,30);return json({title:deck.title,questions:compileQuestions({title:deck.title,cards},{typedOnly:p.mode==='word'}),solo:{accountId:user.id,classId:course.id,listId:deck.listId,ownerId:course.ownerId},identity:{accountId:user.id,name:user.name,email:user.email,skin:user.skin}});
+      const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);ensure(user.role==='student','Use a student account for solo games.',403);const course=await svc.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${p.listId}`);ensure(deck,'This list is not shared with your class.',404);ensure(['treasure','fishing','battle','factory','rally','keep','word'].includes(p.mode),'Choose a solo-compatible game.');const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose a valid category.');const cards=deck.cards.filter(c=>category==='all'||c.category===category);ensure(cards.length,'No cards in this category.');await svc.rate('solo-game:'+user.id,30);return json({title:deck.title,questions:compileQuestions({title:deck.title,cards},{typedOnly:p.mode==='word'}),solo:{accountId:user.id,classId:course.id,listId:deck.listId,ownerId:course.ownerId},identity:{accountId:user.id,name:user.name,email:user.email,skin:user.skin,equipment:ownedEquipment(user)}});
     }
     if(action==='record-solo-round'){
       const svc=new AcademyService(this.store,this.config),s=p.solo,r=p.report;ensure(s&&r&&typeof r.id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(r.id),'Invalid solo report.');const course=await this.store.get('class:'+s.classId),profile=await svc.profile(s.accountId),member=await svc.enrollment(s.accountId,s.classId);const erased=await this.store.get(`data:erased-account:${s.accountId}`),erasedMember=await this.store.get(`data:erased-member:${s.classId}:${s.accountId}`);if(!course||course.archived||course.ownerId!==s.ownerId||!member?.active||!profile||profile.disabled||r.startedAt<(profile.createdAt||0)||r.startedAt<=(erased?.at||0)||r.startedAt<=(erasedMember?.at||0))return json({skipped:true});
@@ -84,7 +85,7 @@ export class TeacherLibrary extends DurableObject {
       try{user=await svc.identity(token);}catch(e){if(!p.classId&&!token)return json({identity:null});throw e;}
       const m=p.classId?(await svc.course(p.classId,user),await svc.enrollment(user.id,p.classId)):null;
       ensure(!p.classId||m?.active,'Join this class as a student before entering its games.',403);
-      return json({identity:{accountId:user.id,name:m?.name||user.name,email:user.email,skin:user.skin}});
+      return json({identity:{accountId:user.id,name:m?.name||user.name,email:user.email,skin:user.skin,equipment:ownedEquipment(user)}});
     }
     if(action==='room-source'){
       const snapshot=await new ListRepository(this.store,p.owner).snapshot(p.id,p.revision);return json(snapshot);

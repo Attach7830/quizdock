@@ -1,0 +1,32 @@
+"""Saved outfits and cosmetic-only purchases using fake classroom accounts."""
+from pathlib import Path
+import json,os,shutil
+from playwright.sync_api import sync_playwright
+ROOT=Path(__file__).resolve().parents[1];BASE='https://localhost:9443';RESULTS=[]
+def check(ok,name):
+ RESULTS.append({'check':name,'passed':bool(ok)})
+ if not ok:raise AssertionError(name)
+def home(ctx):return ctx.request.post(BASE+'/api/academy/home',data={},headers={'Origin':BASE}).json()
+def run():
+ with sync_playwright() as p:
+  b=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or None,headless=True,args=['--no-sandbox'])
+  tc=b.new_context(ignore_https_errors=True,viewport={'width':1366,'height':768});tc.request.get(BASE+'/__test/login?role=teacher');sc=b.new_context(ignore_https_errors=True,viewport={'width':1366,'height':768},reduced_motion='reduce');sc.request.get(BASE+'/__test/login?role=student');s=sc.new_page();t=tc.new_page();t.on('dialog',lambda d:d.accept());s.on('dialog',lambda d:d.accept());errors=[]
+  for page in [s,t]:page.on('pageerror',lambda e:errors.append(str(e)))
+  s.goto(BASE+'/');s.locator('[role=tab][data-tab=wardrobe]').click();s.wait_for_selector('.wardrobe-studio')
+  check(s.locator('[data-skin-card]').count()==13,'existing thirteen base characters remain available')
+  party=s.locator('[data-item-card=billion-party-hat]');check('1,000,000,000' in party.inner_text() and party.locator('[data-act=item-buy]').is_disabled(),'billion point party hat has its exact price and affordability guard')
+  party.locator('[data-act=item-preview]').click();check('not saved' in s.locator('[data-outfit-status]').inner_text(),'trying on is explicitly labeled as an unsaved preview');check('billion-party-hat' in s.locator('.wardrobe-portrait .avatar').get_attribute('data-equipment'),'preview wears the original party hat art');check(home(sc)['user']['points']==190 and not home(sc)['user'].get('ownedItems'),'free preview cannot spend points or grant ownership')
+  s.locator('[data-act=item-preview-reset]').click();s.locator('[data-item-card=paper-boat] [data-act=item-buy]').click();s.wait_for_function('document.querySelector("[data-item-card=paper-boat] [data-act=item-equip]")?.disabled');u=home(sc)['user'];check(u['points']==165 and u['equipment']=={'hat':'paper-boat'},'buy & wear saves a hat and spends exactly 25 character points')
+  s.locator('#wardrobe-slot').select_option('hand');s.locator('[data-item-card=rubber-duck] [data-act=item-buy]').click();s.wait_for_function('document.querySelector("[data-item-card=rubber-duck] [data-act=item-equip]")?.disabled');u=home(sc)['user'];check(u['points']==75 and u['equipment']=={'hat':'paper-boat','hand':'rubber-duck'},'a held item mixes with the saved hat')
+  s.locator('#wardrobe-slot').select_option('face');s.locator('[data-item-card=safety-goggles] [data-act=item-buy]').click();s.wait_for_function('document.querySelector("[data-item-card=safety-goggles] [data-act=item-equip]")?.disabled');u=home(sc)['user'];check(u['points']==5 and u['skin']=='coral' and u['owned']==['mint','coral'],'accessories preserve the old base character and existing ownership')
+  s.reload();s.locator('[role=tab][data-tab=wardrobe]').click();s.wait_for_selector('.wardrobe-portrait');check(set(s.locator('.wardrobe-portrait .avatar').get_attribute('data-equipment').split(','))=={'paper-boat','rubber-duck','safety-goggles'},'complete outfit survives a full reload')
+  s.locator('[data-act=item-remove][data-slot=hat]').click();s.wait_for_function('!document.querySelector("[data-act=item-remove][data-slot=hat]")');u=home(sc)['user'];check(u['points']==5 and 'paper-boat' in u['ownedItems'] and 'hat' not in u['equipment'],'removing an item retains ownership and the wallet balance');s.locator('[data-item-card=paper-boat] [data-act=item-equip]').click();s.wait_for_function('document.querySelector("[data-item-card=paper-boat] [data-act=item-equip]")?.disabled');check(home(sc)['user']['points']==5,'wearing an owned item is free')
+  s.locator('#wardrobe-slot').select_option('all');check(s.locator('[data-item-card]').count()==20,'all twenty accessories can be browsed');check('1,000,000' in s.locator('[data-item-card=million-stick] .item-price').inner_text(),'million point stick has its exact price')
+  for width in [320,390,768,1366]:
+   s.set_viewport_size({'width':width,'height':844});check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'wardrobe and long trophy prices fit '+str(width))
+  s.set_viewport_size({'width':1366,'height':900});s.locator('[data-item-card=million-stick] [data-act=item-preview]').click();s.screenshot(path=str(ROOT/'checks/avatar-wardrobe-desktop.png'),full_page=False);s.locator('[data-act=item-preview-reset]').click();s.set_viewport_size({'width':390,'height':844});s.screenshot(path=str(ROOT/'checks/avatar-wardrobe-phone.png'),full_page=False)
+  fix=tc.request.get(BASE+'/__test/fixture').json();t.goto(BASE+'/');t.locator('[data-act=host]').first.click();t.locator('#host-form select[name=classId]').select_option(fix['classId']);t.locator('#host-form button.btn.primary').click();t.wait_for_selector('.host-pin');pin=t.locator('.host-pin').inner_text();s.goto(BASE+'/play.html?join='+pin);s.wait_for_selector('.game-shell');t.locator('[data-act=start]').click();s.wait_for_selector('.answer');q=s.locator('.phase-heading').inner_text();expected={'How do you say “to learn”?':'aprender','He spoke yesterday.':'habló','Look at the picture. ¿Qué ves?':'una casa'}.get(q,'una biblioteca');s.locator('.answer').filter(has=s.get_by_text(expected,exact=True)).click();s.wait_for_selector('[data-player-view=result]');check(set(s.locator('.game-scene').get_attribute('data-equipment').split(','))=={'paper-boat','rubber-duck','safety-goggles'},'saved outfit reaches the actual live game renderer');s.screenshot(path=str(ROOT/'checks/avatar-outfit-in-game.png'));t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');t.locator('[data-act=start]').click();s.wait_for_selector('.answer');check('paper-boat' in s.locator('.game-scene').get_attribute('data-equipment'),'a new round retains the equipped outfit');check(not errors,'wardrobe, art and game flow have no uncaught browser errors');b.close()
+ print(json.dumps({'checks':len(RESULTS),'passed':sum(x['passed'] for x in RESULTS)}))
+if __name__=='__main__':
+ try:run()
+ finally:(ROOT/'checks/wardrobe-results.json').write_text(json.dumps(RESULTS,indent=2))

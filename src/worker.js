@@ -1,3 +1,4 @@
+import {cleanEquipment} from '../public/js/item-catalog.js';
 import {WORD_MODES,validateWordDeck,prepareWordQuestion,publicWordQuestion,guessWordLetter,gradeWord,startSketchWord,tickSketch,pauseSketch,resumeSketch,submitSketchGuess,publicSketch,appendSketchStroke,clearSketch,passSketch} from './word-games.js';
 import {hasGameplay,newAdventure,createGameWorld,grantGameplayReward,openGameplayChest,resolveGameplayChoice,finishDefaultChoice,publicAdventure,publicPlay,publicWorld} from './gameplay.js';
 import {maybeArcadeEvent} from './arcade-events.js';
@@ -155,7 +156,7 @@ export class QuizRoom extends DurableObject {
         if(!r||r.createdAt!==p.createdAt)return json({ok:true,skipped:true});
         for(const player of Object.values(r.players))if(player.accountId===p.accountId&&(!p.erasedAt||player.joinedAt<=p.erasedAt)){
           for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment()?.playerId===player.id){try{ws.close(4003,'Account data removed');}catch{}}
-          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.wordCycle=null;player.questionCycle=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
+          player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.equipment={};player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.wordCycle=null;player.questionCycle=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
           for(const other of Object.values(r.players)){other.lastPlay=null;if(other.feedback){delete other.feedback.game;if(other.feedback.effect?.targetId===player.id){other.feedback.reward='Game reward saved.';other.feedback.effect=null;}}}
           if(r.gameplay?.keep){r.gameplay.keep.participants=r.gameplay.keep.participants.filter(id=>id!==player.id);r.gameplay.keep.contributors=r.gameplay.keep.contributors.filter(id=>id!==player.id);}
           if(r.sketch){r.sketch.guessed=r.sketch.guessed.filter(id=>id!==player.id);const drew=r.sketch.artists.includes(player.id);r.sketch.artists=r.sketch.artists.filter(id=>id!==player.id);if(drew){r.sketch.strokes=[];r.sketch.clearEpoch++;r.sketch.revision++;}if(r.sketch.artistId===player.id){r.sketch.artistId=null;r.sketch.offlineAt=Date.now()-8001;}tickSketch(r,this.onlineIds());}
@@ -173,7 +174,7 @@ export class QuizRoom extends DurableObject {
         const identity=path==='/join-verified'?data.identity:null;
         if(this.room.solo&&identity?.accountId!==this.room.solo.accountId)return failure('This solo game belongs to another account.',403);
         if(this.room.classId&&!identity?.accountId)return failure('Sign in with an account linked to this class.',403);
-        if(identity?.accountId){const existing=Object.values(this.room.players).find(p=>p.accountId===identity.accountId);if(existing){existing.skin=identity.skin||'mint';await this.save();this.broadcast();return json({pin:this.room.pin,playerId:existing.id,playerToken:existing.token,name:existing.name});}}
+        if(identity?.accountId){const existing=Object.values(this.room.players).find(p=>p.accountId===identity.accountId);if(existing){existing.skin=identity.skin||'mint';existing.equipment=cleanEquipment(identity.equipment);await this.save();this.broadcast();return json({pin:this.room.pin,playerId:existing.id,playerToken:existing.token,name:existing.name});}}
         if(['playing','paused'].includes(this.room.status)&&this.room.settings?.allowLate===false)return failure('Your teacher has disabled late entry for this game.',409);
         let name = cleanText(identity?.name||data.name, 70).replace(/[<>]/g, '');
         if (name.length < (identity?.accountId?1:2)) return failure('Enter a nickname with at least 2 characters.');
@@ -184,7 +185,7 @@ export class QuizRoom extends DurableObject {
         while (existing.has(name.toLowerCase())) name = `${original.slice(0, 20)} ${suffix++}`;
         const id = randomId(8);
         const token = randomId(24);
-        this.room.players[id] = {...newPlayer(id, token, name, this.room.questions),accountId:identity?.accountId||null,email:identity?.email||null,skin:identity?.skin||'mint'};
+        this.room.players[id] = {...newPlayer(id, token, name, this.room.questions),accountId:identity?.accountId||null,email:identity?.email||null,skin:identity?.skin||'mint',equipment:cleanEquipment(identity?.equipment)};
         if(hasGameplay(this.room))this.room.players[id].adventure=newAdventure(this.room.mode);
         if(this.room.mode==='word'&&this.room.status==='playing')prepareWordQuestion(this.room,this.room.players[id]);
         await this.save();
@@ -210,7 +211,7 @@ export class QuizRoom extends DurableObject {
   snapshotFor(connection,includeDrawing=false) {
     const room = this.room;
     if(WORD_MODES.includes(room.mode)&&connection.protocol!==2)return{type:'error',error:'Refresh QuizDock to load the new word and drawing games.',refreshRequired:true};
-    const players = scoreboard(room.players, room.mode);
+    const players = scoreboard(room.players, room.mode).map(p=>({...p,skin:room.players[p.id].skin||'mint',equipment:cleanEquipment(room.players[p.id].equipment)}));
     const shared = {
       type: 'state', pin: room.pin, title: room.title, mode: room.mode, lastArcadeEvent:room.lastArcadeEvent||null,gameplay:publicWorld(room),sketch:publicSketch(room,connection,{history:includeDrawing}),
       status: room.status, questionCount: room.questions.length,
@@ -226,7 +227,7 @@ export class QuizRoom extends DurableObject {
     return {
       ...shared,
       isHost: false,
-      me: { id: me.id, name: me.name, skin:me.skin||'mint',roleType:me.roleType,lastEvent:me.lastEvent,answered: me.answered, correct: me.correct,
+      me: { id: me.id, name: me.name, skin:me.skin||'mint',equipment:cleanEquipment(me.equipment),roleType:me.roleType,lastEvent:me.lastEvent,answered: me.answered, correct: me.correct,
         streak: me.streak, score: me.score, coins: me.coins, cash: me.cash,
         fishCount: me.fishCount, biggestFish: me.biggestFish, hp: me.hp,
         rodLevel: me.rodLevel, machineLevel: me.machineLevel,
@@ -311,7 +312,7 @@ export class QuizRoom extends DurableObject {
       if(mode==='sketch'&&this.onlineIds().length<2)throw new Error('Sketch Relay needs at least two connected students. Word Forge works with one.');
       for (const [id, p] of Object.entries(room.players)) {
         if(p.deleted){delete room.players[id];continue;}
-        room.players[id] = {...newPlayer(id,p.token,p.name,room.questions),accountId:p.accountId||null,email:p.email||null,skin:p.skin||'mint',joinedAt:p.joinedAt};
+        room.players[id] = {...newPlayer(id,p.token,p.name,room.questions),accountId:p.accountId||null,email:p.email||null,skin:p.skin||'mint',equipment:cleanEquipment(p.equipment),joinedAt:p.joinedAt};
       }
       room.mode=mode;room.durationMinutes=minutes;room.settings=settings;room.roundNumber=(room.roundNumber||(room.startedAt?1:0))+1;
       room.status = 'playing'; room.startedAt = Math.max(Date.now(),(room.startedAt||0)+1); room.endsAt = Date.now() + minutes * 60_000;
