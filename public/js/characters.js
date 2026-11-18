@@ -1,14 +1,17 @@
 // Original character designs, shared by the shop portraits and live game canvas.
 // Geometry is declarative so an equipped character has the same silhouette in both.
+import {cleanEquipment,ITEM_SLOTS} from './item-catalog.js';
+import {avatarItemParts} from './avatar-item-art.js';
 const geometry=new Map(),paths=new WeakMap();
 const color=(value,fallback)=>/^#[a-f0-9]{6}$/i.test(value||'')?value:fallback;
 export function characterParts(skin={}){
  skin=skin||{};
- const key=[skin.id,skin.primary,skin.secondary,skin.accent].join(':');if(geometry.has(key))return geometry.get(key);
+ const equipment=cleanEquipment(skin.equipment),key=[skin.id,skin.primary,skin.secondary,skin.accent,...Object.keys(ITEM_SLOTS).map(slot=>equipment[slot]||'')].join(':');if(geometry.has(key))return geometry.get(key);
  const p=color(skin.primary,'#69e3cb'),s=color(skin.secondary,'#1d6172'),a=color(skin.accent,'#e6fff7'),id=skin.id||'mint',parts=[];
  const path=(d,fill,stroke=null,width=2,opacity=1)=>parts.push({d,fill,stroke,width,opacity});
  const circle=(x,y,r,fill,stroke=null,width=2,opacity=1)=>path(`M${x-r} ${y}a${r} ${r} 0 1 0 ${r*2} 0a${r} ${r} 0 1 0 -${r*2} 0`,fill,stroke,width,opacity);
  path('M-34 47a34 6 0 1 0 68 0a34 6 0 1 0 -68 0','#07152c',null,0,.35);
+ parts.push(...avatarItemParts(equipment,'back'));
  if(['nebula','frostblade','stormwing','sunforge','kitsune'].includes(id))circle(0,-12,51,a,null,0,.08);
  if(['orchid','midnight','nebula','forest'].includes(id))path('M-21 -13L-39 37L-22 33L-12 46L0 38L18 45L39 36L22 -13Z',s,a,1.5);
  if(id==='stormwing'){
@@ -59,7 +62,8 @@ export function characterParts(skin={}){
   path('M-23 -43L-32 -73L-9 -57Z',p,a,2);path('M23 -43L32 -73L9 -57Z',p,a,2);
   path('M-29 -30L-19 -48L0 -37L19 -48L29 -30L16 -16L0 -13L-16 -16Z',a,s,1.5);path('M-20 -32L-6 -28L-15 -23Z',s);path('M20 -32L6 -28L15 -23Z',s);path('M-4 -20L0 -17L4 -20Z',p);
  }
- if(geometry.size>=64)geometry.delete(geometry.keys().next().value);geometry.set(key,parts);return parts;
+ parts.push(...avatarItemParts(equipment,'front'));
+ if(geometry.size>=128)geometry.delete(geometry.keys().next().value);geometry.set(key,parts);return parts;
 }
 export function characterMarkup(skin){
  return `<svg class="character-art" viewBox="-66 -84 132 140" aria-hidden="true" focusable="false">${characterParts(skin).map(p=>`<path d="${p.d}" fill="${p.fill}"${p.stroke?` stroke="${p.stroke}" stroke-width="${p.width}" stroke-linecap="round" stroke-linejoin="round"`:''} opacity="${p.opacity}"/>`).join('')}</svg>`;
