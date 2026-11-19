@@ -1,5 +1,6 @@
 import {ExpeditionService} from './expedition-service.js';
 import {JourneyService} from './journey-service.js';
+import {assignmentSemester,validateSemester,inCurrentAssignmentSemester,availableAssignmentCredit} from './assignment-policy.js';
 import {WORD_ACTIVITIES,makeCrossword,publicCrossword} from './word-activities.js';
 import {ensure,LibraryError,uid,hash,teacherEmails,cleanEmail,randomCode,codeDigest,constantEqual,ListRepository} from './library-domain.js';
 import {correctAnswers,validateList,CARD_CATEGORIES} from '../public/js/list-model.js';
@@ -59,12 +60,13 @@ export class AcademyService {
   const session=uid()+uid();await this.store.put('session:'+await hash(session),{email,owner:userId,kind:'student',issuedAt:now,expiresAt:now+7*DAY});await this.store.delete(key);return response({ok:true},200,{'set-cookie':cookie(session)});
  }
  async home(user){
+  const now=Date.now();
   if(user.role==='student')user=await new JourneyService(this.store).sync(user);
-  const classes=user.role==='teacher'?(await this.rows('class-owner:'+user.id+':')).filter(c=>!c.archived):await Promise.all((await this.rows('enrollment:'+user.id+':')).filter(m=>m.active).map(async m=>{const c=await this.store.get('class:'+m.classId);return c&&!c.archived?{id:c.id,name:c.name,timezone:c.timezone}:null;})).then(a=>a.filter(Boolean));
-  const result={user,classes,assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,avatarItems:AVATAR_ITEMS,now:Date.now()};
-  for(const c of classes){
+  const classes=user.role==='teacher'?(await this.rows('class-owner:'+user.id+':')).filter(c=>!c.archived):await Promise.all((await this.rows('enrollment:'+user.id+':')).filter(m=>m.active).map(async m=>{const c=await this.store.get('class:'+m.classId);return c&&!c.archived?{id:c.id,name:c.name,timezone:c.timezone,semester:assignmentSemester(c,now)}:null;})).then(a=>a.filter(Boolean));
+  const result={user,classes:classes.map(c=>({...c,semester:assignmentSemester(c,now)})),assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,avatarItems:AVATAR_ITEMS,now};
+  for(const c of result.classes){
    if(user.role==='student'){const course=await this.store.get('class:'+c.id);result.studyRewards.push(await new StudyRewards(this.store).summary(course,user.id,result.now));}
-   for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...a,className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,progress:p?progressSummary(p,a.rules):null});}
+   for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...a,className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,inCurrentSemester:inCurrentAssignmentSemester(a,c.semester,c.timezone,result.now),creditAvailablePercent:p?.submittedAt?null:availableAssignmentCredit(a,result.now),progress:p?progressSummary(p,a.rules):null});}
    const room=await this.store.get('class-live:'+c.id);if(room&&room.expiresAt>result.now&&!['finished','expired'].includes(room.status))result.liveGames.push({...room,className:c.name});
    const shared=await this.rows('shared-index:'+c.id+':');result.sharedLists.push(...shared.map(s=>({...s,className:c.name})));
   }
@@ -86,7 +88,7 @@ export class AcademyService {
   if(action==='practice-status')return this.viewPractice(a,p);
   if(action==='practice-submit'){
    if(p.submittedAt)return this.viewPractice(a,p);ensure(progressSummary(p,a.rules).ready,'Meet the time, answered-card and accuracy requirements before submitting.',409);
-   p.submittedAt=now;p.late=now>a.dueAt;await this.store.put(key,p);return this.viewPractice(a,p);
+   p.submittedAt=now;p.late=now>a.dueAt;p.creditPercent=availableAssignmentCredit(a,now);await this.store.put(key,p);return this.viewPractice(a,p);
   }
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
   if(action==='practice-activity'){ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);ensure(WORD_ACTIVITIES.includes(payload.activity),'Choose a word activity.');p.wordActivity=payload.activity;if(payload.activity==='crossword'&&!p.wordCrossword)p.wordCrossword=makeCrossword(a.cards.map(c=>({text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i)})),(min,max)=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return min+a[0]%(max-min+1);});await this.store.put(key,p);return this.viewPractice(a,p);}
@@ -144,9 +146,13 @@ export class AcademyService {
   if(action==='home')return response(await this.home(user));
   if(action==='join-class'){await this.rate('join:'+user.id,15);const c=await this.byCode(p.code,user.email),old=await this.enrollment(user.id,c.id);ensure(!old||old.active,'Ask your teacher to restore your class access.',403);await this.enroll(c.id,user.id,user.email,old?.name||user.name);return response({ok:true});}
   if(action==='create-class'){
-   this.teacher(user);const existing=await this.rows('class-owner:'+user.id+':',101);ensure(existing.length<100,'Maximum 100 classes.');const name=text(p.name);ensure(name,'Name your class.');const classId=uid(),code=uid().replaceAll('-','').slice(0,10).toUpperCase();const emailDomain=text(p.emailDomain,100).toLowerCase();ensure(!emailDomain||/^[a-z0-9.-]+\.[a-z]{2,}$/.test(emailDomain),'Enter a school domain without @.');const c={id:classId,name,ownerId:user.id,code,timezone:zone(p.timezone||DEFAULT_ZONE),emailDomain,allowCode:p.allowCode!==false,createdAt:Date.now()};await this.store.put({['class:'+classId]:c,['class-owner:'+user.id+':'+classId]:c,['class-code:'+code]:classId});return response({class:c});
+   this.teacher(user);const existing=await this.rows('class-owner:'+user.id+':',101);ensure(existing.length<100,'Maximum 100 classes.');const name=text(p.name);ensure(name,'Name your class.');const classId=uid(),code=uid().replaceAll('-','').slice(0,10).toUpperCase();const emailDomain=text(p.emailDomain,100).toLowerCase();ensure(!emailDomain||/^[a-z0-9.-]+\.[a-z]{2,}$/.test(emailDomain),'Enter a school domain without @.');const c={id:classId,name,ownerId:user.id,code,timezone:zone(p.timezone||DEFAULT_ZONE),emailDomain,allowCode:p.allowCode!==false,createdAt:Date.now()};c.semester=p.semester?validateSemester(p.semester):assignmentSemester(c);await this.store.put({['class:'+classId]:c,['class-owner:'+user.id+':'+classId]:c,['class-code:'+code]:classId});return response({class:c});
   }
   if(action==='class-detail'){const c=await this.course(p.classId,user,true),members=await Promise.all((await this.rows('member:'+c.id+':',201)).filter(m=>!m.erased).map(async member=>{const profile=await this.profile(member.userId);return {...member,appearance:{skin:profile?.owned?.includes(profile.skin)?profile.skin:'mint',equipment:ownedEquipment(profile||{})}};}));return response({class:c,members});}
+  if(action==='set-semester'){
+   const c=await this.course(p.classId,user,true);c.semester=validateSemester(p.semester);
+   await this.store.put({['class:'+c.id]:c,['class-owner:'+user.id+':'+c.id]:c});return response({class:c});
+  }
   if(action==='roster-add'){
    const c=await this.course(p.classId,user,true);ensure(Array.isArray(p.students)&&p.students.length<=100,'Add at most 100 students at once.');const validated=p.students.map(r=>({email:cleanEmail(r.email),name:text(r.name)}));for(const r of validated){ensure(r.name.length>=2,'Every roster entry needs a name.');if(c.emailDomain)ensure(r.email.endsWith('@'+c.emailDomain),'A roster email does not match the school domain.');}
    const ids=await Promise.all(validated.map(r=>hash(r.email))),existing=new Set((await this.rows('member:'+c.id+':',201)).map(m=>m.userId));ensure(new Set([...existing,...ids]).size<=200,'This roster would exceed the 200-student limit.');for(let i=0;i<validated.length;i++){const r=validated[i];await this.enroll(c.id,ids[i],r.email,r.name);}return response({ok:true});

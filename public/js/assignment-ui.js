@@ -1,0 +1,15 @@
+import {esc,dateLabel,timeLabel} from './ui.js';
+
+export function assignmentCard(a,{teacher=false}={}){
+ const p=a.progress,done=!!p?.submittedAt,available=a.creditAvailablePercent??(a.overdue?50:100);
+ const credit=done?(p.creditPercent===null||p.creditPercent===undefined?'':`${p.creditPercent}% credit earned`):a.overdue?`Complete for half credit (${available}%). All practice requirements still apply.`:'';
+ return `<article class="assignment" data-assignment-card="${esc(a.id)}"><div class="row spread"><span class="pill ${done?'done':a.overdue?'overdue':''}">${done?'Submitted':a.overdue?'Overdue':a.dueThisWeek?'This week':'Upcoming'}</span><small>${esc(a.className||'')}</small></div><h3>${esc(a.title)}</h3><small>Due ${esc(dateLabel(a.dueAt,a.timezone))}</small><div class="task-meta"><span>${Math.round(a.rules.minSeconds/60)} active minutes</span><span>· ${a.rules.minCards} ${a.rules.cardCountMode==='distinct'?(a.rules.minCards===1?'different card':'different cards'):(a.rules.minCards===1?'answer':'answers')}</span><span>· ${a.rules.minAccuracy}% accuracy</span></div>${credit?`<p class="assignment-credit ${!done&&a.overdue?'late-credit':''}">${esc(credit)}</p>`:''}${p?`<p class="form-note">${p.answered} answered · ${p.accuracy.toFixed(0)}% accurate · ${timeLabel(p.seconds)} active</p>`:''}<div><button class="btn ${done?'ghost':'primary'} small" data-act="${teacher?'assignment-report':'practice'}" data-id="${esc(a.id)}">${teacher?'View submissions':done?'View submission':p?'Resume typed practice':'Start typed practice'} →</button></div></article>`;
+}
+export function assignmentDashboard(home){
+ if(home.user.role!=='student')return '';
+ const assignments=home.assignments.filter(a=>a.inCurrentSemester&&!a.progress?.submittedAt).slice().sort((a,b)=>a.dueAt-b.dueAt||a.title.localeCompare(b.title)),overdue=assignments.filter(a=>a.overdue).length;
+ return `<section class="panel home-assignments" id="home-assignments" aria-labelledby="home-assignments-title"><div class="panel-title"><div><div class="eyebrow">Current semester</div><h2 id="home-assignments-title">Your assignments</h2></div><a class="btn ghost small" href="/?view=assignments" data-hub-view="assignments">All assignments →</a></div><p class="muted">${assignments.length?`${assignments.length-overdue} upcoming · ${overdue} overdue. Overdue work can be completed for half credit (50%).`:'You have no unfinished assignments in the current semester.'}</p><div class="home-assignment-list">${assignments.map(a=>assignmentCard(a)).join('')}</div></section>`;
+}
+export function assignmentGradeRows(report){
+ return [['Name','Email','Answered','Distinct cards','Counted cards','Correct','Accuracy %','Active seconds','Submitted','Late','Credit %'],...report.students.map(s=>[s.name,s.email,s.progress.answered,s.progress.uniqueCards,s.progress.studiedCards,s.progress.correct,s.progress.accuracy.toFixed(2),s.progress.seconds,s.progress.submittedAt?new Date(s.progress.submittedAt).toISOString():'',s.progress.late,s.progress.creditPercent??''])];
+}
