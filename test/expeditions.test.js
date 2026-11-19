@@ -1,3 +1,4 @@
+import {FISH_SPECIES} from '../public/js/fish-catalog.js';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {newPlayer,validateQuestions} from '../src/game.js';
 import {createGameWorld,grantGameplayReward} from '../src/gameplay.js';
@@ -55,3 +56,22 @@ test('erasing one artist preserves other students’ separate mural frames in th
 test('ending a drawing round saves the final canvas once, including a word not closed by its timer',async()=>{const f=fixture('sketch',2),ctx=context(),service=new QuizRoom(ctx,{});await ctx.boot;f.room.createdAt=Date.now();f.room.hostToken='host';service.room=f.room;const ids=Object.keys(f.room.players),s=startSketchWord(f.room,ids);appendSketchStroke(f.room,f.room.players[s.artistId],{wordId:s.id,clearEpoch:0,id:uid(),color:'#18344d',size:6,points:[[10,10],[100,100]]});const host=new Socket();ctx.sockets.push(host);host.serializeAttachment({role:'host',protocol:2});await service.webSocketMessage(host,JSON.stringify({type:'end'}));assert.equal(service.room.sketchGallery.length,1);const support=f.room.players[s.artistId].expedition.stats.support;await service.save();assert.equal(service.room.sketchGallery.length,1);assert.equal(f.room.players[s.artistId].expedition.stats.support,support);});
 for(const format of ['duo','compound'])test(`Sketch ${format}: a disconnected partner hands full drawing permissions to the remaining artist and reserves a guesser`,()=>{const f=fixture('sketch',3,{sketchFormat:format});f.room.questions=f.room.questions.slice(0,1);const ids=Object.keys(f.room.players),s=startSketchWord(f.room,ids,1000),remaining=s.activeArtists[1],online=ids.filter(id=>id!==s.artistId);tickSketch(f.room,online,2000);tickSketch(f.room,online,10001);assert.equal(s.artistId,remaining);assert.equal(s.format,'classic');assert.equal(publicSketch(f.room,{role:'student',playerId:remaining}).word,'casa azul');assert.equal(s.artists.filter(id=>online.includes(id)).length,1);assert.ok(online.some(id=>!s.artists.includes(id)));});
 test('teacher class rosters include only owned avatar appearance and never expose student wallet or inventory',async()=>{const f=await accounts();const r=await f.call('class-detail',{classId:f.course.id},f.teacherToken);assert.equal(r.status,200);assert.deepEqual(r.body.members[0].appearance,{skin:'mint',equipment:{hat:'paper-boat'}});assert.equal(r.body.members[0].points,undefined);assert.equal(r.body.members[0].ownedItems,undefined);assert.equal((await f.call('class-detail',{classId:f.course.id})).status,403);});
+
+test('all 300 species persist beyond the old 32-fish limit, retain old records, and settle only once',async()=>{
+ const f=await accounts(),first=outcome(f);await f.service.record(first,f.owner,archive(first));
+ const o=outcome(f);o.players[0].fish=Object.fromEntries([...Array.from({length:40},(_,i)=>['invalid-'+i,{count:999,best:999}]),...FISH_SPECIES.map((fish,i)=>[fish.id,{count:1,best:(i+1)/10}])]);
+ await f.service.record(o,f.owner,archive(o));const p=await f.service.passport(f.course.id,f.student);
+ assert.equal(Object.keys(p.fish).length,300);assert.equal(p.fish['reef-skipper'].count,3);assert.equal(p.fish['reef-skipper'].best,3.1);assert.equal(p.fish['the-last-aurora'].count,1);
+ await f.service.record(o,f.owner,archive(o));assert.deepEqual((await f.service.passport(f.course.id,f.student)).fish,p.fish);
+ assert.equal(Object.keys((await f.service.passport(f.course.id,f.other)).fish).length,0);
+});
+
+test('shiny counts, best weights and aquarium appearances survive normal catches and retries without changing legacy ownership',async()=>{
+ const f=await accounts(),o=outcome(f);o.players[0].fish={'reef-skipper':{count:2,best:5,shinyCount:1,shinyBest:3}};
+ await f.service.record(o,f.owner,archive(o));await f.service.record(o,f.owner,archive(o));const next=outcome(f);await f.service.record(next,f.owner,archive(next));
+ const p=await f.service.passport(f.course.id,f.student);assert.deepEqual(p.fish['reef-skipper'],{count:4,best:5,shinyCount:1,shinyBest:3});
+ assert.equal((await f.call('expedition-aquarium',{classId:f.course.id,name:'Prismatic lagoon',decor:'reef',residents:[{species:'reef-skipper',name:'Professor Sparkle',shiny:true}]})).status,200);
+ assert.equal((await f.service.passport(f.course.id,f.student)).aquarium.residents[0].shiny,true);
+ const other=outcome(f);other.players[0].fish={'golden-fin':{count:1,best:2}};await f.service.record(other,f.owner,archive(other));
+ assert.equal((await f.call('expedition-aquarium',{classId:f.course.id,name:'No forged shiny',decor:'reef',residents:[{species:'golden-fin',name:'Pretender',shiny:true}]})).status,400);
+});

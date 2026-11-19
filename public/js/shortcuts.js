@@ -11,7 +11,7 @@ function installShortcuts(){
  let enabled=true,prefix='',prefixAt=0,previousFocus=null;
  try{enabled=localStorage.getItem('qd-keyboard-shortcuts')!=='off';}catch{}
  const navLink=href=>href==='/'&&document.querySelector('.game-shell .game-top [data-act="leave"]')||[...document.querySelectorAll('header nav a[href],header>a[href]')].find(a=>a.getAttribute('href')===href);
- const nextButton=()=>document.querySelector('[data-act="practice-next"],[data-act="solo-typed-next"],[data-act="next"]');
+ const nextButton=()=>document.querySelector('[data-act="crossword-next"],[data-act="practice-next"],[data-act="solo-typed-next"],[data-act="next"]');
  const targetFor=id=>id==='next'?nextButton():document.querySelector({flip:'[data-act="solo-flip"]',known:'[data-act="solo-mark"][data-mark="known"]',again:'[data-act="solo-mark"][data-mark="again"]',previous:'[data-act="solo-prev"]',reverse:'[data-act="solo-reverse"]',shuffle:'[data-act="solo-shuffle"]'}[id]||':not(*)');
  function updateHints(){for(const el of document.querySelectorAll('[data-shortcut-hint]'))el.textContent=shortcutLabel(bindings[el.dataset.shortcutHint]);}
  function showGuide(){
@@ -33,7 +33,7 @@ function installShortcuts(){
   const combo=eventShortcut(event),isEntry=event.target.matches?.('#typed-answer,#solo-answer,#live-word-answer,#sketch-guess-input');
   if(event.repeat){if(enabled&&(combo===bindings.next||event.key==='Enter'&&isEntry))event.preventDefault();prefix='';return;}
   if(!enabled){prefix='';return;}
-  if(combo===bindings.check){const form=document.querySelector('#answer-form,#solo-answer-form,#live-word-form,.sketch-guess-form:not([hidden])');if(form&&(!editable(event.target)||isEntry&&(event.ctrlKey||event.altKey||event.key==='Enter'))){event.preventDefault();form.requestSubmit();prefix='';return;}}
+  if(combo===bindings.check){const form=document.querySelector('#crossword-answer-form,#answer-form,#solo-answer-form,#live-word-form,.sketch-guess-form:not([hidden])');if(form&&(!editable(event.target)||isEntry&&(event.ctrlKey||event.altKey||event.key==='Enter'))){event.preventDefault();form.requestSubmit();prefix='';return;}}
   if(editable(event.target)){prefix='';return;}
   let match=Object.keys(bindings).find(id=>bindings[id]===combo),prefixed=prefix&&Date.now()-prefixAt<1200;
   if(prefixed)match=Object.keys(bindings).find(id=>bindings[id]===prefix+' '+combo)||match;

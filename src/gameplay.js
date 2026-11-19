@@ -1,3 +1,4 @@
+import {selectFish,rollShiny} from './fishing-catches.js';
 import {randomInt,grantAnswerReward} from './game.js';
 import {roleById} from '../public/js/catalog.js';
 import {GAMEPLAY_VERSION,WATERS,FISH_SPECIES,WINDS,FISH_WEATHER,ARENAS,STATIONS,ENEMIES,CHEST_ROUTES} from '../public/js/gameplay-catalog.js';
@@ -9,7 +10,7 @@ export function newAdventure(mode){
  const common={mode,revision:0};
  if(mode==='word'||mode==='sketch')return {...common,solved:0,drawings:0,constellations:0};
  if(mode==='treasure')return {...common,vault:0,expedition:0,protectedAt:-1,lastChest:null};
- if(mode==='fishing')return {...common,water:'reef',weather:'clear',casts:0,collection:[],drought:0,lastCatch:null};
+ if(mode==='fishing')return {...common,water:'reef',weather:'clear',casts:0,collection:[],shinyCollection:[],drought:0,lastCatch:null};
  if(mode==='battle')return {...common,shield:0,charge:0,protectedAt:-1,stance:'ready',arena:'standard',turns:0};
  if(mode==='factory')return {...common,stations:{press:1,cells:0,assembler:0},stock:{gears:0,cells:0,bots:0},assetValue:0,fuel:0,cycles:0,market:'gears',order:{id:1,part:'gears',quantity:4,payout:65},orders:0};
  if(mode==='rally')return {...common,line:'glide',boost:0,wind:'tailwind',legs:0,lastLeg:null};
@@ -50,16 +51,13 @@ export function grantGameplayReward(room,p,rng=randomInt){
   p.pendingChests=CHEST_ROUTES.map(route=>({route:route.id,roll:rng(1,100),amount:route.id==='harbor'?rng(18,28):route.id==='ruins'?rng(24,42):rng(18,28)}));
   reward={text:'Choose a route for your treasure.',needsChest:true,effect:{type:'prepare'}};
  }else if(room.mode==='fishing'){
-  const water=WATERS.find(w=>w.id===s.water),pool=FISH_SPECIES.filter(f=>f.water===s.water),rareOdds=s.water==='shallows'?42:22;
-  const rare=rng(1,100)<=rareOdds+(s.weather==='moon'?10:0);
-  let fish=pick(pool.filter(f=>f.rare===rare),rng);
-  const undiscovered=pool.filter(f=>!s.collection.includes(f.id));
-  if(s.drought>=5&&undiscovered.length)fish=pick(undiscovered,rng);
+  const water=WATERS.find(w=>w.id===s.water),fish=selectFish({water:s.water,boost:(s.water==='shallows'?1:0)+(s.weather==='moon'?1:0),owned:s.collection,preferNew:s.drought>=5},rng),shiny=rollShiny(rng);
+  if(shiny){s.shinyCollection||=[];if(!s.shinyCollection.includes(fish.id))s.shinyCollection.push(fish.id);}
   const fresh=!s.collection.includes(fish.id);if(fresh){s.collection.push(fish.id);s.drought=0;}else s.drought++;
   const weight=Math.round(rng(6,60)/10*(1+p.rodLevel*.4)*water.factor*(s.weather==='current'?1.1:1)*10)/10,collectionBonus=fresh&&s.collection.length%4===0?35:0,points=Math.round(weight*10)+(fresh?8:0)+(fish.rare?45:0)+collectionBonus;
-  p.fishCount++;p.biggestFish=Math.max(p.biggestFish,weight);p.score+=points;s.casts++;s.lastCatch={species:fish.id,weight,points,fresh,collectionBonus,water:s.water};
+  p.fishCount++;p.biggestFish=Math.max(p.biggestFish,weight);p.score+=points;s.casts++;s.lastCatch={species:fish.id,shiny,weight,points,fresh,collectionBonus,water:s.water};
   if(s.casts%4===0)s.weather=nextDifferent(FISH_WEATHER,s.weather,rng);
-  reward={text:`${fresh?'New discovery! ':''}${fish.name} · ${weight.toFixed(1)} kg · +${points} points${collectionBonus?' · Collection bonus!':''}`,points,effect:{type:'catch',weight,points,species:fish.id}};
+  reward={text:`${fresh?'New discovery! ':''}${shiny?'SHINY! ':''}${fish.rarity==='mythic'?'MYTHIC! ':''}${fish.name} · ${weight.toFixed(1)} kg · +${points} points${collectionBonus?' · Collection bonus!':''}`,points,effect:{type:'catch',weight,points,species:fish.id,shiny}};
  }else if(room.mode==='battle'){
   const points=60+Math.min(p.streak*10,50);p.score+=points;s.turns++;if(s.turns%3===0)s.arena=nextDifferent(ARENAS,s.arena,rng);reward={text:`+${points} accuracy points. Choose your arena move.`,points,effect:{type:'prepare'}};
  }else if(room.mode==='factory'){

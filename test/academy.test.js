@@ -74,3 +74,46 @@ test('legacy active graded prompts and feedback keep their original card when sh
   if(feedback){const next=(await f.call('practice-next',{assignmentId:a.id,lease:view.lease},s.token)).body;assert.notEqual(next.question.cardId,view.question.cardId);}
  }
 });
+
+test('teacher selects an exact crossword word requirement; unsuitable decks and student changes are rejected',async()=>{
+ const f=await setup(),s=await student(f),listId=await saved(f),payload={classId:f.c.id,listId,dueLocal:'2026-12-18T23:59',rules:{crosswordWords:2}};
+ const a=await f.call('create-assignment',payload);assert.equal(a.status,200);assert.equal(a.body.assignment.rules.crosswordWords,2);
+ assert.equal((await f.call('create-assignment',{...payload,rules:{crosswordWords:3}})).status,400);assert.equal((await f.call('create-assignment',{...payload,rules:{crosswordWords:41}})).status,400);
+ assert.equal((await f.call('create-assignment',payload,s.token)).status,403);
+ const ordinary=await assign(f);const view=(await f.call('practice-open',{assignmentId:ordinary.id},s.token)).body;
+ assert.equal((await f.call('practice-crossword-open',{assignmentId:ordinary.id,lease:view.lease},s.token)).status,400);
+});
+test('a crossword resumes without rerolling, hides every unsolved answer, checks accents, and rejects stale leases and forged completion',async()=>{
+ const f=await setup(),s=await student(f),a=await assign(f,{minMinutes:5,minCards:20,minAccuracy:80,crosswordWords:2});let v=(await f.call('practice-open',{assignmentId:a.id},s.token)).body;
+ v=(await f.call('practice-crossword-open',{assignmentId:a.id,lease:v.lease},s.token)).body;assert.equal(v.crossword.entries.length,2);assert.ok(v.crossword.cells.every(c=>!c.value));assert.equal(JSON.stringify(v.crossword).includes('aprender'),false);assert.equal(JSON.stringify(v.crossword).includes('habló'),false);
+ const stored=await f.ctx.storage.get(`practice:${a.id}:${s.userId}`);assert.equal(JSON.stringify(stored.assignmentCrossword).includes('APRENDER'),false);assert.equal(JSON.stringify(stored.assignmentCrossword).includes('HABLÓ'),false);
+ const oldLease=v.lease,id=v.crossword.id;v=(await f.call('practice-open',{assignmentId:a.id},s.token)).body;assert.equal(v.crossword.id,id);
+ assert.equal((await f.call('practice-crossword-answer',{assignmentId:a.id,lease:oldLease,puzzleId:id,entry:1,answer:'aprender',mutationId:uid()},s.token)).status,409);
+ assert.equal((await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword',solved:2},s.token)).status,409);
+ const e=v.crossword.entries.find(e=>e.clue==='he spoke'),r=await f.call('practice-crossword-answer',{assignmentId:a.id,lease:v.lease,puzzleId:id,entry:e.number,answer:'hablo',mutationId:uid()},s.token);assert.equal(r.body.crossword.feedback.correct,false);assert.equal(r.body.crossword.solved,0);assert.ok(!JSON.stringify(r.body.crossword).includes('habló'));
+});
+test('all required crossword clues earn the same assignment credit without typed-route minimums, preserve other work, and settle retries once',async()=>{
+ const f=await setup(),s=await student(f),a=await assign(f,{minMinutes:5,minCards:20,minAccuracy:80,crosswordWords:2}),oldNow=Date.now;let now=oldNow();Date.now=()=>now;
+ try{
+  let v=(await f.call('practice-open',{assignmentId:a.id},s.token)).body;v=(await f.call('practice-crossword-open',{assignmentId:a.id,lease:v.lease},s.token)).body;
+  const pkey=`practice:${a.id}:${s.userId}`,originalKey=v.question.key;
+  for(const e of v.crossword.entries){now+=600;const entry=v.crossword.entries.find(x=>x.number===e.number),answer=e.clue==='to learn'?'aprender':'habló',payload={assignmentId:a.id,lease:v.lease,puzzleId:v.crossword.id,entry:e.number,answer,mutationId:uid()};
+   const [one,two]=await Promise.all([f.call('practice-crossword-answer',payload,s.token),f.call('practice-crossword-answer',payload,s.token)]);assert.equal(one.status,200);assert.equal(two.status,200);assert.equal(one.body.progress.answered,two.body.progress.answered);v=one.body;
+  }
+  assert.equal(v.crossword.solved,2);assert.equal(v.progress.correct,2);assert.equal(v.progress.seconds,0);assert.equal(v.progress.typedReady,false);assert.equal(v.progress.ready,true);assert.equal(v.question.key,originalKey);
+  const submitted=await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword'},s.token);assert.equal(submitted.status,200);assert.equal(submitted.body.progress.completionMethod,'crossword');assert.equal(submitted.body.progress.creditPercent,100);
+  const before=await f.ctx.storage.get(pkey);await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword'},s.token);assert.deepEqual(await f.ctx.storage.get(pkey),before);
+  const report=(await f.call('assignment-report',{assignmentId:a.id})).body;assert.equal(report.students[0].progress.completionMethod,'crossword');assert.equal(report.students[0].progress.correct,2);
+  assert.equal((await f.ctx.storage.get('account:'+s.userId)).points,0);assert.equal((await f.ctx.storage.list({prefix:'study-reward:'})).size,0);
+ }finally{Date.now=oldNow;}
+});
+test('late crossword submissions retain the same half-credit policy and other students cannot access the saved puzzle',async()=>{
+ const f=await setup(),s=await student(f),other=await student(f,'different@example.com'),a=await assign(f,{minMinutes:5,minCards:20,minAccuracy:80,crosswordWords:1}),oldNow=Date.now;let now=oldNow();Date.now=()=>now;
+ try{
+  let v=(await f.call('practice-open',{assignmentId:a.id},s.token)).body;v=(await f.call('practice-crossword-open',{assignmentId:a.id,lease:v.lease},s.token)).body;
+  const stranger=(await f.call('practice-open',{assignmentId:a.id},other.token)).body;assert.equal(stranger.crossword,null);
+  assert.equal((await f.call('practice-crossword-answer',{assignmentId:a.id,lease:v.lease,puzzleId:v.crossword.id,entry:1,answer:'aprender',mutationId:uid()},other.token)).status,409);
+  now+=600;const e=v.crossword.entries[0];v=(await f.call('practice-crossword-answer',{assignmentId:a.id,lease:v.lease,puzzleId:v.crossword.id,entry:e.number,answer:e.clue==='to learn'?'aprender':'habló',mutationId:uid()},s.token)).body;
+  const assignment=await f.ctx.storage.get('assignment:'+a.id);assignment.dueAt=now-1;await f.ctx.storage.put('assignment:'+a.id,assignment);const done=(await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword'},s.token)).body;assert.equal(done.progress.creditPercent,50);assert.equal(done.progress.late,true);
+ }finally{Date.now=oldNow;}
+});

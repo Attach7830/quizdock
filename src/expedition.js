@@ -74,3 +74,7 @@ export function expeditionOutcome(room){
 export function purgeExpeditionPlayer(room,p){
  if(!hasExpedition(room))return;p.expedition=null;p.passport=null;if(room.expeditionVotes)delete room.expeditionVotes[p.id];for(const mode of ['treasure','fishing','battle','rally','word']){const state=room.expedition[mode],b=state?.boss||state?.ship||state?.obstacle||state?.guardian;if(b)b.contributors=b.contributors.filter(id=>id!==p.id);}if(room.expedition.factory)room.expedition.factory.offers=room.expedition.factory.offers.filter(o=>o.playerId!==p.id);if(room.expedition.keep){room.expedition.keep.ultimateContributors=room.expedition.keep.ultimateContributors.filter(id=>id!==p.id);for(const tile of room.expedition.keep.grid)if(tile?.playerId===p.id)tile.playerId=null;}room.sketchGallery=(room.sketchGallery||[]).filter(entry=>!entry.artistIds?.includes(p.id));
 }
+
+// The live room only needs personal-best ghosts. Lifetime collections stay in
+// private class profiles, rather than being copied into every active room.
+export const roomPassport=passport=>passport?{best:passport.best||{}}:null;

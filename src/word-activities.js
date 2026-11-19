@@ -17,9 +17,9 @@ export function wordParts(q){
  if(!/^\p{L}{3,18}$/u.test(word))return null;
  const split=Math.ceil([...word].length/2);return {parts:[[...word].slice(0,split).join(''),[...word].slice(split).join('')],kind:'pieces'};
 }
-export function makeCrossword(questions,rng){
+export function makeCrossword(questions,rng,{limit=8,maxLength=16,includeDisconnected=false}={}){
  const grid=new Map(),entries=[];let serial=0;
- const candidates=shuffled(questions.map((q,index)=>({index,word:letters(canonicalWord(q)).join(''),clue:q.text})).filter(x=>x.word.length>=2&&x.word.length<=16),rng).slice(0,8);
+ const candidates=shuffled(questions.map((q,index)=>({index,word:letters(canonicalWord(q)).join(''),clue:q.text})).filter(x=>x.word.length>=2&&x.word.length<=maxLength),rng).slice(0,limit);
  const key=(r,c)=>r+':'+c;
  function fits(word,row,col,direction){
   const dr=direction==='down'?1:0,dc=1-dr;if(grid.has(key(row-dr,col-dc))||grid.has(key(row+dr*word.length,col+dc*word.length)))return false;let crosses=0;
@@ -27,7 +27,24 @@ export function makeCrossword(questions,rng){
   return !grid.size||crosses>0;
  }
  function place(candidate,row,col,direction){const number=++serial;entries.push({...candidate,row,col,direction,number});for(let i=0;i<candidate.word.length;i++){const r=row+(direction==='down'?i:0),c=col+(direction==='across'?i:0),old=grid.get(key(r,c));grid.set(key(r,c),{row:r,col:c,letter:candidate.word[i],indices:[...(old?.indices||[]),candidate.index],directions:[...(old?.directions||[]),direction],number:i===0?number:old?.number||null});}}
- for(const candidate of candidates){if(!grid.size){place(candidate,0,0,'across');continue;}let found=null;outer:for(const cell of grid.values())for(let i=0;i<candidate.word.length;i++)if(candidate.word[i]===cell.letter)for(const direction of ['across','down']){const row=cell.row-(direction==='down'?i:0),col=cell.col-(direction==='across'?i:0);if(row< -18||col< -18||row>18||col>18)continue;if(fits(candidate.word,row,col,direction)){found={row,col,direction};break outer;}}if(found)place(candidate,found.row,found.col,found.direction);}
+ let todo=candidates;
+ while(todo.length){
+  const pending=[];let placed=false;
+  for(const candidate of todo){
+   if(!grid.size){place(candidate,0,0,'across');placed=true;continue;}
+   let found=null;outer:for(const cell of grid.values())for(let i=0;i<candidate.word.length;i++)if(candidate.word[i]===cell.letter)for(const direction of ['across','down']){
+    const row=cell.row-(direction==='down'?i:0),col=cell.col-(direction==='across'?i:0),bound=includeDisconnected?60:18;
+    if(row< -bound||col< -bound||row>bound||col>bound)continue;
+    if(fits(candidate.word,row,col,direction)){found={row,col,direction};break outer;}
+   }
+   if(found){place(candidate,found.row,found.col,found.direction);placed=true;}else pending.push(candidate);
+  }
+  if(!includeDisconnected||!pending.length)break;
+  // Retry deferred words after new crossings exist. Only start a separate
+  // island when none can connect, so an exact teacher count never shrinks.
+  if(!placed){const candidate=pending.shift();place(candidate,Math.max(...[...grid.values()].map(c=>c.row))+3,0,'across');}
+  todo=pending;
+ }
  const cells=[...grid.values()],minRow=Math.min(0,...cells.map(c=>c.row)),minCol=Math.min(0,...cells.map(c=>c.col));for(const cell of cells){cell.row-=minRow;cell.col-=minCol;}for(const entry of entries){entry.row-=minRow;entry.col-=minCol;}return {rows:Math.max(0,...cells.map(c=>c.row))+1,cols:Math.max(0,...cells.map(c=>c.col))+1,cells,entries};
 }
 export function publicCrossword(board,solved=[],active=null){const known=new Set(solved);return {rows:board.rows,cols:board.cols,cells:board.cells.map(c=>({row:c.row,col:c.col,number:c.number,value:c.indices.some(i=>known.has(i))?c.letter:'',active:c.indices.includes(active)})),entries:board.entries.map(e=>({index:e.index,number:e.number,clue:e.clue,direction:e.direction,length:e.word.length,solved:known.has(e.index),active:e.index===active}))};}

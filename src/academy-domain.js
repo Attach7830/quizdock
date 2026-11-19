@@ -1,3 +1,4 @@
+import {crosswordCandidates,createAssignmentCrossword,publicAssignmentCrossword,checkCrosswordAnswer} from './assignment-crossword.js';
 import {ExpeditionService} from './expedition-service.js';
 import {JourneyService} from './journey-service.js';
 import {assignmentSemester,validateSemester,inCurrentAssignmentSemester,availableAssignmentCredit} from './assignment-policy.js';
@@ -80,7 +81,7 @@ export class AcademyService {
  }
  nextPracticeCard(a,p){const draw=drawShuffledCard(p.cardCycle,a.cards.map((_,i)=>i),p.cardIndex);p.cardIndex=draw.index;p.cardCycle=draw.cycle;}
  practiceWord(a,p){const card=a.cards[p.cardIndex],answers=correctAnswers(card);return {room:{status:'playing',questions:[{text:card.prompt,answers,correct:answers.map((_,i)=>i),image:card.image,imageAlt:card.imageAlt,hint:card.hint,example:card.example,repair:card.repair,parts:card.parts}],expedition:{},settings:{wordActivity:p.wordActivity||'forge'}},player:{current:{key:p.questionKey,index:0},feedback:p.feedback,wordPuzzle:p.wordPuzzle?.key===p.questionKey?p.wordPuzzle:{key:p.questionKey,guesses:[],misses:0}}};}
- viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:{...publicWordQuestion(word.room,word.player),...(p.wordCrossword?{crossword:publicCrossword(p.wordCrossword,a.cards.map((c,i)=>p.cardStats[c.id]?.correct?i:-1).filter(i=>i>=0),p.cardIndex)}:{}),chain:p.wordChain||0},feedback:p.feedback,clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
+ viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(a),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:{...publicWordQuestion(word.room,word.player),...(p.wordCrossword?{crossword:publicCrossword(p.wordCrossword,a.cards.map((c,i)=>p.cardStats[c.id]?.correct?i:-1).filter(i=>i>=0),p.cardIndex)}:{}),chain:p.wordChain||0},feedback:p.feedback,...(a.rules.crosswordWords?{crossword:p.submittedAt?null:publicAssignmentCrossword(a,p)}:{}),clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
  async practiceAction(action,payload,user){
   const {a,key,p}=await this.practice(payload.assignmentId,user),now=Date.now();
   if(action==='practice-open'){p.lease=uid();p.lastBeat=now;p.lastAnswer=now;p.focusActive=false;p.focusVersion=0;await this.store.put(key,p);return this.viewPractice(a,p);}
@@ -88,9 +89,18 @@ export class AcademyService {
   if(action==='practice-status')return this.viewPractice(a,p);
   if(action==='practice-submit'){
    if(p.submittedAt)return this.viewPractice(a,p);ensure(progressSummary(p,a.rules).ready,'Meet the time, answered-card and accuracy requirements before submitting.',409);
+   if(a.rules.crosswordWords){const summary=progressSummary(p,a.rules);p.completionMethod=payload.method==='crossword'&&summary.crossword.ready||!summary.typedReady&&summary.crossword.ready?'crossword':'typed';}
    p.submittedAt=now;p.late=now>a.dueAt;p.creditPercent=availableAssignmentCredit(a,now);await this.store.put(key,p);return this.viewPractice(a,p);
   }
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
+  if(action==='practice-crossword-open'){
+   ensure(a.rules.crosswordWords>0,'Your teacher has not enabled a crossword alternative for this assignment.');
+   if(!p.assignmentCrossword)p.assignmentCrossword=createAssignmentCrossword(a,(min,max)=>{const n=new Uint32Array(1);crypto.getRandomValues(n);return min+n[0]%(max-min+1);});
+   await this.store.put(key,p);return this.viewPractice(a,p);
+  }
+  if(action==='practice-crossword-answer'){
+   ensure(a.rules.crosswordWords>0,'This assignment has no crossword alternative.');checkCrosswordAnswer(a,p,payload,now);await this.store.put(key,p);return this.viewPractice(a,p);
+  }
   if(action==='practice-activity'){ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);ensure(WORD_ACTIVITIES.includes(payload.activity),'Choose a word activity.');p.wordActivity=payload.activity;if(payload.activity==='crossword'&&!p.wordCrossword)p.wordCrossword=makeCrossword(a.cards.map(c=>({text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i)})),(min,max)=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return min+a[0]%(max-min+1);});await this.store.put(key,p);return this.viewPractice(a,p);}
   if(action==='practice-letter'){
    ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);
@@ -164,6 +174,7 @@ export class AcademyService {
    this.teacher(user);const c=await this.course(p.classId,user,true),list=await new ListRepository(this.store,user.id).get(p.listId);ensure(list.cards.length,'This list has no cards.');
    if(action==='share-list'){const data={classId:c.id,listId:list.id,revision:list.revision,title:list.title,cards:structuredClone(list.cards)},index={classId:c.id,listId:list.id,title:list.title,count:list.cards.length,revision:list.revision};await this.store.put({[`shared:${c.id}:${list.id}`]:data,[`shared-index:${c.id}:${list.id}`]:index});return response({ok:true});}
    const dueAt=dateTimeInZone(p.dueLocal,c.timezone),rules=practiceRules(p.rules),title=text(p.title,100)||list.title;ensure(rules.cardCountMode!=='distinct'||rules.minCards<=list.cards.length,'Distinct-card minimum cannot exceed the number of cards in the list.');ensure(dueAt>Date.now()-365*DAY&&dueAt<Date.now()+730*DAY,'Choose a due date within the supported range.');
+   if(rules.crosswordWords)ensure(rules.crosswordWords<=crosswordCandidates(list.cards).length,`This deck has ${crosswordCandidates(list.cards).length} unique answers that fit a crossword. Choose that many words or fewer (2–32 letters each).`);
    const a={id:uid(),classId:c.id,ownerId:user.id,title,listId:list.id,listRevision:list.revision,cards:structuredClone(list.cards),rules,dueAt,timezone:c.timezone,createdAt:Date.now()};await this.store.put({['assignment:'+a.id]:a,[`assignment-index:${c.id}:${a.id}`]:publicAssignment(a)});return response({assignment:publicAssignment(a)});
   }
   if(action.startsWith('practice-'))return response(await this.practiceAction(action,p,user));

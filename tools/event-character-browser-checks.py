@@ -29,6 +29,7 @@ def run():
   for page in [s,t]:page.on('pageerror',lambda e:errors.append(str(e)))
   t.on('dialog',lambda d:d.accept())
   fix=tc.request.get(BASE+'/__test/fixture').json()
+  sc.request.post(BASE+'/__test/character-wallet')
   s.goto(BASE+'/');s.locator('[role=tab][data-act=tab][data-tab=wardrobe]').click()
   check(s.locator('.skin-card').count()==13,'all eight existing characters and five new characters appear in the shop')
   check(s.locator('[data-skin-card=coral] button').inner_text()=='Equipped','existing equipped purchase survives the catalog expansion')

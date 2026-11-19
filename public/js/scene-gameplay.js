@@ -1,3 +1,4 @@
+import {forgeState,RELIC_PATHS} from './word-forge.js';
 import {drawCharacter} from './characters.js';
 import {skinById} from './catalog.js';
 import {drawFish} from './fish-art.js';
@@ -5,7 +6,7 @@ import {FISH_SPECIES,STATIONS} from './gameplay-catalog.js';
 const box=(ctx,x,y,w,h,color,stroke=null,r=5)=>{ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=color;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}};
 const ellipse=(ctx,x,y,rx,ry,color)=>{ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();};
 const line=(ctx,x1,y1,x2,y2,color,width=2)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();};
-const text=(ctx,value,x,y,color='#d8f5f1',size=10)=>{ctx.font=`800 ${size}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(String(value),x,y);};
+const text=(ctx,value,x,y,color='#d8f5f1',size=10,maxWidth)=>{ctx.font=`800 ${size}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;if(maxWidth)ctx.fillText(String(value),x,y,maxWidth);else ctx.fillText(String(value),x,y);};
 function glow(ctx,x,y,r,color){const g=ctx.createRadialGradient(x,y,1,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'#ffffff00');ellipse(ctx,x,y,r,r,g);}
 export function gameplayBackdrop(ctx,state,W,t){
  if(!state.gameplay||!state.me?.adventure)return;
@@ -38,8 +39,8 @@ export function gameplayForeground(ctx,state,W,t,p,event){
  }
  if(state.mode==='fishing'){
   if(s.water==='reef')for(let i=0;i<4;i++){const x=W*.07+i*14;line(ctx,x,196,x+Math.sin(i)*8,170-i%2*8,'#e99a9988',5);line(ctx,x,181,x+11,174,'#f8b0a688',3);}
-  if(s.lastCatch){const f=FISH_SPECIES.find(f=>f.id===s.lastCatch.species),jump=event?.type==='correct'?Math.sin(p*Math.PI)*43:0,scale=.65+Math.min(.35,s.lastCatch.weight/24);if(f?.rare)glow(ctx,W*.77,110-jump,63,'#dbc3ff55');drawFish(ctx,W*.77,118-jump+Math.sin(t*1.3)*3,scale,s.lastCatch.species,event?.type==='correct'?-Math.sin(p*Math.PI)*.3:Math.sin(t)*.025);text(ctx,f.name,W*.77,185,f.rare?'#ffe3ab':'#caffeb',9);}
-  text(ctx,s.collection.length+'/12 DISCOVERED',W*.5,24,'#c1fff0',9);
+  if(s.lastCatch){const f=FISH_SPECIES.find(f=>f.id===s.lastCatch.species),jump=event?.type==='correct'?Math.sin(p*Math.PI)*43:0,scale=.65+Math.min(.35,s.lastCatch.weight/24);if(f?.rare)glow(ctx,W*.77,110-jump,63,'#dbc3ff55');drawFish(ctx,W*.77,118-jump+Math.sin(t*1.3)*3,scale,s.lastCatch.species,event?.type==='correct'?-Math.sin(p*Math.PI)*.3:Math.sin(t)*.025,{shiny:s.lastCatch.shiny});text(ctx,(s.lastCatch.shiny?'✦ SHINY ':'')+f.name,W*.77,185,f.rare?'#ffe3ab':'#caffeb',9,W*.42);}
+  text(ctx,s.collection.length+'/'+FISH_SPECIES.length+' DISCOVERED',W*.5,24,'#c1fff0',9);
  }
  if(state.mode==='battle'){
   const x=W*.29;if(s.shield){ctx.strokeStyle='#a3f8ff99';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(x,112,48,58,0,0,Math.PI*2);ctx.stroke();glow(ctx,x,112,65,'#a1efff22');}
@@ -63,14 +64,24 @@ export function gameplayForeground(ctx,state,W,t,p,event){
  ctx.restore();
 }
 
+const relicPaths=new Map();
 export function wordWorld(ctx,state,W,t,p,event){
- if(state.mode!=='word')return false;const s=state.me?.adventure||{solved:0,constellations:0},cx=W*.61,cy=113;
- glow(ctx,cx,cy,105,'#d1a9ff44');ellipse(ctx,W*.5,175,W*.37,17,'#0a1f3855');
- drawCharacter(ctx,W*.2,132,.78,skinById(state.me?.skin,state.me?.equipment),Math.sin(t)*.025);
- ctx.save();ctx.translate(cx,cy);ctx.rotate(Math.sin(t*.7)*.025);ctx.beginPath();ctx.moveTo(-60,-34);ctx.lineTo(0,-20);ctx.lineTo(60,-34);ctx.lineTo(60,35);ctx.lineTo(0,45);ctx.lineTo(-60,35);ctx.closePath();ctx.fillStyle='#7d65ac';ctx.fill();ctx.strokeStyle='#e8ccff';ctx.lineWidth=3;ctx.stroke();
- for(const sign of [-1,1]){ctx.beginPath();ctx.moveTo(sign*4,-16);ctx.lineTo(sign*54,-28);ctx.lineTo(sign*54,29);ctx.lineTo(sign*4,38);ctx.closePath();ctx.fillStyle='#fff1d0';ctx.fill();for(let i=0;i<4;i++)line(ctx,sign*12,-4+i*9,sign*45,-11+i*9,'#a18fb6',2);}
- glow(ctx,0,-12,48,'#e5c1ff55');text(ctx,'✦',0,12,'#9a67c9',37);ctx.restore();
- const lit=s.solved%5||(s.solved?5:0);for(let i=0;i<5;i++){const x=W*.25+i*W*.125,y=35-Math.sin(i/4*Math.PI)*15;if(i)line(ctx,W*.25+(i-1)*W*.125,35-Math.sin((i-1)/4*Math.PI)*15,x,y,'#c9b1ee44',1.5);glow(ctx,x,y,i<lit?19:9,i<lit?'#ffd59c66':'#d9cdff11');text(ctx,'✦',x,y+5,i<lit?'#ffe6a9':'#6e6c93',i<lit?20:13);}
- if(event?.type==='correct'){ctx.globalAlpha=1-p;for(let i=0;i<12;i++){const a=i*Math.PI/6,r=25+p*90;text(ctx,'✦',cx+Math.cos(a)*r,cy-30+Math.sin(a)*r*.5,'#f7d2ff',8+i%3*3);}ctx.globalAlpha=1;}
- text(ctx,s.solved+' WORDS FORGED · '+s.constellations+' CONSTELLATIONS',W*.5,196,'#e9d0ff',9);return true;
+ if(state.mode!=='word')return false;
+ const s=state.me?.adventure||{solved:0,constellations:0},correct=event?.type==='correct',f=forgeState(s.solved,{result:!!state.me?.feedback,correct:!!state.me?.feedback?.correct}),cx=W*.59,cy=108,heat=Math.min(1,.22+f.step*.15);
+ glow(ctx,cx,cy,100,f.complete?'#ffcb7155':'#9d87ff33');ellipse(ctx,W*.5,185,W*.38,17,'#0a1f3877');
+ drawCharacter(ctx,W*.18,140,.67,skinById(state.me?.skin,state.me?.equipment),Math.sin(t)*.025);
+ // The forge visibly changes with correct typed answers, without revealing the answer.
+ for(let i=0;i<11;i++){
+  const x=cx-57+i*11,flame=8+Math.sin(t*3+i*1.7)*6+heat*17;
+  ctx.beginPath();ctx.moveTo(x-7,177);ctx.quadraticCurveTo(x-10,168-flame,x+Math.sin(t+i)*5,155-flame);ctx.quadraticCurveTo(x+11,164,x+7,177);ctx.fillStyle=i%2?'#ffb16f':'#e97ca6';ctx.globalAlpha=.65;ctx.fill();
+ }ctx.globalAlpha=1;
+ box(ctx,cx-63,165,126,17,'#32445c','#a7b5db',4);
+ ctx.beginPath();ctx.moveTo(cx-67,149);ctx.lineTo(cx-39,135);ctx.lineTo(cx+65,135);ctx.lineTo(cx+46,151);ctx.lineTo(cx+15,154);ctx.lineTo(cx+24,165);ctx.lineTo(cx-27,165);ctx.lineTo(cx-19,153);ctx.closePath();ctx.fillStyle='#59617c';ctx.strokeStyle='#bdcae2';ctx.lineWidth=2;ctx.fill();ctx.stroke();
+ const rise=f.complete?Math.sin(t*1.4)*4:0;
+ if(!relicPaths.has(f.shape))relicPaths.set(f.shape,new Path2D(RELIC_PATHS[f.shape]));
+ ctx.save();ctx.translate(cx-28,42-rise);ctx.scale(.76,.85);ctx.globalAlpha=.4+f.step*.12;ctx.fillStyle=f.complete?'#ffd584':'#b9a6ff';ctx.strokeStyle='#fff0c4';ctx.lineWidth=2;ctx.fill(relicPaths.get(f.shape));ctx.stroke(relicPaths.get(f.shape));ctx.restore();
+ ctx.save();ctx.translate(cx-58,97);ctx.rotate(correct?-Math.sin(Math.min(1,p*3)*Math.PI)*1.05:-.4+Math.sin(t)*.03);box(ctx,-4,-46,8,47,'#a17362','#e2b49a',2);box(ctx,-21,-57,42,20,'#9faed1','#e5eeff',4);ctx.restore();
+ if(correct){ctx.globalAlpha=1-p;for(let i=0;i<(f.complete?28:16);i++){const a=i*2.399,r=15+p*110;glow(ctx,cx+Math.cos(a)*r,132+Math.sin(a)*r*.58-p*32,4+(i%3),'#ffdc9b');}ctx.globalAlpha=1;}
+ for(let i=0;i<5;i++){const x=W*.27+i*W*.115,y=23;glow(ctx,x,y,i<f.step?16:6,i<f.step?'#ffd59c77':'#d9cdff11');text(ctx,'✦',x,y+4,i<f.step?'#ffe6a9':'#6e6c93',i<f.step?17:12);}
+ text(ctx,f.complete?'RELIC AWAKENED!':f.stage.toUpperCase()+' · '+f.step+'/5',W*.5,195,f.complete?'#ffda9c':'#e9d0ff',10);return true;
 }
