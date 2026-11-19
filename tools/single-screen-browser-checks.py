@@ -31,6 +31,7 @@ def word_prompt_variants(browser,source):
  for case in variants:
   page.evaluate(r'''async v=>{const {wordQuestionMarkup}=await import('/js/word-game-ui.js'),{fitQuestionText}=await import('/js/game-reader.js');const q={...v,number:1,misses:0,guesses:[],slots:[...v.answer].map(c=>({letter:/\p{L}/u.test(c),value:/\p{L}/u.test(c)?'':c}))};document.querySelector('.game-question').innerHTML=wordQuestionMarkup(q);await Promise.all([...document.querySelectorAll('.question-image img')].map(img=>img.decode().catch(()=>{})));fitQuestionText(document.querySelector('#app'));}''',case)
   matrix(page,'word-'+case['id']+'-prompt')
+  page.set_viewport_size({'width':320,'height':460});check(page.locator('.word-clues-open').is_visible() and not page.locator('.word-prompt>.word-slots').is_visible() and not page.locator('.word-ink').is_visible(),'short phone keeps the '+case['id']+' prompt and answer clear with optional clues in the popup')
   if case['id']=='image':
    page.set_viewport_size({'width':320,'height':568});check(page.locator('.word-clues-open').is_visible() and not page.locator('.word-entry>.word-keyboard').is_visible(),'illustrated Word Forge keeps letter clues available in the existing popup on a short phone')
  ctx.close()

@@ -414,8 +414,11 @@ body.game-body .phase-shell .sketch-board:has(.artist-word:not([hidden])) [data-
  body.game-body .phase-shell .sketch-quick-accents{display:none}
 }
 @media(max-height:650px) and (max-width:539px){body.game-body .phase-shell .word-screen:has(.question-image) .word-keyboard button{min-height:32px}}
-/* Illustrated prompts need the answer controls more than an inline clue keyboard. */
+/* Short phones keep optional clues in their popup so every prompt fits. */
 @media(max-height:650px) and (max-width:539px){
- body.game-body .phase-shell .word-screen:has(.question-image) .word-entry>.word-keyboard{display:none}
- body.game-body .phase-shell .word-screen:has(.question-image) .word-clues-open{display:block;min-height:32px;padding:5px;font-size:12px}
+ body.game-body .phase-shell .word-entry>.word-keyboard{display:none}
+ body.game-body .phase-shell .word-clues-open{display:block;min-height:32px;padding:5px;font-size:12px}
+}
+@media(max-height:520px) and (max-width:539px){
+ body.game-body .phase-shell .word-prompt>.word-slots,body.game-body .phase-shell .word-ink{display:none}
 }
