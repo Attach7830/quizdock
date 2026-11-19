@@ -1,0 +1,15 @@
+# Teacher assignment editing
+
+Release 0.12.1 extends the existing assignment records. It adds no database namespace or destructive migration.
+
+Teachers open **Assignments → Edit assignment** on a posted card, or choose **Edit assignment** from its submission report. The editor contains the saved title, due date in the class timezone, minimum focused time, card count and counting method, minimum accuracy, accent policy, and Crossword Mode word requirement. Crossword availability is validated against the assignment’s posted cards, even if its source list was later edited or deleted. The class and question snapshot stay attached to the same assignment.
+
+Changes apply to unfinished work. Answer history, accuracy totals, focused time, the active question, letter clues and shuffled passes stay saved. Active clients refresh changed settings through the existing focus heartbeat without dropping typed drafts. A grading request made against an older revision is rejected before grading and refreshed for review. Older application tabs must reload practice after an edit; their drafts and saved work remain available.
+
+Submitted work keeps its recorded credit, late status, submission time and original requirements. New submissions save a rules/deadline snapshot. On the first edit of a legacy assignment, already-submitted records receive that snapshot before the assignment changes; existing grade values, including unspecified legacy credit, remain untouched. Reports and grade CSV continue to show the recorded grade. Submitted receipts and student cards use the requirements and deadline saved with the submission. Extending a deadline does not retroactively change a submitted half-credit grade.
+
+Increasing a Crossword Mode word requirement extends an existing puzzle while retaining its ID, original clue numbers, solved words and answer receipts. Lowering the goal keeps extra clues optional and counts saved solves toward the new requirement. Disabling Crossword Mode hides it from unfinished work while retaining its puzzle; re-enabling it resumes that work. None of these changes awards candy or avatar currency.
+
+The owner-only editing API uses revisions to reject conflicting saves and mutation IDs to settle duplicate requests once. Failed validation does not change assignments or student records. Assignment indexes update with the full record in the existing storage transaction. Private save receipts and question answers are excluded from public assignment metadata. Rules snapshots remain within existing practice records, so personal exports, teacher backups, retention and scoped erasure keep their existing ownership rules.
+
+Validation covers ownership, invalid and stale edits, duplicate retries, time-zone round trips including the repeated daylight-saving hour, frozen legacy and new grades, active practice refresh, stale grading requests, crossword extensions and reductions, mobile forms, submitted receipts, grade exports and typed-draft preservation. Browser checks use isolated fake accounts; production verification uses public health, delivered asset hashes and a read-only editor preview.

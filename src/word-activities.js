@@ -17,16 +17,18 @@ export function wordParts(q){
  if(!/^\p{L}{3,18}$/u.test(word))return null;
  const split=Math.ceil([...word].length/2);return {parts:[[...word].slice(0,split).join(''),[...word].slice(split).join('')],kind:'pieces'};
 }
-export function makeCrossword(questions,rng,{limit=8,maxLength=16,includeDisconnected=false}={}){
+export function makeCrossword(questions,rng,{limit=8,maxLength=16,includeDisconnected=false,initialEntries=[]}={}){
  const grid=new Map(),entries=[];let serial=0;
- const candidates=shuffled(questions.map((q,index)=>({index,word:letters(canonicalWord(q)).join(''),clue:q.text})).filter(x=>x.word.length>=2&&x.word.length<=maxLength),rng).slice(0,limit);
+ const pool=questions.map((q,index)=>({index,word:letters(canonicalWord(q)).join(''),clue:q.text})).filter(x=>x.word.length>=2&&x.word.length<=maxLength),fixed=new Set(initialEntries.map(e=>e.index));
+ const candidates=shuffled(pool.filter(c=>!fixed.has(c.index)),rng).slice(0,Math.max(0,limit-initialEntries.length));
  const key=(r,c)=>r+':'+c;
  function fits(word,row,col,direction){
   const dr=direction==='down'?1:0,dc=1-dr;if(grid.has(key(row-dr,col-dc))||grid.has(key(row+dr*word.length,col+dc*word.length)))return false;let crosses=0;
   for(let i=0;i<word.length;i++){const r=row+dr*i,c=col+dc*i,cell=grid.get(key(r,c));if(cell){if(cell.letter!==word[i]||cell.directions.includes(direction))return false;crosses++;}else if(grid.has(key(r+dc,c+dr))||grid.has(key(r-dc,c-dr)))return false;}
   return !grid.size||crosses>0;
  }
- function place(candidate,row,col,direction){const number=++serial;entries.push({...candidate,row,col,direction,number});for(let i=0;i<candidate.word.length;i++){const r=row+(direction==='down'?i:0),c=col+(direction==='across'?i:0),old=grid.get(key(r,c));grid.set(key(r,c),{row:r,col:c,letter:candidate.word[i],indices:[...(old?.indices||[]),candidate.index],directions:[...(old?.directions||[]),direction],number:i===0?number:old?.number||null});}}
+ function place(candidate,row,col,direction,number=serial+1){serial=Math.max(serial,number);entries.push({...candidate,row,col,direction,number});for(let i=0;i<candidate.word.length;i++){const r=row+(direction==='down'?i:0),c=col+(direction==='across'?i:0),old=grid.get(key(r,c));grid.set(key(r,c),{row:r,col:c,letter:candidate.word[i],indices:[...(old?.indices||[]),candidate.index],directions:[...(old?.directions||[]),direction],number:i===0?number:old?.number||null});}}
+ for(const e of initialEntries){const c=pool.find(c=>c.index===e.index);if(c)place(c,e.row,e.col,e.direction,e.number);}
  let todo=candidates;
  while(todo.length){
   const pending=[];let placed=false;
