@@ -31,11 +31,11 @@ The main typed screen has no alphabet grid. Letter clues open an explained panel
 
 Word Forge Adventure shows one selected, explained helper. Changing the helper is optional. The automatic constellation boss and recipe rewards sit in a separate collapsed section explaining remaining health, automatic damage and round-only rewards. The crossword helper explains that it fills from correct main-game answers; it is different from the new graded crossword option below.
 
-## Crossword as an alternative assignment completion route
+## Crossword Mode for weekly assignments
 
-In **Assignments → New assignment**, the teacher can set **Crossword alternative: words this week (0 = off)** to 1–40. Set the count when posting that week's assignment. Zero retains ordinary typed/Word Forge requirements. Existing posted assignments and submitted grades keep their rules.
+In **Assignments → New assignment**, the teacher can set **Crossword Mode: words this week (0 = off)** to 1–40. Set the count when posting that week's assignment. Zero retains ordinary typed/Word Forge requirements. Existing posted assignments and submitted grades keep their rules.
 
-The form explicitly states that solving all crossword clues replaces the typed time/card/accuracy minimums for that assignment. Typed practice and Solo Word Forge remain available against the same assignment record. The student chooses Crossword, solves every required clue, then explicitly selects Submit crossword for credit. Half credit for a late submission applies to every completion method. Reports and CSV identify crossword completion, with answer counts and accuracy still reported separately.
+The form explicitly states that solving all crossword clues replaces the typed time/card/accuracy minimums for that assignment. Typed practice and Solo Word Forge remain available against the same assignment record. The student chooses Crossword Mode, solves every required clue, then explicitly selects Submit crossword for credit. Half credit for a late submission applies to every completion method. Reports and CSV identify crossword completion, with answer counts and accuracy still reported separately.
 
 The server chooses the exact required number of distinct words from the assignment's full, immutable deck snapshot, using the deck prompts as clues. There are no independent-study category filters. Eligible first accepted answers contain 2–32 letters; spaces and punctuation are omitted, and the first semicolon-separated meaning defines that clue's grid spelling. The answer must fit those squares. Accents follow the assignment policy; ñ remains distinct. An excessive requested count is rejected before publication with the eligible-word count.
 

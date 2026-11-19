@@ -94,12 +94,12 @@ export class AcademyService {
   }
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
   if(action==='practice-crossword-open'){
-   ensure(a.rules.crosswordWords>0,'Your teacher has not enabled a crossword alternative for this assignment.');
+   ensure(a.rules.crosswordWords>0,'Your teacher has not enabled Crossword Mode for this assignment.');
    if(!p.assignmentCrossword)p.assignmentCrossword=createAssignmentCrossword(a,(min,max)=>{const n=new Uint32Array(1);crypto.getRandomValues(n);return min+n[0]%(max-min+1);});
    await this.store.put(key,p);return this.viewPractice(a,p);
   }
   if(action==='practice-crossword-answer'){
-   ensure(a.rules.crosswordWords>0,'This assignment has no crossword alternative.');checkCrosswordAnswer(a,p,payload,now);await this.store.put(key,p);return this.viewPractice(a,p);
+   ensure(a.rules.crosswordWords>0,'Crossword Mode is not enabled for this assignment.');checkCrosswordAnswer(a,p,payload,now);await this.store.put(key,p);return this.viewPractice(a,p);
   }
   if(action==='practice-activity'){ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);ensure(WORD_ACTIVITIES.includes(payload.activity),'Choose a word activity.');p.wordActivity=payload.activity;if(payload.activity==='crossword'&&!p.wordCrossword)p.wordCrossword=makeCrossword(a.cards.map(c=>({text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i)})),(min,max)=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return min+a[0]%(max-min+1);});await this.store.put(key,p);return this.viewPractice(a,p);}
   if(action==='practice-letter'){
