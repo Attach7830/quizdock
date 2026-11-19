@@ -40,7 +40,7 @@ def run():
   s.locator('#enrollment-code').fill(fix['classCode']);s.locator('#enrollment-code').press('Enter');s.wait_for_selector('[data-act=tab]')
   member=next(m for m in call(teacher,'/api/academy/class-detail',{'classId':fix['classId']})['members'] if m['email']=='keyboard.student@servitehs.org')
   check(member['name']=='Servite Google Student','class roster name is collected automatically without teacher entry')
-  check(s.locator('[data-act=practice]').count()==0,'student Arcade keeps graded assignments out of game and solo navigation')
+  check(s.locator('#home-assignments [data-act=practice]').count()>0 and s.locator('#home-assignments [data-act=solo]').count()==0,'student homepage shows current-semester assignment shortcuts in a separate section')
   s.locator('h1').click();chord(s,'a');s.wait_for_selector('[data-act=practice]');s.locator(f'[data-act=practice][data-id="{assignment["id"]}"]').click();s.wait_for_selector('#typed-answer')
   requests=[];s.on('request',lambda r:requests.append(r.url.rsplit('/',1)[-1]) if '/api/academy/practice-' in r.url else None)
   prompts=[];meaning_count=0;previous=None;answers={c['prompt']:c['answer'] for c in cards}

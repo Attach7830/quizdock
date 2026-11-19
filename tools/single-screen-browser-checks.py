@@ -22,6 +22,19 @@ def matrix(page,label):
  for w,h in SIZES:
   page.set_viewport_size({'width':w,'height':h});fit(page,f'{label} fits {w}x{h}')
   if (w,h) in [(320,568),(600,320),(1366,768)]:page.screenshot(path=str(ROOT/f'checks/fit-{label}-{w}x{h}.png'))
+def word_prompt_variants(browser,source):
+ # Shuffled games may not start with an illustrated or long prompt. Check each
+ # case explicitly using the actual renderer and the current live game shell.
+ ctx=browser.new_context(ignore_https_errors=True,viewport={'width':1366,'height':768},reduced_motion='reduce');page=ctx.new_page();page.goto(BASE+'/play.html');page.wait_for_selector('#join-form')
+ shell=source.locator('.game-shell').evaluate('(el)=>el.outerHTML');body_class=source.locator('body').get_attribute('class');page.evaluate('(v)=>{document.body.className=v.body;document.querySelector("#app").innerHTML=v.shell}',{'body':body_class,'shell':shell})
+ variants=[{'id':'short','text':'How do you say “to learn”?','answer':'aprender'},{'id':'accent','text':'He spoke yesterday.','answer':'habló'},{'id':'image','text':'Look at the picture. ¿Qué ves?','answer':'una casa','image':BASE+'/__test/image.svg','imageAlt':'A house'},{'id':'long','text':'Read this longer prompt carefully. '*8,'answer':'una biblioteca'}]
+ for case in variants:
+  page.evaluate(r'''async v=>{const {wordQuestionMarkup}=await import('/js/word-game-ui.js'),{fitQuestionText}=await import('/js/game-reader.js');const q={...v,number:1,misses:0,guesses:[],slots:[...v.answer].map(c=>({letter:/\p{L}/u.test(c),value:/\p{L}/u.test(c)?'':c}))};document.querySelector('.game-question').innerHTML=wordQuestionMarkup(q);await Promise.all([...document.querySelectorAll('.question-image img')].map(img=>img.decode().catch(()=>{})));fitQuestionText(document.querySelector('#app'));}''',case)
+  matrix(page,'word-'+case['id']+'-prompt')
+  page.set_viewport_size({'width':320,'height':460});check(page.locator('.word-clues-open').is_visible() and not page.locator('.word-prompt>.word-slots').is_visible() and not page.locator('.word-ink').is_visible(),'short phone keeps the '+case['id']+' prompt and answer clear with optional clues in the popup')
+  if case['id']=='image':
+   page.set_viewport_size({'width':320,'height':568});check(page.locator('.word-clues-open').is_visible() and not page.locator('.word-entry>.word-keyboard').is_visible(),'illustrated Word Forge keeps letter clues available in the existing popup on a short phone')
+ ctx.close()
 def answer(page,correct=True):
  text=page.locator('.phase-heading').first.inner_text();expected={'How do you say “to learn”?':'aprender','He spoke yesterday.':'habló','Look at the picture. ¿Qué ves?':'una casa'}.get(text,'una biblioteca');page.wait_for_timeout(500)
  if page.locator('#live-word-answer').count():page.locator('#live-word-answer').fill(expected if correct else 'wrong');page.locator('#live-word-answer').press('Enter')
@@ -53,7 +66,7 @@ def run():
    matrix(s,mode+'-reward')
    if mode=='treasure':desktop_chests(s);s.keyboard.press('Space');s.wait_for_selector('[data-act=next]');dismiss(s);matrix(s,'treasure-opened')
    if mode=='word':
-    s.locator('[data-act=next]').click();s.wait_for_selector('#live-word-answer');s.set_viewport_size({'width':390,'height':340});s.locator('#live-word-answer').focus();s.locator('#live-word-answer').fill('saved draft');fit(s,'Word Forge with software keyboard space')
+    s.locator('[data-act=next]').click();s.wait_for_selector('#live-word-answer');word_prompt_variants(browser,s);s.set_viewport_size({'width':390,'height':340});s.locator('#live-word-answer').focus();s.locator('#live-word-answer').fill('saved draft');fit(s,'Word Forge with software keyboard space')
    t.locator('[data-act=pause]').click();s.wait_for_selector('[data-player-view=paused]');matrix(s,mode+'-paused');t.locator('[data-act=resume]').click();
    if mode=='word':s.wait_for_selector('#live-word-answer');check(s.locator('#live-word-answer').input_value()=='saved draft','pausing Word Forge preserves the unsubmitted typed answer')
    t.locator('[data-act=end]').click();t.wait_for_selector('[data-act=start]');matrix(s,mode+'-finished')

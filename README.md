@@ -1,10 +1,12 @@
 # QuizDock · classroom beta
 
-Release 0.11.0 expands the avatar wardrobe to 100 original accessories, adds search and saved savings targets, and introduces 48 adventure milestones with 16 exclusive accessory rewards. Goals range from early wins to 100,000 correct answers. See [accessories and horizons](docs/ACCESSORIES_AND_HORIZONS.md). The public [About page](https://srtw.win/about) introduces the existing eight game worlds with changing scroll illustrations and free avatar previews; [the expedition guide](docs/EXPEDITIONS.md) covers their mechanics.
+Release 0.11.1 lists current-semester upcoming and overdue assignments together on the student homepage. New late submissions earn half credit, with the earned percentage shown in student receipts, teacher reports and grade exports. The initial semester runs August 10–December 18, 2026; teachers can edit dates per class. Existing submissions keep their recorded grades. See [semester assignments](docs/SEMESTER_ASSIGNMENTS.md).
+
+Release 0.11.0 expanded the avatar wardrobe to 100 original accessories and introduced 48 adventure milestones with 16 exclusive rewards. See [accessories and horizons](docs/ACCESSORIES_AND_HORIZONS.md). The public [About page](https://srtw.win/about) introduces the existing eight game worlds; [the expedition guide](docs/EXPEDITIONS.md) covers their mechanics.
 
 An independently written classroom quiz arcade. Teacher-owned question lists, eight live game modes, seven private solo games, typed assignments, independent practice, and class-linked student accounts.
 
-## Release 0.11.0
+## Current release
 
 The actual source files are in this repository. **No build-time installer is required.** Keep Cloudflare’s deploy command as `npx wrangler deploy` and the production branch as `main`. Worker name: `quizdock`. Existing SQLite Durable Object bindings and migration names are preserved.
 

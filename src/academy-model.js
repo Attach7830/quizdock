@@ -22,7 +22,7 @@ export function practiceRules(raw={}){
  ensure(Number.isInteger(out.minCards)&&out.minCards>=1&&out.minCards<=2000,'Minimum answered cards must be 1–2000.');
  ensure(Number.isFinite(out.minAccuracy)&&out.minAccuracy>=0&&out.minAccuracy<=100,'Accuracy must be 0–100%.');return out;
 }
-export function progressSummary(p,rules){const answered=p.answered||0,correct=p.correct||0,seconds=Math.floor((p.activeMs||0)/1000),accuracy=answered?100*correct/answered:0;const uniqueCards=Object.keys(p.cardStats||{}).length,studiedCards=rules.cardCountMode==='distinct'?uniqueCards:answered;return {answered,correct,seconds,accuracy,uniqueCards,studiedCards,ready:seconds>=rules.minSeconds&&studiedCards>=rules.minCards&&accuracy>=rules.minAccuracy,submittedAt:p.submittedAt||null,late:!!p.late};}
+export function progressSummary(p,rules){const answered=p.answered||0,correct=p.correct||0,seconds=Math.floor((p.activeMs||0)/1000),accuracy=answered?100*correct/answered:0;const uniqueCards=Object.keys(p.cardStats||{}).length,studiedCards=rules.cardCountMode==='distinct'?uniqueCards:answered;return {answered,correct,seconds,accuracy,uniqueCards,studiedCards,ready:seconds>=rules.minSeconds&&studiedCards>=rules.minCards&&accuracy>=rules.minAccuracy,submittedAt:p.submittedAt||null,late:!!p.late,creditPercent:p.submittedAt&&Number.isFinite(p.creditPercent)&&p.creditPercent>=0&&p.creditPercent<=100?p.creditPercent:null};}
 export function gameSettings(raw={}){
  const kind=raw.kind??'time',minutes=Number(raw.minutes??10),target=Number(raw.target??1000);
  ensure(['time','score'].includes(kind),'Choose time or target score.');ensure(Number.isInteger(minutes)&&minutes>=1&&minutes<=60,'Game time must be 1–60 minutes.');
