@@ -14,7 +14,7 @@ The practice due-date line and guide explain the late rule. New submission recei
 
 Previously submitted work is preserved. Older records without an explicit credit percentage display a dash in the new teacher column and an empty CSV cell; the application does not retroactively assign or reduce their grade. Existing stored percentages, if present, are retained. Backups and personal exports keep the existing assignment and practice records, including the new field.
 
-Homepage practice shortcuts open the dedicated Assignments workspace. Existing student data, question snapshots, shuffled passes, answer checking, focus-based active time, candy eligibility and character-point rules are unchanged. Homepage and teacher pages retain ordinary vertical scrolling; the graded practice viewport retains its existing compact layout.
+Homepage practice shortcuts open the dedicated Assignments workspace. Existing student data, question snapshots, shuffled passes, answer checking, focus-based active time, candy eligibility and character-point rules are unchanged. Homepage and teacher pages retain ordinary vertical scrolling; the graded practice viewport retains its existing compact layout. Illustrated Word Forge questions on short phone screens use the existing Letter clues popup so the image and typed-answer controls fit without a nested scroll area.
 
 ## Verification
 
