@@ -33,7 +33,7 @@ Word Forge Adventure shows one selected, explained helper. Changing the helper i
 
 ## Crossword Mode for weekly assignments
 
-In **Assignments → New assignment**, the teacher can set **Crossword Mode: words this week (0 = off)** to 1–40. Set the count when posting that week's assignment. Zero retains ordinary typed/Word Forge requirements. Existing posted assignments and submitted grades keep their rules.
+In **Assignments → New assignment**, the teacher can set **Crossword Mode: words this week (0 = off)** to 1–40. Set the count when posting that week's assignment. Zero retains ordinary typed/Word Forge requirements. Existing posted assignments and submitted grades keep their rules on upgrade. Release 0.12.1 adds **Edit assignment** for later teacher changes; submitted grading stays saved.
 
 The form explicitly states that solving all crossword clues replaces the typed time/card/accuracy minimums for that assignment. Typed practice and Solo Word Forge remain available against the same assignment record. The student chooses Crossword Mode, solves every required clue, then explicitly selects Submit crossword for credit. Half credit for a late submission applies to every completion method. Reports and CSV identify crossword completion, with answer counts and accuracy still reported separately.
 

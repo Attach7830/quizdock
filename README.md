@@ -1,5 +1,7 @@
 # QuizDock · classroom beta
 
+Release 0.12.1 adds **Edit assignment** to teacher assignment cards and submission reports. Teachers can revise titles, class-local deadlines, practice requirements and Crossword Mode counts while preserving saved work and recorded grades. See [assignment editing](docs/ASSIGNMENT_EDITING.md).
+
 Release 0.12.0 adds 300 collectible fish with six rarity tiers, clearer game guides and next-move hints, a visible relic-building Word Forge with automatic typing focus, and teacher-enabled graded crossword alternatives. The rarest base characters now cost 50,000–250,000 character points. See [fish, forging and crosswords](docs/FISH_FORGE_AND_CROSSWORDS.md).
 
 Release 0.11.1 lists current-semester upcoming and overdue assignments together on the student homepage. New late submissions earn half credit, with the earned percentage shown in student receipts, teacher reports and grade exports. The initial semester runs August 10–December 18, 2026; teachers can edit dates per class. Existing submissions keep their recorded grades. See [semester assignments](docs/SEMESTER_ASSIGNMENTS.md).

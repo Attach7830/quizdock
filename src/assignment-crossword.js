@@ -13,14 +13,27 @@ export function createAssignmentCrossword(a,rng){
  // private assignment snapshot, never in student progress or unsolved responses.
  return {id:uid(),goal,rows:board.rows,cols:board.cols,entries:board.entries.map(e=>({index:candidates[e.index].index,number:e.number,row:e.row,col:e.col,direction:e.direction,length:e.word.length})),solved:[],receipts:[],feedback:null};
 }
-export function crosswordProgress(p,rules){const required=rules.crosswordWords||0,x=p.assignmentCrossword,solved=x?.goal===required?new Set(x.solved).size:0;return {required,solved,ready:required>0&&solved===required};}
+// Keep the saved puzzle ID, clue numbers, solved words and answer receipts.
+// A larger target extends the grid; a smaller target keeps extra clues optional.
+export function syncAssignmentCrossword(a,p,rng){
+ const x=p.assignmentCrossword,goal=a.rules.crosswordWords||0;if(p.submittedAt||!x||!goal||x.goal===goal)return false;
+ if(goal>x.entries.length){
+  const candidates=crosswordCandidates(a.cards),questions=candidates.map(c=>({text:c.clue,answers:[c.word],correct:[0]}));
+  const initialEntries=x.entries.map(e=>({...e,index:candidates.findIndex(c=>c.index===e.index)}));
+  ensure(initialEntries.every(e=>e.index>=0),'The saved crossword does not match this assignment.');
+  const board=makeCrossword(questions,rng,{limit:goal,maxLength:32,includeDisconnected:true,initialEntries});
+  x.rows=board.rows;x.cols=board.cols;x.entries=board.entries.map(e=>({index:candidates[e.index].index,number:e.number,row:e.row,col:e.col,direction:e.direction,length:e.word.length}));
+ }
+ x.goal=goal;return true;
+}
+export function crosswordProgress(p,rules){const required=rules.crosswordWords||0,x=p.assignmentCrossword,solved=required&&x?Math.min(required,new Set(x.solved).size):0;return {required,solved,ready:required>0&&solved===required};}
 export function publicAssignmentCrossword(a,p){
  const x=p.assignmentCrossword;if(!x)return null;const solved=new Set(x.solved),cells=new Map();
  for(const e of x.entries){const word=crosswordLetters(answer(a.cards[e.index]));for(let i=0;i<e.length;i++){
   const row=e.row+(e.direction==='down'?i:0),col=e.col+(e.direction==='across'?i:0),key=row+':'+col,cell=cells.get(key)||{row,col,number:null,value:'',entries:[]};
   if(i===0)cell.number=cell.number===null?e.number:Math.min(cell.number,e.number);if(solved.has(e.number))cell.value=word[i];cell.entries.push(e.number);cells.set(key,cell);
  }}
- return {id:x.id,goal:x.goal,rows:x.rows,cols:x.cols,solved:x.solved.length,complete:x.solved.length===x.goal,cells:[...cells.values()],entries:x.entries.map(e=>({...e,index:undefined,clue:a.cards[e.index].prompt,image:a.cards[e.index].image,imageAlt:a.cards[e.index].imageAlt,solved:solved.has(e.number)})),feedback:x.feedback};
+ return {id:x.id,goal:x.goal,rows:x.rows,cols:x.cols,solved:Math.min(x.solved.length,x.goal),totalSolved:x.solved.length,complete:x.solved.length>=x.goal,extraClues:x.entries.length>x.goal,cells:[...cells.values()],entries:x.entries.map(e=>({...e,index:undefined,clue:a.cards[e.index].prompt,image:a.cards[e.index].image,imageAlt:a.cards[e.index].imageAlt,solved:solved.has(e.number)})),feedback:x.feedback};
 }
 export function checkCrosswordAnswer(a,p,payload,now){
  const x=p.assignmentCrossword;ensure(x&&x.id===payload.puzzleId,'Open your current crossword before answering.',409);
