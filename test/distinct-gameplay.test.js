@@ -20,10 +20,10 @@ test('treasure exploration builds a capped multiplier and chest outcomes remain 
  for(let i=0;i<10;i++){good(r,p);const stored=structuredClone(p.pendingChests),reward=openGameplayChest(r,p,1);assert.deepEqual(stored[1],{route:'ruins',roll:1,amount:24});assert.ok(reward.points>=prior);prior=reward.points;}
  assert.equal(p.adventure.expedition,5);assert.equal(prior,34);
 });
-test('fishing guarantees new discoveries within chosen waters and preserves real catches on every success',()=>{
+test('fishing assists discoveries inside the rolled tier and chosen waters and preserves real catches on every success',()=>{
  const r=room('fishing'),p=r.players.p0,weather=new Set([p.adventure.weather]);
  for(let i=0;i<25;i++){const old=p.score,reward=good(r,p);assert.ok(reward.points>0&&p.score>old);assert.equal(p.fishCount,i+1);weather.add(p.adventure.weather);finishDefaultChoice(r,p);}
- assert.equal(p.adventure.collection.length,4);assert.ok(p.adventure.collection.every(id=>FISH_SPECIES.find(f=>f.id===id).water==='reef'));assert.ok(p.biggestFish>0);assert.ok(weather.size>=2);
+ assert.ok(p.adventure.collection.length>=4);assert.ok(p.adventure.collection.every(id=>FISH_SPECIES.find(f=>f.id===id).rarity==='common'));assert.ok(p.adventure.collection.every(id=>FISH_SPECIES.find(f=>f.id===id).water==='reef'));assert.ok(p.biggestFish>0);assert.ok(weather.size>=2);
  good(r,p);move(r,p,'deep');const old=p.adventure.collection.length;good(r,p);assert.equal(FISH_SPECIES.find(f=>f.id===p.adventure.lastCatch.species).water,'deep');assert.equal(p.adventure.collection.length,old+1);
 });
 test('battle has deferred moves, bounded protection, charged strikes and guard counters',()=>{

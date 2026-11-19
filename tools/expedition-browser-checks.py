@@ -26,6 +26,8 @@ def advance(page):
 def open_adventure(page):
  dismiss(page);page.locator('[data-act=game-menu]').first.click();page.wait_for_selector('#dialog[open] [data-expedition-body]')
 def choose(page,action,value=None):
+ if action=='activity' and page.locator('.word-helper-picker:not([open])').count():page.locator('.word-helper-picker summary').click()
+ if action=='recipe' and page.locator('.word-extra-challenge:not([open])').count():page.locator('.word-extra-challenge summary').click()
  node=page.locator('[data-exp-action="'+action+'"]'+('' if value is None else '[data-exp-value="'+str(value)+'"]')).filter(visible=True).first
  revision=int(page.locator('[data-exp-revision]').get_attribute('data-exp-revision'));node.click();page.wait_for_function('(revision)=>Number(document.querySelector("[data-exp-revision]")?.dataset.expRevision)>revision',arg=revision)
 def run():

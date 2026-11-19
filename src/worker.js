@@ -1,5 +1,5 @@
 import {archiveSketchAdventure} from './sketch-adventures.js';
-import {createExpedition,ensureExpeditionPlayer,expeditionAnswer,actExpedition,publicExpedition,expeditionOutcome,purgeExpeditionPlayer,voteExpedition,publicVote} from './expedition.js';
+import {roomPassport,createExpedition,ensureExpeditionPlayer,expeditionAnswer,actExpedition,publicExpedition,expeditionOutcome,purgeExpeditionPlayer,voteExpedition,publicVote} from './expedition.js';
 import {cleanEquipment} from '../public/js/item-catalog.js';
 import {WORD_MODES,validateWordDeck,prepareWordQuestion,publicWordQuestion,guessWordLetter,gradeWord,startSketchWord,tickSketch,pauseSketch,resumeSketch,submitSketchGuess,publicSketch,appendSketchStroke,clearSketch,passSketch} from './word-games.js';
 import {hasGameplay,newAdventure,createGameWorld,grantGameplayReward,openGameplayChest,resolveGameplayChoice,finishDefaultChoice,publicAdventure,publicPlay,publicWorld} from './gameplay.js';
@@ -109,7 +109,7 @@ export class QuizRoom extends DurableObject {
         method:'POST',body:JSON.stringify(r.solo?{action:'record-solo-round',payload:{solo:r.solo,report:snapshot,expedition:m.status==='finished'?expeditionOutcome(r):null}}:{action:'record-round',payload:{owner,report:snapshot,outcome:m.status==='finished'?this.outcome():null,expedition:m.status==='finished'?expeditionOutcome(r):null}})
       });
       if(!response.ok)throw new Error('Report archive unavailable.');
-      const archived=await response.json();if(archived.passports)for(const p of Object.values(r.players))if(archived.passports[p.accountId])p.passport=archived.passports[p.accountId];
+      const archived=await response.json();if(archived.passports)for(const p of Object.values(r.players))if(archived.passports[p.accountId])p.passport=roomPassport(archived.passports[p.accountId]);
       if(this.room?.roundMetrics?.id===snapshot.id){
         const old=this.room.reportPublished;
         this.room.reportPublished={id:snapshot.id,revision:Math.max(old?.id===snapshot.id?old.revision:0,snapshot.revision)};
@@ -177,7 +177,7 @@ export class QuizRoom extends DurableObject {
         const identity=path==='/join-verified'?data.identity:null;
         if(this.room.solo&&identity?.accountId!==this.room.solo.accountId)return failure('This solo game belongs to another account.',403);
         if(this.room.classId&&!identity?.accountId)return failure('Sign in with an account linked to this class.',403);
-        if(identity?.accountId){const existing=Object.values(this.room.players).find(p=>p.accountId===identity.accountId);if(existing){existing.skin=identity.skin||'mint';existing.equipment=cleanEquipment(identity.equipment);existing.passport=identity.passport||null;existing.hangar=identity.hangar||null;await this.save();this.broadcast();return json({pin:this.room.pin,playerId:existing.id,playerToken:existing.token,name:existing.name});}}
+        if(identity?.accountId){const existing=Object.values(this.room.players).find(p=>p.accountId===identity.accountId);if(existing){existing.skin=identity.skin||'mint';existing.equipment=cleanEquipment(identity.equipment);existing.passport=roomPassport(identity.passport);existing.hangar=identity.hangar||null;await this.save();this.broadcast();return json({pin:this.room.pin,playerId:existing.id,playerToken:existing.token,name:existing.name});}}
         if(['playing','paused'].includes(this.room.status)&&this.room.settings?.allowLate===false)return failure('Your teacher has disabled late entry for this game.',409);
         let name = cleanText(identity?.name||data.name, 70).replace(/[<>]/g, '');
         if (name.length < (identity?.accountId?1:2)) return failure('Enter a nickname with at least 2 characters.');
@@ -188,7 +188,7 @@ export class QuizRoom extends DurableObject {
         while (existing.has(name.toLowerCase())) name = `${original.slice(0, 20)} ${suffix++}`;
         const id = randomId(8);
         const token = randomId(24);
-        this.room.players[id] = {...newPlayer(id, token, name, this.room.questions),accountId:identity?.accountId||null,email:identity?.email||null,skin:identity?.skin||'mint',equipment:cleanEquipment(identity?.equipment),passport:identity?.passport||null,hangar:identity?.hangar||null};
+        this.room.players[id] = {...newPlayer(id, token, name, this.room.questions),accountId:identity?.accountId||null,email:identity?.email||null,skin:identity?.skin||'mint',equipment:cleanEquipment(identity?.equipment),passport:roomPassport(identity?.passport),hangar:identity?.hangar||null};
         if(hasGameplay(this.room))this.room.players[id].adventure=newAdventure(this.room.mode);ensureExpeditionPlayer(this.room,this.room.players[id]);
         if(this.room.mode==='word'&&this.room.status==='playing')prepareWordQuestion(this.room,this.room.players[id]);
         await this.save();
@@ -315,7 +315,7 @@ export class QuizRoom extends DurableObject {
       if(mode==='sketch'&&this.onlineIds().length<2)throw new Error('Sketch Relay needs at least two connected students. Word Forge works with one.');
       for (const [id, p] of Object.entries(room.players)) {
         if(p.deleted){delete room.players[id];continue;}
-        room.players[id] = {...newPlayer(id,p.token,p.name,room.questions),accountId:p.accountId||null,email:p.email||null,skin:p.skin||'mint',equipment:cleanEquipment(p.equipment),joinedAt:p.joinedAt,passport:p.passport||null,hangar:p.hangar||null};
+        room.players[id] = {...newPlayer(id,p.token,p.name,room.questions),accountId:p.accountId||null,email:p.email||null,skin:p.skin||'mint',equipment:cleanEquipment(p.equipment),joinedAt:p.joinedAt,passport:roomPassport(p.passport),hangar:p.hangar||null};
       }
       room.mode=mode;room.durationMinutes=minutes;room.settings=settings;room.roundNumber=(room.roundNumber||(room.startedAt?1:0))+1;
       room.status = 'playing'; room.startedAt = Math.max(Date.now(),(room.startedAt||0)+1); room.endsAt = Date.now() + minutes * 60_000;

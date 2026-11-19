@@ -1,3 +1,4 @@
+import {FISH_SPECIES,FISH_BY_ID} from '../public/js/fish-catalog.js';
 import {ensure} from './library-domain.js';
 import {JourneyService} from './journey-service.js';
 import {ownedEquipment,cleanEquipment} from '../public/js/item-catalog.js';
@@ -27,7 +28,7 @@ export class ExpeditionService {
    if(answered>=5&&correct/answered>=.9)p.stats.accurateRounds++;
    if(!p.modes.includes(outcome.mode))p.modes.push(outcome.mode);
    if(!old||score>old.score){if(old)p.stats.improvements++;p.best[outcome.mode]={score,correct,answered,roundId:outcome.roundId,at:outcome.finishedAt,timeline:(result.timeline||[]).slice(-60).map(t=>({answered:count(t.answered,10000),score:count(Math.floor(t.score))}))};}
-   for(const [species,fish]of Object.entries(result.fish||{}).slice(0,32)){if(!/^[a-z0-9-]{1,40}$/.test(species))continue;const before=p.fish[species]||{count:0,best:0};p.fish[species]={count:before.count+count(fish.count,1000),best:Math.max(before.best,Math.min(10000,Number(fish.best)||0))};}
+   for(const [species,fish]of Object.entries(result.fish||{}).filter(([id])=>FISH_BY_ID.has(id)).slice(0,FISH_SPECIES.length)){if(!fish||typeof fish!=='object')continue;const before=p.fish[species]||{count:0,best:0};p.fish[species]={count:before.count+count(fish.count,1000),best:Math.max(before.best,Math.min(10000,Number(fish.best)||0)),...(fish.shinyCount||before.shinyCount?{shinyCount:(before.shinyCount||0)+Math.min(count(fish.count,1000),count(fish.shinyCount,1000)),shinyBest:Math.max(before.shinyBest||0,Math.max(0,Math.min(10000,Number(fish.shinyBest)||0)))}:{})};}
    p.hubTokens+=Math.floor((p.stats.correct-correct)/5+correct/5)-Math.floor((p.stats.correct-correct)/5);p.stats.modes=p.modes.length;
    for(const a of ACHIEVEMENTS)if(p.stats[a.stat]>=a.goal&&!p.achievements[a.id])p.achievements[a.id]=outcome.finishedAt;
    p.updatedAt=Date.now();await this.store.put({[this.key(c,u)]:p,[receipt]:{classId:c,userId:u,roundId:outcome.roundId,at:Date.now()}});passports[u]=p;contribution+=correct;
@@ -51,7 +52,7 @@ export class ExpeditionService {
   }
   ensure(user.role==='student','Use a student account to customize your expedition.',403);
   if(action==='aquarium'){
-   const decor=AQUARIUM_DECOR.find(x=>x.id===p.decor),residents=Array.isArray(p.residents)?p.residents:[];ensure(decor&&Object.keys(profile.fish).length>=decor.need,'Discover more fish to unlock this decoration.');ensure(residents.length<=4&&residents.every(r=>profile.fish[r.species]&&title(r.name)),'Choose up to four fish you have discovered and name them.');profile.aquarium={name:title(p.name)||'My lantern lagoon',decor:decor.id,residents:residents.map(r=>({species:r.species,name:title(r.name,24)}))};
+   const decor=AQUARIUM_DECOR.find(x=>x.id===p.decor),residents=Array.isArray(p.residents)?p.residents:[];ensure(decor&&Object.keys(profile.fish).length>=decor.need,'Discover more fish to unlock this decoration.');ensure(residents.length<=4&&residents.every(r=>profile.fish[r.species]&&(!r.shiny||profile.fish[r.species].shinyCount>0)&&title(r.name)),'Choose up to four fish you have discovered and name them.');profile.aquarium={name:title(p.name)||'My lantern lagoon',decor:decor.id,residents:residents.map(r=>({species:r.species,name:title(r.name,24),...(r.shiny?{shiny:true}:{})}))};
   }else if(action==='hub'){
    const building=HUB_BUILDINGS.find(b=>b.id===p.building);if(building){ensure(profile.hubTokens>0,'Earn an island supply for every five correct game answers.');ensure(world.buildings[building.id]<50,'This building is complete.');profile.hubTokens--;world.buildings[building.id]++;}
    else{ensure(['stars','lanterns','banners'].includes(p.decor),'Choose a listed island decoration.');if(profile.hubDecor!==p.decor){if(profile.hubDecor)world.decor[profile.hubDecor]=Math.max(0,world.decor[profile.hubDecor]-1);world.decor[p.decor]++;profile.hubDecor=p.decor;}}

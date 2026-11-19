@@ -422,3 +422,15 @@ body.game-body .phase-shell .sketch-board:has(.artist-word:not([hidden])) [data-
 @media(max-height:520px) and (max-width:539px){
  body.game-body .phase-shell .word-prompt>.word-slots,body.game-body .phase-shell .word-ink{display:none}
 }
+
+/* Keep the typed answer central; the complete clue alphabet opens on demand. */
+body.game-body .phase-shell .word-entry>.word-clues-open{display:block;min-height:36px;padding:7px;font-size:13px}
+body.game-body .phase-shell .forge-meter{flex:none;min-height:0;max-width:100%}
+body.game-body .phase-shell .word-prompt>.forge-meter .forge-relic{width:28px;height:32px}
+body.game-body .phase-shell .forge-result .forge-relic{width:22px;height:26px}
+body.game-body .phase-shell .forge-result{padding:4px 8px}
+body.game-body .phase-shell .game-top>[data-act=game-details]{padding:8px}
+@media(max-height:650px){body.game-body .phase-shell .word-prompt>.forge-meter{padding:5px 8px}body.game-body .phase-shell .word-prompt>.forge-meter .forge-relic{height:26px;width:23px}.assignment-practice .forge-meter{padding:5px 8px;margin-bottom:6px}.assignment-practice .forge-relic{height:28px;width:24px}}
+@media(max-height:500px){body.game-body .phase-shell .word-prompt>.forge-meter .forge-stage{display:none}body.game-body .phase-shell .word-prompt>.forge-meter .forge-relic{height:24px}body.game-body .phase-shell .word-help{display:none}}
+@media(max-height:500px){body.game-body .phase-shell .word-prompt>.word-slots,body.game-body .phase-shell .word-prompt>.word-ink,body.game-body .phase-shell .word-prompt>.eyebrow{display:none}body.game-body .phase-shell .word-prompt>.forge-meter{padding:3px 8px}body.game-body .phase-shell .word-screen .question-image{height:35px}}
+@media(max-height:400px) and (max-width:539px){body.game-body .phase-shell .word-screen:has(#live-word-answer:focus) .word-prompt>.forge-meter{display:none}}

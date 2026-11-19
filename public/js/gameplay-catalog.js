@@ -15,20 +15,7 @@ export const WATERS=[
  {id:'deep',name:'Deep water',hint:'Heavier fish, with more varied catch sizes.',factor:1.25,color:'#97bdff'},
  {id:'shallows',name:'Moonlit shallows',hint:'Smaller catches, with a better chance of rare discoveries.',factor:.95,color:'#d8b2ff'}
 ];
-export const FISH_SPECIES=[
- {id:'reef-skipper',name:'Reef Skipper',water:'reef',color:'#ffb36a',shape:0,rare:false},
- {id:'golden-fin',name:'Golden Fin',water:'reef',color:'#ffdf75',shape:1,rare:false},
- {id:'coral-crown',name:'Coral Crown',water:'reef',color:'#ff92ad',shape:2,rare:true},
- {id:'star-whisker',name:'Star Whisker',water:'reef',color:'#a9f7df',shape:3,rare:true},
- {id:'blue-grouper',name:'Blue Grouper',water:'deep',color:'#8abfff',shape:0,rare:false},
- {id:'steel-marlin',name:'Steel Marlin',water:'deep',color:'#c1dcf5',shape:1,rare:false},
- {id:'abyss-ray',name:'Abyss Ray',water:'deep',color:'#ab9dff',shape:2,rare:true},
- {id:'leviathan-koi',name:'Leviathan Koi',water:'deep',color:'#ffc18b',shape:3,rare:true},
- {id:'lantern-minnow',name:'Lantern Minnow',water:'shallows',color:'#e5ffa8',shape:0,rare:false},
- {id:'glass-fin',name:'Glass Fin',water:'shallows',color:'#b0f8f2',shape:1,rare:false},
- {id:'moon-carp',name:'Moon Carp',water:'shallows',color:'#e4b5ff',shape:2,rare:true},
- {id:'aurora-dragon',name:'Aurora Dragonfish',water:'shallows',color:'#b4ffdf',shape:3,rare:true}
-];
+export {FISH_SPECIES,FISH_RARITIES,FISH_BY_ID,fishRarity} from './fish-catalog.js';
 export const WINDS=[{id:'tailwind',name:'Tailwind',hint:'A good time for rings or a boost dive.'},{id:'crosswind',name:'Crosswind',hint:'The ring route is trickier. Glide to build boost.'},{id:'storm',name:'Storm front',hint:'Gliding is reliable; charged dives still make progress.'}];
 export const FISH_WEATHER=[{id:'clear',name:'Clear tide'},{id:'moon',name:'Moon tide'},{id:'current',name:'Strong current'}];
 export const ARENAS=[

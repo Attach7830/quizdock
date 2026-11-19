@@ -29,15 +29,23 @@ test('all event announcements use the awarded currencies and combined rewards tr
 });
 test('character catalog preserves old IDs/prices and adds five distinct original purchasable designs',()=>{
  assert.deepEqual(SKINS.slice(0,8).map(s=>[s.id,s.price]),[['mint',0],['coral',60],['solar',90],['orchid',120],['arctic',150],['ember',180],['forest',200],['midnight',250]]);
- assert.equal(SKINS.length,13);assert.equal(new Set(SKINS.map(s=>s.id)).size,13);assert.equal(new Set(SKINS.map(characterMarkup)).size,13);
+ assert.deepEqual(SKINS.filter(s=>s.rarity).map(s=>[s.id,s.price]),[['stormwing',7500],['frostblade',10000],['nebula',50000],['sunforge',100000],['kitsune',250000]]);assert.equal(SKINS.length,13);assert.equal(new Set(SKINS.map(s=>s.id)).size,13);assert.equal(new Set(SKINS.map(characterMarkup)).size,13);
  for(const skin of SKINS){const parts=characterParts(skin);assert.ok(parts.length>15);assert.ok(parts.every(p=>p.d&&Number.isFinite(p.opacity)));assert.equal(characterParts(skin),parts);}
  assert.equal(characterMarkup({primary:'" onload="bad()'}).includes('onload='),false);assert.doesNotThrow(()=>characterMarkup(null));
 });
 test('new character purchases use the existing atomic wallet, preserve old ownership and cannot charge twice',async()=>{
  const ctx=context(),service=new TeacherLibrary(ctx,{}),email='student@example.com',id=await hash(email),token='test-session';
- await ctx.storage.put({['account:'+id]:{id,email,name:'Student',points:190,owned:['mint','coral'],skin:'coral'},['session:'+await hash(token)]:{owner:id,email,kind:'student',expiresAt:Date.now()+60000}});
+ await ctx.storage.put({['account:'+id]:{id,email,name:'Student',points:SKINS.find(s=>s.id==='stormwing').price+10,owned:['mint','coral'],skin:'coral'},['session:'+await hash(token)]:{owner:id,email,kind:'student',expiresAt:Date.now()+60000}});
  const buy=()=>service.fetch(internal('academy:buy-skin',{skinId:'stormwing'},token));const rs=await Promise.all([buy(),buy()]);assert.ok(rs.every(r=>r.status===200));
  const p=await ctx.storage.get('account:'+id);assert.equal(p.points,10);assert.deepEqual(p.owned,['mint','coral','stormwing']);assert.equal(p.skin,'stormwing');
  const denied=await service.fetch(internal('academy:buy-skin',{skinId:'nebula'},token));assert.equal(denied.status,400);assert.match((await denied.json()).error,/more reward points/);assert.equal((await ctx.storage.get('account:'+id)).points,10);
  assert.equal((await service.fetch(internal('academy:equip-skin',{skinId:'coral'},token))).status,200);assert.equal((await ctx.storage.get('account:'+id)).points,10);
+});
+
+test('higher prices reject a forged cheap price while already-owned legendary characters stay free to equip',async()=>{
+ const ctx=context(),service=new TeacherLibrary(ctx,{}),email='student@example.com',id=await hash(email),token='price-session';
+ await ctx.storage.put({['account:'+id]:{id,email,name:'Student',points:450,owned:['mint','kitsune'],skin:'mint'},['session:'+await hash(token)]:{owner:id,email,kind:'student',expiresAt:Date.now()+60000}});
+ assert.equal((await service.fetch(internal('academy:buy-skin',{skinId:'nebula',price:450},token))).status,400);
+ assert.equal((await service.fetch(internal('academy:equip-skin',{skinId:'kitsune'},token))).status,200);
+ const p=await ctx.storage.get('account:'+id);assert.equal(p.points,450);assert.equal(p.skin,'kitsune');assert.deepEqual(p.owned,['mint','kitsune']);
 });
