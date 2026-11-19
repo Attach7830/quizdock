@@ -104,7 +104,7 @@ test('all required crossword clues earn the same assignment credit without typed
   const submitted=await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword'},s.token);assert.equal(submitted.status,200);assert.equal(submitted.body.progress.completionMethod,'crossword');assert.equal(submitted.body.progress.creditPercent,100);
   const before=await f.ctx.storage.get(pkey);await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,method:'crossword'},s.token);assert.deepEqual(await f.ctx.storage.get(pkey),before);
   const report=(await f.call('assignment-report',{assignmentId:a.id})).body;assert.equal(report.students[0].progress.completionMethod,'crossword');assert.equal(report.students[0].progress.correct,2);
-  assert.equal((await f.ctx.storage.get('account:'+s.userId)).points,0);assert.equal((await f.ctx.storage.list({prefix:'study-reward:'})).size,0);
+  assert.equal((await f.ctx.storage.get('account:'+s.userId)).points,0);assert.equal((await f.ctx.storage.list({prefix:'study-'})).size,0);
  }finally{Date.now=oldNow;}
 });
 test('late crossword submissions retain the same half-credit policy and other students cannot access the saved puzzle',async()=>{
