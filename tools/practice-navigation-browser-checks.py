@@ -92,7 +92,7 @@ def run():
   for path in ['/library.html','/reports.html','/data.html']:
    t.goto(BASE+path);t.bring_to_front();t.wait_for_selector('[data-keyboard-help]');t.keyboard.press('?');t.wait_for_selector('#keyboard-guide[open]');check('Assignments' in t.locator('#keyboard-guide').inner_text(),path+' has the shared shortcut guide and Assignments destination');t.keyboard.press('Escape');chord(t,'a');t.wait_for_function('document.querySelector("h1")?.textContent==="Assignments"')
   # Native link activation keeps the existing unsaved-editor beforeunload guard.
-  t.goto(BASE+'/library.html');t.locator(f'[data-do=open][data-id="{list_id}"]').click();t.wait_for_selector('#auto-save');t.locator('#auto-save').uncheck();t.locator('#list-title').fill('Unsaved keyboard test draft');t.locator('header .brand').focus();dialogs=[]
+  t.goto(BASE+'/library.html');t.locator(f'[data-do=open][data-id="{list_id}"]').click();t.wait_for_selector('#auto-save');t.locator('#auto-save').uncheck();t.locator('#list-title').fill('Unsaved keyboard test draft');t.locator('header .wordmark').focus();dialogs=[]
   def cancel_leave(dialog):dialogs.append(dialog.type);dialog.dismiss()
   t.once('dialog',cancel_leave);chord(t,'a');t.wait_for_timeout(200)
   check(dialogs==['beforeunload'] and t.locator('#list-title').input_value()=='Unsaved keyboard test draft','navigation hotkeys respect unsaved library drafts')
