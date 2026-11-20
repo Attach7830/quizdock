@@ -1,5 +1,7 @@
 # QuizDock · classroom beta
 
+Release 0.14.0 adds connected, rotatable 3D Crossword Mode with direct entry and a layer grid, a grid-and-clue fullscreen view, autosaved letters with connection recovery, deferred whole-puzzle checking and private live teacher counts. Flashcard reviews, answer attempts and earned game activity now contribute to weekly leagues during play. My lists uses the shared classroom design. See [crossword entry and autosave](docs/CROSSWORD_GRID.md) and [weekly XP rules](docs/WEEKLY_LEAGUES.md).
+
 Release 0.13.1 resets the league filter to the student's own tier when switching classes, including after viewing an empty higher tier.
 
 Release 0.13.0 adds weekly class leagues under **Arcade → Leagues**: eight tiers, server-scored XP, Monday resets in the class timezone, promotions, protected ties and saved weekly results. See [weekly league rules and data behavior](docs/WEEKLY_LEAGUES.md).

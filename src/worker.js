@@ -1,3 +1,4 @@
+import {startLeagueGame,captureLeagueGame,leagueGamePacket,leagueAction,purgeLeaguePlayer} from './league-game.js';
 import {archiveSketchAdventure} from './sketch-adventures.js';
 import {roomPassport,createExpedition,ensureExpeditionPlayer,expeditionAnswer,actExpedition,publicExpedition,expeditionOutcome,purgeExpeditionPlayer,voteExpedition,publicVote} from './expedition.js';
 import {cleanEquipment} from '../public/js/item-catalog.js';
@@ -54,7 +55,7 @@ export default {
           const stub = env.ROOMS.get(id);
           const hostToken = randomId(24);
           const result = await stub.fetch('https://room.internal/init', {
-            method: 'POST', body: JSON.stringify({ pin, hostToken, title, mode, questions, settings, classId:env.__REPORT_CONTEXT?.classId||null, reportOwner:env.__REPORT_CONTEXT?.owner||null, sourceList:env.__REPORT_CONTEXT?.source||null,solo:env.__SOLO_CONTEXT||null })
+            method: 'POST', body: JSON.stringify({ pin, hostToken, title, mode, questions, settings, classId:env.__REPORT_CONTEXT?.classId||null, reportOwner:env.__REPORT_CONTEXT?.owner||null,leagueTimezone:env.__REPORT_CONTEXT?.timezone||null, sourceList:env.__REPORT_CONTEXT?.source||null,solo:env.__SOLO_CONTEXT||null })
           });
           if (result.status === 409) continue;
           return result;
@@ -90,6 +91,7 @@ export class QuizRoom extends DurableObject {
   async save() {
     if(this.room?.status==='finished'&&this.room.mode==='sketch')archiveSketchAdventure(this.room);
     this.ensureRoundMetrics();
+    captureLeagueGame(this.room);
     if(this.room.roundMetrics)updateRoundMetrics(this.room.roundMetrics,this.room);
     await this.ctx.storage.put('room',this.room);
     await this.publishReport();await this.publishClass();await this.scheduleAnalyticsAlarm();
@@ -106,7 +108,7 @@ export class QuizRoom extends DurableObject {
     await this.ctx.storage.put('room',r);
     try {
       const response=await this.env.TEACHER_LIBRARY.get(this.env.TEACHER_LIBRARY.idFromName('teachers')).fetch('https://library.internal/',{
-        method:'POST',body:JSON.stringify(r.solo?{action:'record-solo-round',payload:{solo:r.solo,report:snapshot,expedition:m.status==='finished'?expeditionOutcome(r):null}}:{action:'record-round',payload:{owner,report:snapshot,outcome:m.status==='finished'?this.outcome():null,expedition:m.status==='finished'?expeditionOutcome(r):null}})
+        method:'POST',body:JSON.stringify(r.solo?{action:'record-solo-round',payload:{solo:r.solo,report:snapshot,league:leagueGamePacket(r),expedition:m.status==='finished'?expeditionOutcome(r):null}}:{action:'record-round',payload:{owner,report:snapshot,league:leagueGamePacket(r),outcome:m.status==='finished'?this.outcome():null,expedition:m.status==='finished'?expeditionOutcome(r):null}})
       });
       if(!response.ok)throw new Error('Report archive unavailable.');
       const archived=await response.json();if(archived.passports)for(const p of Object.values(r.players))if(archived.passports[p.accountId])p.passport=roomPassport(archived.passports[p.accountId]);
@@ -147,7 +149,7 @@ export class QuizRoom extends DurableObject {
         const data = await bodyOf(request);
         this.room = {
           pin: data.pin, hostToken: data.hostToken, title: data.title, mode: data.mode,
-          questions: data.questions, settings:gameSettings(data.settings), classId:data.classId||null, roundNumber:0, reportOwner:data.reportOwner||null, sourceList:data.sourceList||null, solo:data.solo||null, createdAt: Date.now(), status: 'lobby',
+          questions: data.questions, settings:gameSettings(data.settings), classId:data.classId||null, roundNumber:0, reportOwner:data.reportOwner||null,leagueTimezone:data.leagueTimezone||null, sourceList:data.sourceList||null, solo:data.solo||null, createdAt: Date.now(), status: 'lobby',
           players: {}, startedAt: null, endsAt: null, remainingMs: null, lastPassiveAt: null
         };
         await this.save();
@@ -159,7 +161,7 @@ export class QuizRoom extends DurableObject {
         if(!r||r.createdAt!==p.createdAt)return json({ok:true,skipped:true});
         for(const player of Object.values(r.players))if(player.accountId===p.accountId&&(!p.erasedAt||player.joinedAt<=p.erasedAt)){
           for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment()?.playerId===player.id){try{ws.close(4003,'Account data removed');}catch{}}
-          purgeExpeditionPlayer(r,player);player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.equipment={};player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.wordCycle=null;player.questionCycle=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
+          purgeExpeditionPlayer(r,player);purgeLeaguePlayer(r,player);player.accountId=null;player.email=null;player.name='Deleted participant';player.skin='mint';player.equipment={};player.token=randomId(24);player.feedback=null;player.current=null;player.deleted=true;player.lastEvent=null;player.adventure=null;player.wordPuzzle=null;player.wordOrder=null;player.wordCycle=null;player.questionCycle=null;player.sketchReceipt=null;player.pendingPlay=null;player.lastPlay=null;if(r.lastArcadeEvent?.playerId===player.id)r.lastArcadeEvent=null;
           for(const other of Object.values(r.players)){other.lastPlay=null;if(other.feedback){delete other.feedback.game;if(other.feedback.effect?.targetId===player.id){other.feedback.reward='Game reward saved.';other.feedback.effect=null;}}}
           if(r.gameplay?.keep){r.gameplay.keep.participants=r.gameplay.keep.participants.filter(id=>id!==player.id);r.gameplay.keep.contributors=r.gameplay.keep.contributors.filter(id=>id!==player.id);}
           if(r.sketch){if(r.sketch.activeArtists)r.sketch.activeArtists=r.sketch.activeArtists.filter(id=>id!==player.id);if(r.sketch.assignments)delete r.sketch.assignments[player.id];if(r.sketch.gestures)delete r.sketch.gestures[player.id];r.sketch.guessed=r.sketch.guessed.filter(id=>id!==player.id);const drew=r.sketch.artists.includes(player.id);r.sketch.artists=r.sketch.artists.filter(id=>id!==player.id);if(drew){r.sketch.strokes=[];r.sketch.clearEpoch++;r.sketch.revision++;}if(r.sketch.artistId===player.id){r.sketch.artistId=null;r.sketch.offlineAt=Date.now()-8001;}tickSketch(r,this.onlineIds());}
@@ -322,7 +324,7 @@ export class QuizRoom extends DurableObject {
       room.lastPassiveAt = Date.now(); room.remainingMs = null; room.finishedAt=null; room.lastArcadeEvent=null;room.sketch=null;room.sketchCycle=null;room.sketchGallery=[];createGameWorld(room);createExpedition(room);
       if(mode==='word')for(const p of Object.values(room.players))prepareWordQuestion(room,p);
       if(mode==='sketch')startSketchWord(room,this.onlineIds());
-      room.roundMetrics=createRoundMetrics(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
+      room.roundMetrics=createRoundMetrics(room);startLeagueGame(room);room.reportPublished=null;room.reportRetryAt=0;room.reportLastAttempt=0;
     } else if (msg.type === 'pause') {
       this.requireHost(att);
       if (room.status !== 'playing') throw new Error('The game is not running.');
@@ -340,11 +342,11 @@ export class QuizRoom extends DurableObject {
       const p=this.requireStudent(att);if(!['lobby','playing'].includes(room.status)||p.answered>0||p.roleType)throw new Error('Player type is locked for this round.');
       if(!roleById(room.mode,msg.roleType))throw new Error('Choose a valid player type.');p.roleType=msg.roleType;
     } else if(msg.type==='adventure'){
-      actExpedition(room,this.requireStudent(att),msg);
+      const p=this.requireStudent(att),result=actExpedition(room,p,msg);if(!result.duplicate&&msg.action!=='quest')leagueAction(p);
     } else if(msg.type==='adventure-vote'){
       voteExpedition(room,this.requireStudent(att),msg.modifier);
     } else if(msg.type==='word-letter'){
-      const p=this.requireStudent(att);if(room.mode!=='word')throw new Error('Letter clues belong to Word Forge.');guessWordLetter(room,p,msg.key,msg.letter);
+      const p=this.requireStudent(att);if(room.mode!=='word')throw new Error('Letter clues belong to Word Forge.');const before=p.wordPuzzle?.guesses.length||0;guessWordLetter(room,p,msg.key,msg.letter);if(p.wordPuzzle.guesses.length>before)leagueAction(p);
     } else if(msg.type==='sketch-guess'){
       const p=this.requireStudent(att);if(room.mode!=='sketch')throw new Error('This is not a drawing round.');const result=submitSketchGuess(room,p,msg.wordId,msg.answer,Date.now(),msg.id);if(!result.duplicate){expeditionAnswer(room,p,result.correct);recordCardAnswer(room.roundMetrics,{playerId:p.id,sequence:p.answered,cardIndex:result.cardIndex,correct:result.correct,typedAnswer:result.typedAnswer,hintsUsed:result.hintsUsed});}tickSketch(room,this.onlineIds());
     } else if(['sketch-clear','sketch-pass','sketch-next'].includes(msg.type)){
@@ -383,24 +385,24 @@ export class QuizRoom extends DurableObject {
       if (room.status!=='playing'||room.mode !== 'treasure' || !p.pendingChests) throw new Error('No chest to open.');
       const reward = hasGameplay(room)?openGameplayChest(room,p,Number(msg.index)):openChest(room, p, Number(msg.index));
       p.feedback.reward = reward.text;p.feedback.effect=reward.effect||{type:'chest',amount:reward.points};
-      maybeArcadeEvent(room,p,reward.points);
+      maybeArcadeEvent(room,p,reward.points);leagueAction(p);
     } else if(msg.type==='play'){
       const p=this.requireStudent(att);if(room.status!=='playing')throw new Error('The game is not active.');
       if(!p.feedback?.correct&&!(p.lastPlay?.id===msg.id&&p.lastPlay.choice===msg.choice))throw new Error('Answer correctly before choosing a game action.');
       if(hasGameplay(room))room.gameplay.activePlayers=Math.max(1,this.onlineIds().length);
-      const reward=resolveGameplayChoice(room,p,msg.id,msg.choice);if(!reward.duplicate)p.feedback.game=reward.text;
+      const reward=resolveGameplayChoice(room,p,msg.id,msg.choice);if(!reward.duplicate){p.feedback.game=reward.text;leagueAction(p);}
     } else if (msg.type === 'next') {
       if(room.mode==='sketch')throw new Error('Wait for the next drawing word.');
       const p = this.requireStudent(att);
       if (room.status !== 'playing') throw new Error('Game is not active.');
       if (!p.feedback || p.pendingChests) throw new Error('Finish this question first.');
-      finishDefaultChoice(room,p);
+      const pending=!!p.pendingPlay;finishDefaultChoice(room,p);if(pending&&!p.pendingPlay)leagueAction(p);
       if(room.mode==='word')prepareWordQuestion(room,p);else prepareQuestion(room.questions,p);
       p.feedback = null;
     } else if (msg.type === 'upgrade') {
       const p = this.requireStudent(att);
       if (room.status !== 'playing') throw new Error('Game is not active.');
-      const reward = upgrade(room, p);
+      const reward = upgrade(room, p);leagueAction(p);
       this.send(ws, { type: 'notice', message: reward.text });
     } else {
       throw new Error('Unknown action.');
@@ -421,7 +423,8 @@ export class QuizRoom extends DurableObject {
         await this.authenticate(ws, msg);
       } else if(msg.type==='sketch-stroke'){
         const p=this.requireStudent(att),r=this.room;if(msg.roundNumber!==r.roundNumber)throw new Error('A new round has started.');const previous={length:r.sketch?.strokes.length,revision:r.sketch?.revision,last:r.sketch?.lastStrokeAt,rate:structuredClone(r.sketch?.strokeRate)},packet=appendSketchStroke(r,p,msg);if(packet.duplicate){this.send(ws,{type:'sketch-ack',id:msg.id});return;}
-        try{await this.ctx.storage.put('room',r);}catch(error){r.sketch.strokes.length=previous.length;r.sketch.revision=previous.revision;r.sketch.lastStrokeAt=previous.last;if(previous.rate)r.sketch.strokeRate=previous.rate;else delete r.sketch.strokeRate;throw error;}
+        const drawing=p.leagueDrawingWord!==msg.wordId,oldDrawing=p.leagueDrawingWord,oldActions=p.leagueActions,oldLeague=structuredClone(r.league),oldMetrics=structuredClone(r.roundMetrics);if(drawing){p.leagueDrawingWord=msg.wordId;leagueAction(p);}
+        try{if(drawing)await this.save();else await this.ctx.storage.put('room',r);}catch(error){p.leagueDrawingWord=oldDrawing;p.leagueActions=oldActions;r.league=oldLeague;r.roundMetrics=oldMetrics;r.sketch.strokes.length=previous.length;r.sketch.revision=previous.revision;r.sketch.lastStrokeAt=previous.last;if(previous.rate)r.sketch.strokeRate=previous.rate;else delete r.sketch.strokeRate;throw error;}
         for(const other of this.ctx.getWebSockets()){const a=other.deserializeAttachment();if(a?.protocol===2&&['host','student'].includes(a.role))this.send(other,{type:'sketch-stroke',...packet});}
       } else await this.act(ws, att, msg);
     } catch (err) { this.send(ws, { type: 'error', error: err.message || 'Game error.' }); }

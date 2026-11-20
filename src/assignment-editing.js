@@ -1,6 +1,6 @@
 import {ensure} from './library-domain.js';
 import {practiceRules,dateTimeInZone} from './academy-model.js';
-import {crosswordCandidates} from './assignment-crossword.js';
+import {connectedCrosswordCapacity} from './assignment-crossword.js';
 import {assignmentRevision,localDateTimeInput} from '../public/js/assignment-dates.js';
 export {assignmentRevision};
 export function ensureAssignmentRevision(a,p){
@@ -17,6 +17,6 @@ export function assignmentEdits(a,p,now=Date.now()){
  ensure(p.rules===undefined||p.rules&&typeof p.rules==='object'&&!Array.isArray(p.rules),'Use valid practice settings.');
  const rules=practiceRules({...a.rules,minMinutes:a.rules.minSeconds/60,...p.rules});
  ensure(rules.cardCountMode!=='distinct'||rules.minCards<=a.cards.length,'Distinct-card minimum cannot exceed the number of posted cards.');
- const eligible=crosswordCandidates(a.cards).length;ensure(!rules.crosswordWords||rules.crosswordWords<=eligible,`This assignment has ${eligible} unique answers that fit a crossword. Choose that many words or fewer (2–32 letters each).`);
+ const eligible=connectedCrosswordCapacity(a.cards);ensure(!rules.crosswordWords||rules.crosswordWords<=eligible,`This assignment has ${eligible} answers in its largest connected word group. Choose that many words or fewer (2–32 letters each).`);
  return {title,dueAt,rules};
 }

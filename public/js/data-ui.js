@@ -1,3 +1,4 @@
+import {clearCrosswordDeviceDrafts} from './crossword-grid-controller.js';
 import {$,esc,api,notice,download,topbar,option,mountDialog} from './ui.js';
 let state=null,bundle=null,preview=null,members=[];
 const call=(action,data={})=>api(action,data,'data');
@@ -20,10 +21,10 @@ document.addEventListener('submit',async e=>{if(e.target.method==='dialog')retur
  if(form.id==='restore-form'){const r=await call('restore',{bundle,confirm:v.confirm});$('#restore-preview').innerHTML=countMarkup(r.restored);notice(`${r.restored.records} missing records restored.`);bundle=null;form.hidden=true;}
  if(form.id==='retention-form'){await call('retention-save',{days:Number(v.days),enabled:!!v.enabled,confirm:v.confirm});await refresh();notice('Retention policy saved.');}
  if(form.id==='erase-student-form'){const r=await call('delete-student',v);await refresh();await receipt(r);}
- if(form.id==='erase-account-form'){const r=await call('delete-account',v);try{sessionStorage.clear();}catch{}$('#app').innerHTML='<main class="wrap"><h1>Your account has been deleted.</h1><p>Sign-in sessions have been revoked.</p><a class="btn ghost" href="/">Return home</a></main>';await receipt(r);}
+ if(form.id==='erase-account-form'){const r=await call('delete-account',v);clearCrosswordDeviceDrafts();try{sessionStorage.clear();}catch{}$('#app').innerHTML='<main class="wrap"><h1>Your account has been deleted.</h1><p>Sign-in sessions have been revoked.</p><a class="btn ghost" href="/">Return home</a></main>';await receipt(r);}
  }catch(err){notice(err.message,true);}finally{if(button)button.disabled=false;}});
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-do],[data-act="logout"]');if(!b||b.disabled)return;b.disabled=true;try{
- if(b.dataset.act==='logout'){await api('logout',{},'library');location.assign('/');}
+ if(b.dataset.act==='logout'){await api('logout',{},'library');clearCrosswordDeviceDrafts();location.assign('/');}
  if(b.dataset.do==='personal-export'){download('QuizDock-my-data.json',JSON.stringify(await call('personal-export')),'application/json');}
  if(b.dataset.do==='preview-retention'){const r=await call('retention-preview',{days:Number($('#retention-days').value)});$('#retention-preview').textContent=`${r.rounds} finished rounds and ${r.assignments} assignments are older than the cutoff. Nothing has been deleted.`;}
  if(b.dataset.do==='diagnostics'){const health=await fetch('/api/health',{cache:'no-store'}).then(r=>r.json()),storage=await call('diagnostics');$('#diagnostics').textContent=JSON.stringify({release:health.release,workerReady:health.ok,storageReadWrite:storage.storage,emailSettingsPresent:storage.emailConfigured,actualEmailDelivery:storage.emailDelivery},null,2);}

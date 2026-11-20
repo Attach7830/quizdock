@@ -1,3 +1,4 @@
+import {recordLeagueGame} from './league-game.js';
 import {ExpeditionService,cleanHangar} from './expedition-service.js';
 import {ownedEquipment} from '../public/js/item-catalog.js';
 import {startTeacherGoogleLogin, readTeacherGoogleAttempt, finishTeacherGoogleLogin, teacherGoogleConfigured} from './teacher-google-login.js';
@@ -66,12 +67,13 @@ export class TeacherLibrary extends DurableObject {
     if(action.startsWith('data:'))return json(await new DataTools(this.store,this.config,new AcademyService(this.store,this.config)).route(action.slice(5),p,token));
     if(action==='record-round'){
       const result=await new RoundRepository(this.store,p.owner).upsert(p.report);
-      if(p.report.status==='finished'&&p.outcome&&!result.deleted)await new AcademyService(this.store,this.config).recordOutcome(p.outcome,p.owner);
+      if(p.league&&!result.deleted)await recordLeagueGame(this.store,p.league,p.owner,p.report);
+      if(p.report.status==='finished'&&p.outcome&&!result.deleted)await new AcademyService(this.store,this.config).recordOutcome(p.outcome,p.owner,{leagueTracked:!!p.league});
       const passports=p.report.status==='finished'&&!result.deleted?await new ExpeditionService(this.store,new AcademyService(this.store,this.config)).record(p.expedition,p.owner,p.report):{};return json(Object.keys(passports).length?{...result,passports}:result);
     }
     if(action.startsWith('academy:'))return new AcademyService(this.store,this.config).route(action.slice(8),p,token,ip,googleIdentity);
     if(action==='solo-game-source'){
-      const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);ensure(user.role==='student','Use a student account for solo games.',403);const course=await svc.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${p.listId}`);ensure(deck,'This list is not shared with your class.',404);ensure(['treasure','fishing','battle','factory','rally','keep','word'].includes(p.mode),'Choose a solo-compatible game.');const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose a valid category.');const cards=deck.cards.filter(c=>category==='all'||c.category===category);ensure(cards.length,'No cards in this category.');await svc.rate('solo-game:'+user.id,30);return json({title:deck.title,questions:compileQuestions({title:deck.title,cards},{typedOnly:p.mode==='word'}),solo:{accountId:user.id,classId:course.id,listId:deck.listId,ownerId:course.ownerId},identity:{accountId:user.id,name:user.name,email:user.email,skin:user.skin,equipment:ownedEquipment(user),hangar:cleanHangar(user.hangar),passport:await new ExpeditionService(this.store,svc).passport(course.id,user.id)}});
+      const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);ensure(user.role==='student','Use a student account for solo games.',403);const course=await svc.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${p.listId}`);ensure(deck,'This list is not shared with your class.',404);ensure(['treasure','fishing','battle','factory','rally','keep','word'].includes(p.mode),'Choose a solo-compatible game.');const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose a valid category.');const cards=deck.cards.filter(c=>category==='all'||c.category===category);ensure(cards.length,'No cards in this category.');await svc.rate('solo-game:'+user.id,30);return json({title:deck.title,questions:compileQuestions({title:deck.title,cards},{typedOnly:p.mode==='word'}),solo:{accountId:user.id,classId:course.id,listId:deck.listId,ownerId:course.ownerId,timezone:course.timezone},identity:{accountId:user.id,name:user.name,email:user.email,skin:user.skin,equipment:ownedEquipment(user),hangar:cleanHangar(user.hangar),passport:await new ExpeditionService(this.store,svc).passport(course.id,user.id)}});
     }
     if(action==='record-solo-round'){
       const svc=new AcademyService(this.store,this.config),s=p.solo,r=p.report;ensure(s&&r&&typeof r.id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(r.id),'Invalid solo report.');const course=await this.store.get('class:'+s.classId),profile=await svc.profile(s.accountId),member=await svc.enrollment(s.accountId,s.classId);const erased=await this.store.get(`data:erased-account:${s.accountId}`),erasedMember=await this.store.get(`data:erased-member:${s.classId}:${s.accountId}`);if(!course||course.archived||course.ownerId!==s.ownerId||!member?.active||!profile||profile.disabled||r.startedAt<(profile.createdAt||0)||r.startedAt<=(erased?.at||0)||r.startedAt<=(erasedMember?.at||0))return json({skipped:true});
@@ -79,9 +81,10 @@ export class TeacherLibrary extends DurableObject {
       ensure(Number.isSafeInteger(total)&&total>=0&&total<=10000,'Invalid solo typed count.');
       const activity={...prior,classId:s.classId,userId:s.accountId,total:Math.max(total,prior?.total||0),updatedAt:Date.now()};
       if(!prior||total>prior.total){await new StudyRewards(this.store).credit(course,s.accountId,total-(prior?.total||0));await this.store.put(key,activity);}
+      if(p.league&&!prior?.leagueSettled)await recordLeagueGame(this.store,p.league,s.ownerId,r);
       if(r.status==='finished'&&!prior?.leagueSettled){
         const correct=r.cards.reduce((n,c)=>n+c.correct,0);
-        await new LeagueService(this.store).credit(course,s.accountId,correct,r.finishedAt);
+        if(!p.league)await new LeagueService(this.store).credit(course,s.accountId,correct,r.finishedAt);
         activity.leagueSettled=true;activity.leagueFinishedAt=r.finishedAt;await this.store.put(key,activity);
       }
       const passports=r.status==='finished'?await new ExpeditionService(this.store,svc).record(p.expedition,s.ownerId,r):{};
@@ -89,8 +92,8 @@ export class TeacherLibrary extends DurableObject {
     }
     if(action==='authorize-class-game'){
       const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);svc.teacher(user);
-      if(p.classId)await svc.course(p.classId,user,true);
-      return json({owner:user.id,classId:p.classId||null});
+      const course=p.classId?await svc.course(p.classId,user,true):null;
+      return json({owner:user.id,classId:course?.id||null,timezone:course?.timezone||null});
     }
     if(action==='authorize-join'){
       const svc=new AcademyService(this.store,this.config);let user;

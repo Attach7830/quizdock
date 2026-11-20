@@ -30,10 +30,10 @@ function installShortcuts(){
  document.addEventListener('click',event=>{if(event.target.closest?.('[data-keyboard-help]'))showGuide();});
  document.addEventListener('keydown',event=>{
   if(event.defaultPrevented||event.isComposing||event.keyCode===229||event.metaKey||document.querySelector('dialog[open]')){prefix='';return;}
-  const combo=eventShortcut(event),isEntry=event.target.matches?.('#typed-answer,#solo-answer,#live-word-answer,#sketch-guess-input');
+  const combo=eventShortcut(event),isEntry=event.target.matches?.('#typed-answer,#solo-answer,#live-word-answer,#sketch-guess-input,[data-crossword-input],[data-crossword-3d-input]');
   if(event.repeat){if(enabled&&(combo===bindings.next||event.key==='Enter'&&isEntry))event.preventDefault();prefix='';return;}
   if(!enabled){prefix='';return;}
-  if(combo===bindings.check){const form=document.querySelector('#crossword-answer-form,#answer-form,#solo-answer-form,#live-word-form,.sketch-guess-form:not([hidden])');if(form&&(!editable(event.target)||isEntry&&(event.ctrlKey||event.altKey||event.key==='Enter'))){event.preventDefault();form.requestSubmit();prefix='';return;}}
+  if(combo===bindings.check){const form=document.querySelector('#crossword-grid-form,#crossword-answer-form,#answer-form,#solo-answer-form,#live-word-form,.sketch-guess-form:not([hidden])');if(form&&(!editable(event.target)||isEntry&&(event.ctrlKey||event.altKey||event.key==='Enter'))){event.preventDefault();form.requestSubmit();prefix='';return;}}
   if(editable(event.target)){prefix='';return;}
   let match=Object.keys(bindings).find(id=>bindings[id]===combo),prefixed=prefix&&Date.now()-prefixAt<1200;
   if(prefixed)match=Object.keys(bindings).find(id=>bindings[id]===prefix+' '+combo)||match;

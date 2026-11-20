@@ -1,17 +1,18 @@
 import {ensure,uid} from './library-domain.js';
 import {correctAnswers} from '../public/js/list-model.js';
 import {normalizeAnswer} from '../public/js/answer-check.js';
+import {connectedCrossword,connectedWordGroups} from './crossword-builder.js';
 import {makeCrossword} from './word-activities.js';
 export const crosswordLetters=value=>[...String(value||'').normalize('NFC').toLocaleUpperCase('es')].filter(c=>/^\p{L}$/u.test(c)).join('');
 const answer=card=>String(correctAnswers(card)[0]||'').split(';').map(s=>s.trim()).find(Boolean)||'';
+export {answer as crosswordAnswer};
 export function crosswordCandidates(cards){const seen=new Set();return cards.map((card,index)=>({index,word:crosswordLetters(answer(card)),clue:card.prompt})).filter(c=>{if(c.word.length<2||c.word.length>32||seen.has(c.word))return false;seen.add(c.word);return true;});}
 export function createAssignmentCrossword(a,rng){
  const goal=a.rules.crosswordWords,candidates=crosswordCandidates(a.cards);ensure(goal>0&&goal<=candidates.length,'This assignment does not have enough unique 2–32-letter answers for the crossword.');
- const questions=candidates.map(c=>({text:c.clue,answers:[c.word],correct:[0]}));let board=null;
- for(let attempt=0;attempt<4;attempt++){const trial=makeCrossword(questions,rng,{limit:goal,maxLength:32,includeDisconnected:true});if(!board||trial.rows*trial.cols<board.rows*board.cols)board=trial;}
+ const board=connectedCrossword(candidates,goal,rng);ensure(board,'These answers could not form one connected crossword. Choose fewer words or add answers that share letters.');
  // Persist layout and card references only. Answers remain in the teacher's
  // private assignment snapshot, never in student progress or unsolved responses.
- return {id:uid(),goal,rows:board.rows,cols:board.cols,entries:board.entries.map(e=>({index:candidates[e.index].index,number:e.number,row:e.row,col:e.col,direction:e.direction,length:e.word.length})),solved:[],receipts:[],feedback:null};
+ return {id:uid(),goal,dimension:3,layers:board.layers,rows:board.rows,cols:board.cols,entries:board.entries.map(e=>({index:e.index,number:e.number,row:e.row,col:e.col,depth:e.depth||0,direction:e.direction,length:e.word.length})),solved:[],receipts:[],feedback:null};
 }
 // Keep the saved puzzle ID, clue numbers, solved words and answer receipts.
 // A larger target extends the grid; a smaller target keeps extra clues optional.
@@ -21,8 +22,8 @@ export function syncAssignmentCrossword(a,p,rng){
   const candidates=crosswordCandidates(a.cards),questions=candidates.map(c=>({text:c.clue,answers:[c.word],correct:[0]}));
   const initialEntries=x.entries.map(e=>({...e,index:candidates.findIndex(c=>c.index===e.index)}));
   ensure(initialEntries.every(e=>e.index>=0),'The saved crossword does not match this assignment.');
-  const board=makeCrossword(questions,rng,{limit:goal,maxLength:32,includeDisconnected:true,initialEntries});
-  x.rows=board.rows;x.cols=board.cols;x.entries=board.entries.map(e=>({index:candidates[e.index].index,number:e.number,row:e.row,col:e.col,direction:e.direction,length:e.word.length}));
+  const board=x.dimension===3?connectedCrossword(candidates,goal,rng,{initial:x.entries}):makeCrossword(questions,rng,{limit:goal,maxLength:32,includeDisconnected:true,initialEntries});ensure(board,'The added words could not connect to this saved puzzle. Choose fewer words.');if(x.dimension===3)x.layers=board.layers;
+  x.rows=board.rows;x.cols=board.cols;x.entries=board.entries.map(e=>({index:x.dimension===3?e.index:candidates[e.index].index,number:e.number,row:e.row,col:e.col,depth:e.depth||0,direction:e.direction,length:e.word.length}));
  }
  x.goal=goal;return true;
 }
@@ -30,10 +31,10 @@ export function crosswordProgress(p,rules){const required=rules.crosswordWords||
 export function publicAssignmentCrossword(a,p){
  const x=p.assignmentCrossword;if(!x)return null;const solved=new Set(x.solved),cells=new Map();
  for(const e of x.entries){const word=crosswordLetters(answer(a.cards[e.index]));for(let i=0;i<e.length;i++){
-  const row=e.row+(e.direction==='down'?i:0),col=e.col+(e.direction==='across'?i:0),key=row+':'+col,cell=cells.get(key)||{row,col,number:null,value:'',entries:[]};
+  const row=e.row+(e.direction==='down'?i:0),col=e.col+(e.direction==='across'?i:0),depth=(e.depth||0)+(e.direction==='depth'?i:0),key=depth?row+':'+col+':'+depth:row+':'+col,cell=cells.get(key)||{row,col,depth,number:null,value:'',entries:[]};
   if(i===0)cell.number=cell.number===null?e.number:Math.min(cell.number,e.number);if(solved.has(e.number))cell.value=word[i];cell.entries.push(e.number);cells.set(key,cell);
  }}
- return {id:x.id,goal:x.goal,rows:x.rows,cols:x.cols,solved:Math.min(x.solved.length,x.goal),totalSolved:x.solved.length,complete:x.solved.length>=x.goal,extraClues:x.entries.length>x.goal,cells:[...cells.values()],entries:x.entries.map(e=>({...e,index:undefined,clue:a.cards[e.index].prompt,image:a.cards[e.index].image,imageAlt:a.cards[e.index].imageAlt,solved:solved.has(e.number)})),feedback:x.feedback};
+ return {id:x.id,goal:x.goal,dimension:x.dimension||2,layers:x.layers||1,week:x.week||null,rows:x.rows,cols:x.cols,solved:Math.min(x.solved.length,x.goal),totalSolved:x.solved.length,complete:x.solved.length>=x.goal,extraClues:x.entries.length>x.goal,cells:[...cells.values()],entries:x.entries.map(e=>({...e,index:undefined,clue:a.cards[e.index].prompt,image:a.cards[e.index].image,imageAlt:a.cards[e.index].imageAlt,solved:solved.has(e.number)})),feedback:x.feedback,...(x.gridMode?{gridMode:true,draft:{revision:x.gridDraft.revision,entries:x.gridDraft.entries,updatedAt:x.gridDraft.updatedAt},check:x.lastGridCheck?.revision===x.gridDraft.revision?x.lastGridCheck:null}:{} )};
 }
 export function checkCrosswordAnswer(a,p,payload,now){
  const x=p.assignmentCrossword;ensure(x&&x.id===payload.puzzleId,'Open your current crossword before answering.',409);
@@ -49,3 +50,6 @@ export function checkCrosswordAnswer(a,p,payload,now){
  x.feedback={entry:entry.number,correct,text:correct?'Word locked in. Your crossing letters are revealed.':`Not quite. Try the answer that fits ${entry.length} squares. Spaces and punctuation are left out.`};
  x.receipts.push({id:payload.mutationId,entry:entry.number,input});if(x.receipts.length>64)x.receipts.shift();
 }
+
+export const connectedCrosswordCapacity=cards=>connectedWordGroups(crosswordCandidates(cards))[0]?.length||0;
+export const crosswordLayoutKey=x=>JSON.stringify(x.entries.map(e=>[e.index,e.row,e.col,e.depth||0,e.direction]).sort((a,b)=>a[0]-b[0]));

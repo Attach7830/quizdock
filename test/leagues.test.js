@@ -60,18 +60,18 @@ test('typed assignments award XP once for a correct answer, with grading, curren
   const ledger=(await f.call('home',{},student.token)).body.studyRewards[0];assert.equal(ledger.completed,0);
   const submitted=(await f.call('practice-submit',{assignmentId:a.id,lease:v.lease,assignmentRevision:1},student.token)).body;assert.equal(submitted.progress.creditPercent,100);assert.equal(submitted.progress.correct,1);
 }));
-test('crossword solves award XP once and wrong answers award none',()=>clock(async({advance})=>{
+test('crossword solves and wrong attempts award their respective XP once',()=>clock(async({advance})=>{
   const f=await fixture(),s=f.students[0];let v=(await f.call('practice-open',{assignmentId:f.a.id},s.token)).body;v=(await f.call('practice-crossword-open',{assignmentId:f.a.id,lease:v.lease},s.token)).body;
   const entry=v.crossword.entries[0],a=await f.ctx.storage.get('assignment:'+f.a.id),card=a.cards.find(c=>c.prompt===entry.clue),base={assignmentId:a.id,lease:v.lease,assignmentRevision:1,puzzleId:v.crossword.id,entry:entry.number};advance(600);
-  assert.equal((await f.call('practice-crossword-answer',{...base,answer:'incorrect',mutationId:uid()},s.token)).status,200);assert.equal((await f.view()).me.xp,0);advance(600);
-  const correct={...base,answer:card.answer,mutationId:uid()};await f.call('practice-crossword-answer',correct,s.token);await f.call('practice-crossword-answer',correct,s.token);assert.equal((await f.view()).me.xp,10);
+  assert.equal((await f.call('practice-crossword-answer',{...base,answer:'incorrect',mutationId:uid()},s.token)).status,200);assert.equal((await f.view()).me.xp,2);advance(600);
+  const correct={...base,answer:card.answer,mutationId:uid()};await f.call('practice-crossword-answer',correct,s.token);await f.call('practice-crossword-answer',correct,s.token);assert.equal((await f.view()).me.xp,12);
 }));
 test('independent typed practice credits correct answers once; flashcard self-report totals cannot create XP',()=>clock(async({advance})=>{
   const f=await fixture(),s=f.students[0],deck=(await f.call('solo-open',{classId:f.course.id,listId:f.listId},s.token)).body.deck;
   const p={classId:f.course.id,listId:f.listId,cardId:deck.cards[0].id,answer:deck.cards[0].answer,mutationId:uid()};
   await f.call('solo-answer',p,s.token);await f.call('solo-answer',p,s.token);assert.equal((await f.view()).me.xp,10);advance(600);
-  await f.call('solo-answer',{...p,answer:'wrong',mutationId:uid()},s.token);assert.equal((await f.view()).me.xp,10);
-  await f.call('solo-save',{classId:f.course.id,listId:f.listId,index:2,known:deck.cards.map(c=>c.id),xp:1000000},s.token);assert.equal((await f.view()).me.xp,10);
+  await f.call('solo-answer',{...p,answer:'wrong',mutationId:uid()},s.token);assert.equal((await f.view()).me.xp,12);
+  await f.call('solo-save',{classId:f.course.id,listId:f.listId,index:2,known:deck.cards.map(c=>c.id),xp:1000000},s.token);assert.equal((await f.view()).me.xp,12);
   assert.equal((await f.call('home',{},s.token)).body.studyRewards[0].completed,2);
 }));
 test('completed game XP follows correct answers, settles once across retries, and ignores game score',()=>clock(async()=>{

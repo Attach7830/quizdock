@@ -23,6 +23,7 @@ const testSockets=new Map();
 const server=https.createServer({key:fs.readFileSync(root+'/checks/dev-key.pem'),cert:fs.readFileSync(root+'/checks/dev-cert.pem')},async(req,res)=>{try{
 const url=new URL(req.url,'https://localhost:9443');
 if(url.pathname==='/__test/login'){const role=url.searchParams.get('role')||'student';res.setHeader('Set-Cookie',`__Host-quizdock-library=${tokens[role]}; Path=/; Secure; HttpOnly; SameSite=Lax`);res.setHeader('content-type','application/json');res.end('{}');return;}
+if(url.pathname==='/__test/alarms'&&req.method==='POST'){for(const {ctx,room}of rooms.values())if(ctx.storage.alarmAt&&ctx.storage.alarmAt<=Date.now())await room.alarm();res.setHeader('content-type','application/json');res.end('{}');return;}
 if(url.pathname==='/__test/fixture'){res.setHeader('content-type','application/json');res.end(JSON.stringify({classId:klass.id,classCode:klass.code,listId,assignmentId:assignment.id}));return;}
 if(url.pathname==='/__test/league-fixture'&&req.method==='POST'){
  let raw='';for await(const part of req)raw+=part;const input=JSON.parse(raw||'{}'),week=weekStart(Date.now(),klass.timezone),savedWeek=input.previous?addDays(week,-7):week;

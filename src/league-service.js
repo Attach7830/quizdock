@@ -1,4 +1,4 @@
-import {LEAGUE_TIERS,LEAGUE_XP,LEAGUE_MIN_FIELD,LEAGUE_SMALL_GOAL} from '../public/js/league-catalog.js';
+import {LEAGUE_TIERS,LEAGUE_XP,LEAGUE_ACTIVITY_XP,LEAGUE_MIN_FIELD,LEAGUE_SMALL_GOAL} from '../public/js/league-catalog.js';
 import {ownedEquipment} from '../public/js/item-catalog.js';
 import {weekStart,addDays,dateTimeInZone} from './academy-model.js';
 import {leagueStandings} from './league-model.js';
@@ -33,17 +33,21 @@ export class LeagueService {
         p.history=[{week:p.week,endsAt:resetAt(p.week,course.timezone),timezone:course.timezone,xp:p.xp,correct:p.correct,rank:placed?.rank||null,participants,tierBefore:before,tierAfter:after,result:after>before?'promoted':after<before?'demoted':before===LEAGUE_TIERS.length-1&&placed?.rank===1?'summit':'held',small:participants<LEAGUE_MIN_FIELD},...(p.history||[])].slice(0,12);
         p.weeks=(p.weeks||0)+1;p.promotions=(p.promotions||0)+Number(after>before);p.wins=(p.wins||0)+Number(placed?.rank===1);p.tier=after;
       }
-      p.week=week;p.xp=0;p.correct=0;p.updatedAt=now;await this.store.put(playerKey(course.id,p.userId),p);
+      p.week=week;p.xp=0;p.correct=0;p.activity={};p.updatedAt=now;await this.store.put(playerKey(course.id,p.userId),p);
     }
     const key='league-state:'+course.id+':current',prior=await this.store.get(key),endsAt=resetAt(week,course.timezone);
     if(prior?.week!==week||prior.timezone!==course.timezone)await this.store.put(key,{classId:course.id,week,timezone:course.timezone,resetAt:endsAt,updatedAt:now});
     return {week,resetAt:endsAt,profiles,members,accounts};
   }
   async credit(course,userId,correct,at=Date.now()){
+    return this.award(course,userId,{answered:correct,correct},at);
+  }
+  async award(course,userId,activity,at=Date.now()){
     const now=Date.now();
     // A delayed report cannot rewrite a closed week or spill old XP into a new
     // week. Game credit uses the authoritative round-finished timestamp.
-    if(!enabled(course)||!Number.isSafeInteger(correct)||correct<=0||correct>10000||weekStart(at,course.timezone)!==weekStart(now,course.timezone))return 0;
+    const counts=Object.fromEntries(['answered','correct','reviews','events','milestones'].map(k=>[k,activity[k]??0]));
+    if(!enabled(course)||Object.values(counts).some(n=>!Number.isSafeInteger(n)||n<0||n>10000)||counts.correct>counts.answered||!Object.values(counts).some(Boolean)||weekStart(at,course.timezone)!==weekStart(now,course.timezone))return 0;
     const week=weekStart(now,course.timezone),key=playerKey(course.id,userId);
     const values=await this.store.get(['league-state:'+course.id+':current',key,'account:'+userId,`member:${course.id}:${userId}`]);
     const account=values.get('account:'+userId),member=values.get(`member:${course.id}:${userId}`);
@@ -52,8 +56,8 @@ export class LeagueService {
     if(values.get('league-state:'+course.id+':current')?.week!==week||p&&p.week<week){const state=await this.sync(course,now);p=state.profiles.find(p=>p.userId===userId);}
     p=p||newPlayer(course.id,userId,week,now);
     if(p.week!==week)return 0;
-    const amount=correct*LEAGUE_XP;
-    p.xp=Math.min(Number.MAX_SAFE_INTEGER-LEAGUE_XP,p.xp+amount);p.correct+=correct;p.lastActivityAt=now;p.updatedAt=now;
+    const amount=counts.correct*LEAGUE_XP+(counts.answered-counts.correct)*LEAGUE_ACTIVITY_XP.attempt+counts.reviews*LEAGUE_ACTIVITY_XP.review+counts.events*LEAGUE_ACTIVITY_XP.event+counts.milestones*LEAGUE_ACTIVITY_XP.milestone;
+    p.xp=Math.min(Number.MAX_SAFE_INTEGER-LEAGUE_XP,p.xp+amount);p.correct+=counts.correct;p.activity=p.activity||{};for(const [k,n]of Object.entries(counts))p.activity[k]=(p.activity[k]||0)+n;p.lastActivityAt=now;p.updatedAt=now;
     await this.store.put(key,p);return amount;
   }
   async view(course,user,tier){
@@ -68,7 +72,7 @@ export class LeagueService {
     return {
       class:{id:course.id,name:course.name,timezone:course.timezone},enabled:enabled(course),week:state.week,resetAt:state.resetAt,now:Date.now(),tier:selected,
       tiers:LEAGUE_TIERS.map((t,i)=>({...t,index:i,participants:participants.filter(p=>p.tier===i).length})),totalParticipants:participants.length,
-      rules:{xpPerCorrect:LEAGUE_XP,smallGoal:LEAGUE_SMALL_GOAL,minField:LEAGUE_MIN_FIELD,small:rows.length<LEAGUE_MIN_FIELD,promotionPlaces:Math.max(1,Math.ceil(rows.length*.2)),demotionPlaces:selected>0&&rows.length>=LEAGUE_MIN_FIELD?Math.max(1,Math.floor(rows.length*.2)):0},
+      rules:{xpPerCorrect:LEAGUE_XP,activityXp:LEAGUE_ACTIVITY_XP,smallGoal:LEAGUE_SMALL_GOAL,minField:LEAGUE_MIN_FIELD,small:rows.length<LEAGUE_MIN_FIELD,promotionPlaces:Math.max(1,Math.ceil(rows.length*.2)),demotionPlaces:selected>0&&rows.length>=LEAGUE_MIN_FIELD?Math.max(1,Math.floor(rows.length*.2)):0},
       me:user.role==='student'?{tier:mine.tier,xp:mine.xp,correct:mine.correct,rank:own?.rank||null,zone:own?.zone||'unranked',gap,weeks:mine.weeks||0,promotions:mine.promotions||0,wins:mine.wins||0,history:mine.history||[]}:null,
       leaderboard:rows.map(p=>{const account=state.accounts.get(p.userId),member=state.members.get(p.userId);return {rank:p.rank,xp:p.xp,correct:p.correct,name:member.name||account.name,self:p.userId===user.id,zone:p.zone,appearance:{skin:account.owned?.includes(account.skin)?account.skin:'mint',equipment:ownedEquipment(account)}};})
     };
