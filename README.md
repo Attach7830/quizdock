@@ -1,5 +1,7 @@
 # QuizDock · classroom beta
 
+Release 0.13.0 adds weekly class leagues under **Arcade → Leagues**: eight tiers, server-scored XP, Monday resets in the class timezone, promotions, protected ties and saved weekly results. See [weekly league rules and data behavior](docs/WEEKLY_LEAGUES.md).
+
 Release 0.12.1 adds **Edit assignment** to teacher assignment cards and submission reports. Teachers can revise titles, class-local deadlines, practice requirements and Crossword Mode counts while preserving saved work and recorded grades. See [assignment editing](docs/ASSIGNMENT_EDITING.md).
 
 Release 0.12.0 adds 300 collectible fish with six rarity tiers, clearer game guides and next-move hints, a visible relic-building Word Forge with automatic typing focus, and teacher-enabled graded crossword alternatives. The rarest base characters now cost 50,000–250,000 character points. See [fish, forging and crosswords](docs/FISH_FORGE_AND_CROSSWORDS.md).
