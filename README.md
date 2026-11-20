@@ -1,5 +1,7 @@
 # QuizDock · classroom beta
 
+Release 0.13.1 resets the league filter to the student's own tier when switching classes, including after viewing an empty higher tier.
+
 Release 0.13.0 adds weekly class leagues under **Arcade → Leagues**: eight tiers, server-scored XP, Monday resets in the class timezone, promotions, protected ties and saved weekly results. See [weekly league rules and data behavior](docs/WEEKLY_LEAGUES.md).
 
 Release 0.12.1 adds **Edit assignment** to teacher assignment cards and submission reports. Teachers can revise titles, class-local deadlines, practice requirements and Crossword Mode counts while preserving saved work and recorded grades. See [assignment editing](docs/ASSIGNMENT_EDITING.md).
