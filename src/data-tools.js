@@ -6,7 +6,7 @@ const bytes=s=>new TextEncoder().encode(s);
 const jsonSize=v=>bytes(JSON.stringify(v)).length;
 const sid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(v);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const PERSONAL_PREFIXES=['member:','enrollment:','practice:','solo:','outcome:','outcome-index:','outcome-week:','class-outcome-week:','raffle:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:'];
+const PERSONAL_PREFIXES=['member:','enrollment:','practice:','solo:','outcome:','outcome-index:','outcome-week:','class-outcome-week:','raffle:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:','league-game:'];
 export const DATA_ACTIONS=['status','backup','restore-preview','restore','delete-student','delete-account','retention-preview','retention-save','retention-run','erasure-status','personal-export','diagnostics'];
 async function scan(store,prefix='',maximum=MAX_RECORDS){
  const out=new Map();let start;
@@ -42,7 +42,7 @@ export class DataTools {
   // Lists belong to the teacher, not the class, so include reusable lists in either export.
   await add(`list:${user.id}:`);await add(`index:${user.id}:`);
   for(const c of classes){const world=await this.store.get('expedition-world:'+c.id);if(world)records.set('expedition-world:'+c.id,world);records.set('class:'+c.id,c);records.set(`class-owner:${user.id}:${c.id}`,c);if(c.code)records.set('class-code:'+c.code,c.id);
-   for(const prefix of ['member:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:'])await add(prefix+c.id+':');
+   for(const prefix of ['member:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:','league-game:'])await add(prefix+c.id+':');
    for(const m of (await scan(this.store,'member:'+c.id+':')).values()){const k=`enrollment:${m.userId}:${c.id}`,v=await this.store.get(k);if(v)records.set(k,v);await add(`solo:${m.userId}:${c.id}:`);}
    for(const a of (await scan(this.store,'assignment-index:'+c.id+':')).values()){assignmentIds.add(a.id);const v=await this.store.get('assignment:'+a.id);if(v)records.set('assignment:'+a.id,v);await add('practice:'+a.id+':');}
   }
@@ -69,7 +69,7 @@ export class DataTools {
    if(k.startsWith('class-code:'))return classes.get(v)?.ownerId===user.id&&classes.get(v).code===k.slice(11);
    if(k.startsWith('assignment:'))return v.ownerId===user.id&&classes.get(v.classId)?.ownerId===user.id;
    if(k.startsWith('outcome:'))return v.ownerId===user.id;
-   if(['member:','enrollment:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:'].some(pre=>k.startsWith(pre)))return classes.get(v.classId)?.ownerId===user.id;
+   if(['member:','enrollment:','assignment-index:','shared:','shared-index:','study-ledger:','study-award:','study-claim:','study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:','league-player:','league-state:','league-game:'].some(pre=>k.startsWith(pre)))return classes.get(v.classId)?.ownerId===user.id;
    if(k.startsWith('expedition-world:'))return classes.get(v.classId)?.ownerId===user.id;
    if(k.startsWith('practice:'))return assignments.get(v.assignmentId)?.ownerId===user.id;
    if(k.startsWith('solo:'))return classes.get(k.split(':')[2])?.ownerId===user.id;return false;
@@ -82,7 +82,7 @@ export class DataTools {
    // Erasure tombstones intentionally take precedence over old signed backups.
    const ids=new Set(erased);for(const item of erasedClasses){const [c,u]=item.split(':');if(entries.some(([k,x])=>x.classId===c||assignments.get(x.assignmentId)?.classId===c||k.includes(':'+c+':')))ids.add(u);}
    if(entries.some(([k,x])=>PERSONAL_PREFIXES.some(pre=>k.startsWith(pre))&&(hasId(x,ids)||[...ids].some(u=>k.includes(':'+u))))){counts.privacyBlocked++;continue;}
-   if(policy.enabled&&entries.some(([k,x])=>/^(round:|outcome:|raffle:|practice:|expedition-gallery:|expedition-receipt:|expedition-class-round:|league-player:)/.test(k)&&(x.finishedAt||x.drawnAt||x.at||x.lastActivityAt||x.updatedAt||x.createdAt||Date.now())<Date.now()-policy.days*DAY)){counts.privacyBlocked++;continue;}
+   if(policy.enabled&&entries.some(([k,x])=>/^(round:|outcome:|raffle:|practice:|expedition-gallery:|expedition-receipt:|expedition-class-round:|league-player:|league-game:)/.test(k)&&(x.finishedAt||x.drawnAt||x.at||x.lastActivityAt||x.updatedAt||x.createdAt||Date.now())<Date.now()-policy.days*DAY)){counts.privacyBlocked++;continue;}
    if(v.assignmentId&&(await this.store.get('assignment:'+v.assignmentId))?.archived){counts.privacyBlocked++;continue;}
    const classId=v.classId||assignments.get(v.assignmentId)?.classId;if(classId){const c=await this.store.get('class:'+classId);if(c?.archived){counts.privacyBlocked++;continue;}}
    let conflict=false,missing=[];for(const [k,x]of entries){const prior=await this.store.get(k);if(prior===undefined)missing.push([k,x]);else if(!same(prior,x))conflict=true;}
@@ -120,7 +120,7 @@ export class DataTools {
   for(const [k,v]of all){
    const studentKey=k===`account:${target}`||k===`student-code:${target}`||k===`code:${target}`||k.startsWith(`reward:${target}:`)||k.startsWith(`reward-day:${target}:`)||k.startsWith(`rate:academy:send-email:${target}`)||k.startsWith(`rate:email:${target}`)||k.startsWith(`solo:${target}:`);
    const member=(k.startsWith('member:')||k.startsWith('enrollment:'))&&v.userId===target&&(!scope||v.classId===scope);
-   const league=k.startsWith('league-player:')&&v.userId===target&&(!scope||v.classId===scope);
+   const league=(k.startsWith('league-player:')||k.startsWith('league-game:'))&&v.userId===target&&(!scope||v.classId===scope);
    const expedition=k.startsWith('expedition-')&&(!scope||v.classId===scope)&&v.userId===target;
    if(k.startsWith('expedition-gallery:')&&(!scope||v.classId===scope)&&v.frames?.some(frame=>frame.artistAccounts?.includes(target))){const frames=v.frames.filter(frame=>!frame.artistAccounts?.includes(target));if(frames.length)await this.store.put(k,{...v,frames});else await this.store.delete(k);redacted++;continue;}
    const study=k.startsWith('study-')&&v.userId===target&&(!scope||v.classId===scope);
@@ -151,6 +151,7 @@ export class DataTools {
   for(const c of await this.classes(user.id))for(const prefix of ['expedition-gallery:','expedition-receipt:','expedition-class-round:'])for(const [k,v]of await scan(this.store,prefix+c.id+':'))if(v.at<cutoff)await this.store.delete(k);
   for(const c of await this.classes(user.id))for(const m of (await scan(this.store,'member:'+c.id+':')).values())for(const [k,v]of await scan(this.store,`solo:${m.userId}:${c.id}:`))if(v.updatedAt<cutoff)await this.store.delete(k);
   for(const c of await this.classes(user.id))for(const prefix of ['study-attempt:','study-game:','expedition-profile:','expedition-receipt:','expedition-gallery:','expedition-class-round:'])for(const [k,v]of await scan(this.store,prefix+c.id+':'))if((v.at||v.updatedAt)<cutoff)await this.store.delete(k);
+  for(const c of await this.classes(user.id))for(const [k,v]of await scan(this.store,'league-game:'+c.id+':'))if(v.updatedAt<cutoff)await this.store.delete(k);
   for(const c of await this.classes(user.id))for(const [k,v]of await scan(this.store,'league-player:'+c.id+':')){if((v.lastActivityAt||v.updatedAt)<cutoff)await this.store.delete(k);else if(v.history?.some(h=>h.endsAt<cutoff))await this.store.put(k,{...v,history:v.history.filter(h=>h.endsAt>=cutoff)});}
   await this.store.put('data:last-retention:'+user.id,{at:Date.now(),...result});return result;
  }
@@ -159,7 +160,7 @@ export class DataTools {
   const user=await this.academy.identity(token);
   if(action==='status')return {role:user.role,email:user.email,classes:user.role==='teacher'?(await this.classes(user.id)).map(c=>({id:c.id,name:c.name})):[],policy:user.role==='teacher'?await this.policy(user.id):null,lastRestore:await this.store.get('data:last-restore:'+user.id)||null,lastRetention:await this.store.get('data:last-retention:'+user.id)||null,pendingCleanup:[...(await scan(this.store,'data:privacy-job:')).values()].filter(j=>j.owner===user.id&&!j.completed).length};
   if(action==='diagnostics'){this.academy.teacher(user);const key='data:probe:'+uid(),nonce=uid();await this.store.put(key,nonce);const storage=await this.store.get(key)===nonce;await this.store.delete(key);return {storage,emailConfigured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),emailDelivery:'not-tested',at:Date.now()};}
-  if(action==='personal-export'){const records=[];for(const [k,v]of await scan(this.store,'',50000))if(k===`account:${user.id}`||k.startsWith(`enrollment:${user.id}:`)||k.startsWith(`solo:${user.id}:`)||k.startsWith(`reward:${user.id}:`)||(k.startsWith('practice:')||k.startsWith('study-')||k.startsWith('expedition-profile:')||k.startsWith('expedition-receipt:')||k.startsWith('league-player:'))&&v.userId===user.id||k.startsWith('expedition-gallery:')&&v.frames?.some(f=>f.artistAccounts?.includes(user.id)))records.push([k,k.startsWith('practice:')?{...v,lease:null,lastBeat:0,lastAnswer:0}:k.startsWith('expedition-gallery:')?{...v,frames:v.frames.filter(f=>f.artistAccounts?.includes(user.id)).map(f=>({...f,artistAccounts:[user.id]}))}:v]);const result={format:'quizdock-personal-export',createdAt:Date.now(),records};ensure(jsonSize(result)<=MAX_BYTES,'Personal export exceeds the safe limit.',413);return result;}
+  if(action==='personal-export'){const records=[];for(const [k,v]of await scan(this.store,'',50000))if(k===`account:${user.id}`||k.startsWith(`enrollment:${user.id}:`)||k.startsWith(`solo:${user.id}:`)||k.startsWith(`reward:${user.id}:`)||(k.startsWith('practice:')||k.startsWith('study-')||k.startsWith('expedition-profile:')||k.startsWith('expedition-receipt:')||k.startsWith('league-player:')||k.startsWith('league-game:'))&&v.userId===user.id||k.startsWith('expedition-gallery:')&&v.frames?.some(f=>f.artistAccounts?.includes(user.id)))records.push([k,k.startsWith('practice:')?{...v,lease:null,lastBeat:0,lastAnswer:0}:k.startsWith('expedition-gallery:')?{...v,frames:v.frames.filter(f=>f.artistAccounts?.includes(user.id)).map(f=>({...f,artistAccounts:[user.id]}))}:v]);const result={format:'quizdock-personal-export',createdAt:Date.now(),records};ensure(jsonSize(result)<=MAX_BYTES,'Personal export exceeds the safe limit.',413);return result;}
   if(action==='backup')return this.backup(user,p);
   if(action==='restore-preview')return this.restore(user,{...p,preview:true});
   if(action==='restore')return this.restore(user,p);

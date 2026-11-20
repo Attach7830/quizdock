@@ -1,6 +1,6 @@
 """Weekly league flows with isolated test accounts; no production data."""
 from pathlib import Path
-import json,os,shutil,uuid
+import json,os,shutil,uuid,time
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1];BASE='https://localhost:9443';RESULTS=[]
 def check(ok,name):
@@ -24,7 +24,7 @@ def run():
   open_leagues(s);check(s.locator('.league-row').count()==5,'student sees classmates in the weekly standings');check(s.locator('.league-rank').first.inner_text()=='#1','standings use readable numeric ranks');check(s.locator('.league-row.is-self').count()==1,'own standing is highlighted');check('100' in s.locator('.league-personal h3').inner_text(),'weekly XP is shown separately');check(s.locator('.league-player .avatar').count()==5,'custom avatars appear beside all names');check(s.locator('.league-tiers button').count()==8,'eight leagues are visible');check(s.locator('.league-row.is-self').get_attribute('data-league-zone')=='promotion','top student sees the promotion zone');check('America/Los_Angeles' in s.locator('.league-reset').inner_text(),'reset shows the class timezone');check(s.locator('[data-league-countdown]').inner_text()!='','reset countdown is visible');check(s.locator('#league-settings-form').count()==0,'students cannot change league settings')
   data=call(sc,'league-home',{'classId':fix['classId']});check(data['leaderboard'][0]['appearance']['equipment']['hat']==seeded['accessory'],'standings retain owned avatar accessories');check('@' not in json.dumps(data),'league payload excludes classmate emails')
   s.locator('[data-act=league-tier][data-tier="7"]').click();s.wait_for_function('document.querySelector(".league-hero h2").textContent==="Diamond League"');check(s.locator('.league-empty').count()==1,'empty upper league explains the next climb');check('100' in s.locator('.league-personal h3').inner_text(),'viewing another tier keeps personal XP visible')
-  s.locator('[data-act=league-tier][data-tier="0"]').click();s.wait_for_selector('.league-row');s.locator('.league-rules summary').click();check('10 XP per correct answer' in s.locator('.league-rules').inner_text(),'XP earning rules are available beside the standings');check('Flipping flashcards earns no league XP' in s.locator('.league-rules').inner_text(),'flashcard and graded-answer rules are clear')
+  s.locator('[data-act=league-tier][data-tier="0"]').click();s.wait_for_selector('.league-row');s.locator('.league-rules summary').click();check('10 XP per correct answer' in s.locator('.league-rules').inner_text(),'XP earning rules are available beside the standings');check('2 XP per flashcard review' in s.locator('.league-rules').inner_text(),'flashcard reviews count toward the league')
   for width,height in [(1366,768),(768,1024),(390,844),(320,568)]:
    s.set_viewport_size({'width':width,'height':height});check(s.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'league page fits width '+str(width));s.locator('[data-act=league-refresh]').scroll_into_view_if_needed();check(s.locator('[data-act=league-refresh]').is_visible(),'refresh remains reachable at '+str(width));s.locator('.league-row').last.scroll_into_view_if_needed();check(s.locator('.league-row').last.is_visible(),'all standings remain reachable at '+str(width))
   s.screenshot(path=str(ROOT/'checks/leagues-phone.png'),full_page=True);s.set_viewport_size({'width':1366,'height':900});s.screenshot(path=str(ROOT/'checks/leagues-desktop.png'),full_page=True)
@@ -37,14 +37,17 @@ def run():
   deck=call(sc,'solo-open',{'classId':fix['classId'],'listId':fix['listId']})['deck'];card=deck['cards'][0];answer={'classId':fix['classId'],'listId':fix['listId'],'cardId':card['id'],'answer':card['answer'],'mutationId':str(uuid.uuid4())}
   call(sc,'solo-answer',answer);call(sc,'solo-answer',answer);s.locator('[data-act=league-refresh]').click();s.wait_for_function('document.querySelector(".league-personal h3").textContent.includes("110")');check(call(sc,'league-home',{'classId':fix['classId']})['me']['xp']==110,'a real typed answer awards XP once across retries');check('190 character points' in s.locator('.balance').inner_text(),'league XP leaves the spending balance intact')
   candy_before=call(sc,'home')['studyRewards'][0]['completed']
-  # A real private Word Forge round banks game XP at completion, not mid-round.
+  # A real private Word Forge round saves XP during play and does not pay twice on finish.
   created=sc.request.post(BASE+'/api/solo',data={'classId':fix['classId'],'listId':fix['listId'],'mode':'word','category':'all'},headers={'Origin':BASE});assert created.ok,created.text();solo=created.json()
   s.evaluate('(v)=>sessionStorage.setItem("quizdock-session",JSON.stringify(v))',{'role':'student','pin':solo['pin'],'token':solo['playerToken'],'playerId':solo['playerId']});s.goto(BASE+'/play.html');s.locator('[data-act=start]').click();s.wait_for_selector('#live-word-answer')
   mapping={c['prompt']:c['answer'] for c in deck['cards']};s.keyboard.insert_text(mapping[s.locator('.phase-heading').inner_text()]);s.wait_for_timeout(520);s.keyboard.press('Enter');s.wait_for_selector('[data-player-view=result]')
-  check(call(sc,'league-home',{'classId':fix['classId']})['me']['xp']==110,'an unfinished round does not bank league XP')
+  deadline=time.monotonic()+22
+  while call(sc,'league-home',{'classId':fix['classId']})['me']['xp']<120 and time.monotonic()<deadline:
+   sc.request.post(BASE+'/__test/alarms');s.wait_for_timeout(250)
+  during=call(sc,'league-home',{'classId':fix['classId']})['me']['xp'];check(during>=120,'an unfinished round banks earned league XP')
   for dismiss in s.locator('.event-flash-dismiss:visible').all():dismiss.click()
-  s.locator('[data-act=game-menu]').click();s.on('dialog',lambda dialog:dialog.accept());s.locator('#dialog [data-act=end]').click();s.wait_for_function('''async id=>(await(await fetch('/api/academy/league-home',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({classId:id})})).json()).me.xp===120''',arg=fix['classId'],polling=200);open_leagues(s);s.wait_for_function('document.querySelector(".league-personal h3").textContent.includes("120")')
-  check(call(sc,'league-home',{'classId':fix['classId']})['me']['xp']==120,'a finished Word Forge round banks its real correct-answer XP');check(call(sc,'home')['studyRewards'][0]['completed']==candy_before+1,'game banking retains existing typed-practice candy accounting')
+  s.locator('[data-act=game-menu]').click();s.on('dialog',lambda dialog:dialog.accept());s.locator('#dialog [data-act=end]').click();s.wait_for_function('''async id=>(await(await fetch('/api/academy/league-home',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({classId:id})})).json()).me.xp>=120''',arg=fix['classId'],polling=200);open_leagues(s);s.wait_for_selector('.league-personal h3')
+  check(call(sc,'league-home',{'classId':fix['classId']})['me']['xp']==during,'finishing does not duplicate activity already banked');check(call(sc,'home')['studyRewards'][0]['completed']==candy_before+1,'game banking retains existing typed-practice candy accounting')
   # Simulate a saved prior week and a client countdown reaching its boundary.
   cached=call(sc,'league-home',{'classId':fix['classId']});prior=seed(sc,previous=True)
   def nearly_ended(route):

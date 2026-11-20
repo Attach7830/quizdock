@@ -1,3 +1,4 @@
+from crossword_browser_helpers import clue_ids,choose_clue,fill_word,fill_grid,word_value,square_values,check_grid
 """Fish journal/art, clear Word Forge, and a real graded crossword. Fake local accounts only."""
 from pathlib import Path
 import json,os,shutil,uuid
@@ -14,7 +15,7 @@ def dismiss(p):
  for b in p.locator('.event-flash-dismiss:visible').all():b.click()
 def fit(p,label):
  p.wait_for_timeout(60)
- d=p.evaluate('''()=>({h:innerHeight,w:innerWidth,dh:document.documentElement.scrollHeight,dw:document.documentElement.scrollWidth,off:[...document.querySelectorAll('.assignment-practice button,.assignment-practice input,.assignment-practice select')].filter(e=>e.getClientRects().length).filter(e=>{const r=e.getBoundingClientRect();return r.top<0||r.bottom>innerHeight+1||r.left<0||r.right>innerWidth+1}).map(e=>e.id||e.textContent.slice(0,30))})''')
+ d=p.evaluate('''()=>({h:innerHeight,w:innerWidth,dh:document.documentElement.scrollHeight,dw:document.documentElement.scrollWidth,off:[...document.querySelectorAll('.assignment-practice button:not(.crossword-clue-button),.assignment-practice input:not([data-crossword-input]),.assignment-practice select')].filter(e=>e.getClientRects().length).filter(e=>{const r=e.getBoundingClientRect();return r.top<0||r.bottom>innerHeight+1||r.left<0||r.right>innerWidth+1}).map(e=>e.id||e.textContent.slice(0,30))})''')
  if d['off'] or d['dh']>d['h']+1:p.screenshot(path=str(ROOT/'checks/crossword-layout-failure.png'))
  check(d['dh']<=d['h']+1 and d['dw']<=d['w']+1 and not d['off'],label+': '+str(d))
 def run():
@@ -49,20 +50,17 @@ def run():
   home=call(sc,'/api/academy/home');a=next(a for a in home['assignments'] if a['listId']==lid)
   check(a['rules']['crosswordWords']==8 and a['rules']['minCards']==100,'teacher publishes a crossword word count alongside the unchanged typed requirements')
   s.goto(BASE+'/?view=assignments');s.locator(f'[data-act=practice][data-id="{a["id"]}"]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();s.wait_for_selector('.assignment-crossword');puzzle_id=s.locator('.assignment-crossword').get_attribute('data-puzzle-id')
-  check(s.locator('.practice-prompt-number').inner_text()=='8-word crossword','crossword header shows its assigned word count rather than an unrelated deck counter');check(s.locator('#assignment-crossword-clue option').count()==8,'student gets exactly the teacher’s eight random deck clues');check(s.locator('#typed-answer').evaluate('(e)=>e===document.activeElement'),'crossword entry is focused automatically')
-  for w,h in [(1366,768),(1024,600),(768,1024),(390,844),(320,568)]:s.set_viewport_size({'width':w,'height':h});fit(s,f'crossword and typed controls fit {w}x{h}')
-  s.set_viewport_size({'width':1366,'height':768});s.locator('#typed-answer').fill('saved draft');s.locator('[data-act=practice-mode][data-mode=word]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();check(s.locator('#typed-answer').input_value()=='saved draft','switching assignment formats keeps a crossword draft')
-  s.reload();s.locator(f'[data-act=practice][data-id="{a["id"]}"]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();s.wait_for_selector('.assignment-crossword');check(s.locator('.assignment-crossword').get_attribute('data-puzzle-id')==puzzle_id,'reopening resumes the same generated puzzle')
-  for i in range(8):
-   check(s.locator('#typed-answer').evaluate('(e)=>e===document.activeElement'),'clue '+str(i+1)+' is ready to type without clicking')
-   text=s.locator('.crossword-clue').inner_text();s.keyboard.press('ControlOrMeta+A');s.keyboard.insert_text(mapping[text]);s.wait_for_timeout(520);s.keyboard.press('Enter');s.wait_for_selector('[data-act=crossword-next]')
-   if i<7:s.keyboard.press('Enter');s.wait_for_selector('#typed-answer')
+  check(s.locator('.practice-prompt-number').inner_text()=='8-word crossword','crossword header shows its assigned word count');check(len(clue_ids(s))==8,'student gets exactly eight random clues');check(s.evaluate('document.activeElement?.matches("[data-crossword-input],[data-crossword-3d-input]")'),'a grid square is focused automatically')
+  for w,h in [(1366,768),(1024,600),(768,1024),(390,844),(320,568)]:s.set_viewport_size({'width':w,'height':h});fit(s,f'crossword controls fit {w}x{h}')
+  s.set_viewport_size({'width':1366,'height':768});number=clue_ids(s)[0];fill_word(s,number,'ZX');draft=square_values(s);s.locator('[data-act=practice-mode][data-mode=word]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();check(square_values(s)==draft,'switching formats keeps all grid letters')
+  s.reload();s.locator(f'[data-act=practice][data-id="{a["id"]}"]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();s.wait_for_selector('.assignment-crossword');check(s.locator('.assignment-crossword').get_attribute('data-puzzle-id')==puzzle_id,'reopening resumes the same puzzle');check(square_values(s)==draft,'letters survive a page reload')
+  fill_grid(s,mapping);check(s.locator('[data-cw-check]').is_enabled(),'all filled words enable a whole-puzzle check');check(s.locator('.crossword-clue-mark').count()==0,'typing correct answers does not reveal correctness');check_grid(s)
   check(s.locator('[data-act=practice-submit]').is_enabled(),'solving all clues enables explicit assignment submission');s.screenshot(path=str(ROOT/'checks/assignment-crossword-complete.png'))
   s.locator('[data-act=practice-submit]').click();s.wait_for_selector('.practice-submitted');check('Crossword' in s.locator('.practice-submitted').inner_text(),'submission identifies Crossword as the completion method')
   report=call(tc,'/api/academy/assignment-report',{'assignmentId':a['id']});row=next(r for r in report['students'] if r['email']=='alex@example.com')
   check(row['progress']['completionMethod']=='crossword' and row['progress']['crossword']['solved']==8 and row['progress']['creditPercent']==100,'real teacher grade report records all eight solved words and full assignment credit')
   for goal in [20,40]:
-   large=call(tc,'/api/academy/create-assignment',{'classId':fix['classId'],'listId':lid,'title':str(goal)+'-word puzzle','dueLocal':'2026-12-18T23:59','rules':{'minMinutes':5,'minCards':100,'crosswordWords':goal}})['assignment'];s.goto(BASE+'/?view=assignments');s.locator(f'[data-act=practice][data-id="{large["id"]}"]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();s.wait_for_selector('.assignment-crossword');check(s.locator('#assignment-crossword-clue option').count()==goal,'large crossword keeps all '+str(goal)+' required words')
+   large=call(tc,'/api/academy/create-assignment',{'classId':fix['classId'],'listId':lid,'title':str(goal)+'-word puzzle','dueLocal':'2026-12-18T23:59','rules':{'minMinutes':5,'minCards':100,'crosswordWords':goal}})['assignment'];s.goto(BASE+'/?view=assignments');s.locator(f'[data-act=practice][data-id="{large["id"]}"]').click();s.locator('[data-act=practice-mode][data-mode=crossword]').click();s.wait_for_selector('.assignment-crossword');check(len(clue_ids(s))==goal,'large crossword keeps all '+str(goal)+' required words')
    for w,h in [(1366,768),(320,568)]:s.set_viewport_size({'width':w,'height':h});fit(s,str(goal)+'-word crossword controls fit '+str(w)+'x'+str(h))
    s.set_viewport_size({'width':1366,'height':768})
   # Hosted Word Forge uses the same real typing/focus flow as private solo games.

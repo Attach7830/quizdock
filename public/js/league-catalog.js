@@ -1,4 +1,5 @@
 export const LEAGUE_XP = 10;
+export const LEAGUE_ACTIVITY_XP = {attempt:2,review:2,event:3,milestone:10};
 export const LEAGUE_SMALL_GOAL = 100;
 export const LEAGUE_MIN_FIELD = 5;
 export const LEAGUE_TIERS = [
