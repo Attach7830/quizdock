@@ -22,6 +22,8 @@ Teachers can pause leagues for an individual class. Saved XP remains until reset
 
 League state uses `league-state:<class>:current` and `league-player:<class>:<student>`. It does not modify assignment grades, focus timers, candy policies, character currency, or lifetime expedition statistics. Existing source records and question snapshots are retained.
 
+Cached standings clear when the account changes or the selected class is no longer linked. A failed refresh offers a retry and cannot leave another account's or a revoked class's standings on screen.
+
 Signed class backups include league records. Each class's league records restore as a group, so an old backup cannot insert stale weekly XP alongside newer standings. Personal exports include only the requesting student's league record. Scoped erasure removes that class's league profile, retention honors the last learning activity and trims old history, and erasure tombstones prevent old backups or room reports from recreating removed progress.
 
 ## Verification

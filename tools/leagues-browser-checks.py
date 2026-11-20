@@ -54,6 +54,14 @@ def run():
   s.locator('[data-act=league-refresh]').click();s.wait_for_function('document.querySelector(".league-hero h2")?.textContent==="Silver League"');check(len(call(sc,'league-home',{'classId':fix['classId']})['me']['history'])==1,'refresh does not promote or settle a week twice')
   # Switching classes must not retain another class's standings or tier filter.
   second=call(tc,'create-class',{'name':'Second league crew','timezone':'Pacific/Kiritimati'})['class'];call(sc,'join-class',{'code':second['code']});open_leagues(s);s.locator('#league-class').select_option(second['id']);s.wait_for_function('(id)=>document.querySelector("#league-class")?.value===id',arg=second['id']);check(s.locator('.league-row').count()==0,'class switch does not leak the previous class standings');check('Pacific/Kiritimati' in s.locator('.league-reset').inner_text(),'class switch uses the selected timezone')
+  # A revoked class must not survive in the page cache when a refresh fails.
+  seed(sc);s.locator('#league-class').select_option(fix['classId']);s.wait_for_selector('.league-row');check(s.locator('.league-row').count()==5,'cache regression begins with visible private class standings')
+  account=call(sc,'home')['user']['id'];call(tc,'roster-remove',{'classId':fix['classId'],'userId':account})
+  s.locator('[role=tab][data-tab=classes]').click();s.locator('[data-act=join-class]').click();s.locator('#join-class-form [name=code]').fill(second['code']);s.locator('#join-class-form button').click();s.wait_for_function('!document.querySelector("#dialog").open')
+  s.route('**/api/academy/league-home',lambda route:route.abort(),times=1);s.locator('[role=tab][data-tab=leagues]').click();s.wait_for_function('document.querySelector("#notice")?.textContent.includes("server did not respond")')
+  check(s.locator('.league-row').count()==0,'a failed refresh cannot show a revoked class from cache');check(s.locator('.league-personal').count()==0,'private weekly XP is cleared when class access changes');check(s.locator('[data-act=league-refresh]').is_visible(),'failed initial loads provide a retry control')
+  s.locator('[data-act=league-refresh]').click();s.wait_for_selector('.weekly-leagues');check('Pacific/Kiritimati' in s.locator('.league-reset').inner_text(),'retry loads only the remaining authorized class')
+  forbidden=sc.request.post(BASE+'/api/academy/league-home',data={'classId':fix['classId']},headers={'Origin':BASE});check(forbidden.status==403,'revoked class standings stay protected on the server')
   check(not errors,'league navigation has no uncaught browser errors: '+str(errors));browser.close()
  print(json.dumps({'checks':len(RESULTS),'passed':sum(x['passed'] for x in RESULTS)}))
 if __name__=='__main__':
