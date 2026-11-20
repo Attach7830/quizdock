@@ -1,3 +1,5 @@
+import {LeagueService} from './league-service.js';
+import {LEAGUE_TIERS} from '../public/js/league-catalog.js';
 import {assignmentEdits,assignmentRevision,ensureAssignmentRevision,submissionSnapshot,submittedAssignment} from './assignment-editing.js';
 import {crosswordCandidates,createAssignmentCrossword,publicAssignmentCrossword,checkCrosswordAnswer,syncAssignmentCrossword} from './assignment-crossword.js';
 import {ExpeditionService} from './expedition-service.js';
@@ -103,7 +105,7 @@ export class AcademyService {
   }
   if(action==='practice-crossword-answer'){
    const retry=p.assignmentCrossword?.receipts.some(r=>r.id===payload.mutationId)||p.assignmentCrossword?.solved.includes(Number(payload.entry));
-   if(!retry){ensureAssignmentRevision(a,payload);ensure(a.rules.crosswordWords>0,'Crossword Mode is not enabled for this assignment.');}checkCrosswordAnswer(a,p,payload,now);await this.store.put(key,p);return this.viewPractice(a,p);
+   if(!retry){ensureAssignmentRevision(a,payload);ensure(a.rules.crosswordWords>0,'Crossword Mode is not enabled for this assignment.');}const before=p.correct;checkCrosswordAnswer(a,p,payload,now);if(p.correct>before)await new LeagueService(this.store).credit(await this.course(a.classId,user),user.id,p.correct-before);await this.store.put(key,p);return this.viewPractice(a,p);
   }
   if(action==='practice-activity'){ensure(payload.questionKey===p.questionKey&&!p.feedback,'This prompt is no longer active.',409);ensure(WORD_ACTIVITIES.includes(payload.activity),'Choose a word activity.');p.wordActivity=payload.activity;if(payload.activity==='crossword'&&!p.wordCrossword)p.wordCrossword=makeCrossword(a.cards.map(c=>({text:c.prompt,answers:correctAnswers(c),correct:correctAnswers(c).map((_,i)=>i)})),(min,max)=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return min+a[0]%(max-min+1);});await this.store.put(key,p);return this.viewPractice(a,p);}
   if(action==='practice-letter'){
@@ -131,6 +133,7 @@ export class AcademyService {
   const card=a.cards[p.cardIndex],graded=gradeTyped(card,input,a.rules),stats=p.cardStats[card.id]||{prompt:card.prompt,correct:0,incorrect:0,firstCorrect:graded.correct};
   if(graded.correct){stats.correct++;p.correct++;}else stats.incorrect++;p.cardStats[card.id]=stats;p.answered++;p.wordChain=graded.correct?(p.wordChain||0)+1:0;
   p.feedback={correct:graded.correct,expected:graded.expected,answer:input,prompt:card.prompt};p.lastMutation=mutationId;p.lastInput=String(payload.answer);p.lastAnswer=now;p.lastSubmittedAt=now;p.updatedAt=now;
+  if(graded.correct)await new LeagueService(this.store).credit(await this.course(a.classId,user),user.id,1);
   await this.store.put(key,p);return this.viewPractice(a,p);
  }
  async recordOutcome(outcome,owner){
@@ -146,6 +149,7 @@ export class AcademyService {
   ensure(Number.isFinite(outcome.finishedAt),'Finished time required.');const record={id:outcome.id,ownerId:owner,classId:c?.id||null,mode:text(outcome.mode,30),title:text(outcome.title,100),finishedAt:outcome.finishedAt,startedAt:outcome.startedAt,players};
   await this.store.put('outcome-settled:'+record.id,true);await this.store.put('outcome:'+record.id,record);await this.store.put(`outcome-index:${owner}:${record.id}`,record);await this.store.put(`outcome-week:${owner}:${weekStart(record.finishedAt,DEFAULT_ZONE)}:${record.id}`,record);if(c)await this.store.put(`class-outcome-week:${owner}:${c.id}:${weekStart(record.finishedAt,c.timezone)}:${record.id}`,record);
   for(const p of rankedParticipants(players)){
+   if(c)await new LeagueService(this.store).credit(c,p.accountId,p.correct,record.finishedAt);
    const profile=await this.profile(p.accountId),day=localDay(record.finishedAt,c?.timezone||DEFAULT_ZONE),dk=`reward-day:${p.accountId}:${day}`,prior=await this.store.get(dk)||0;
    const amount=p.correct?Math.min(Math.max(0,250-prior),Math.min(100,p.correct*2)+({1:15,2:10,3:5}[p.rank]||0)):0;
    profile.points+=amount;await this.store.put({['account:'+p.accountId]:profile,[dk]:prior+amount,[`reward:${p.accountId}:${record.id}`]:{roundId:record.id,amount,at:record.finishedAt}});
@@ -158,6 +162,11 @@ export class AcademyService {
   if(action==='login-request'||action==='login-verify'){ensure(!this.config.GOOGLE_CLIENT_ID,'Use Sign in with Google for student accounts.',400);return this.login(action,p,ip);}
   if(action==='status'){let user=null;try{user=await this.identity(token);}catch{}return response({configured:!!(this.config.RESEND_API_KEY&&this.config.EMAIL_FROM),googleConfigured:!!this.config.GOOGLE_CLIENT_ID,user});}
   const user=await this.identity(token);
+  if(action==='league-home'||action==='league-settings'){
+   const course=await this.course(p.classId,user,user.role==='teacher');
+   if(action==='league-settings'){this.teacher(user);ensure(typeof p.enabled==='boolean','Choose whether leagues are enabled.');ensure(p.tier===undefined||Number.isInteger(Number(p.tier))&&Number(p.tier)>=0&&Number(p.tier)<LEAGUE_TIERS.length,'Choose a listed league.');await new LeagueService(this.store).sync(course);course.leagues={enabled:p.enabled};await this.store.put({['class:'+course.id]:course,['class-owner:'+user.id+':'+course.id]:course});}
+   return response(await new LeagueService(this.store).view(course,user,p.tier));
+  }
   if(action.startsWith('expedition-'))return response(await new ExpeditionService(this.store,this).route(action.slice(11),p,user));
   if(action==='home')return response(await this.home(user));
   if(action==='join-class'){await this.rate('join:'+user.id,15);const c=await this.byCode(p.code,user.email),old=await this.enrollment(user.id,c.id);ensure(!old||old.active,'Ask your teacher to restore your class access.',403);await this.enroll(c.id,user.id,user.email,old?.name||user.name);return response({ok:true});}
@@ -210,7 +219,7 @@ export class AcademyService {
    ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card,'This card is not in the shared list.',404);const key=`solo:${user.id}:${p.classId}:${p.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]},mutationId=id(p.mutationId),answer=String(p.answer??'').trim();ensure(answer&&answer.length<=300,'Type an answer of 1–300 characters.');
    const receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);if(receipt){ensure(receipt.cardId===card.id&&receipt.answer===answer,'That answer identifier was already used.',409);return response({feedback:receipt.feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});}
    ensure(Date.now()-(progress.lastTyped?.at||0)>=500,'Take a moment before checking another answer.',429);
-   const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.cardStats=progress.cardStats||{};const stat=progress.cardStats[card.id]||{misses:0,recoveries:0};if(!feedback.correct)stat.misses++;else if(stat.recoveries<stat.misses)stat.recoveries++;progress.cardStats[card.id]=stat;progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
+   const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.cardStats=progress.cardStats||{};const stat=progress.cardStats[card.id]||{misses:0,recoveries:0};if(!feedback.correct)stat.misses++;else if(stat.recoveries<stat.misses)stat.recoveries++;progress.cardStats[card.id]=stat;progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);if(feedback.correct)await new LeagueService(this.store).credit(course,user.id,1);return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
   }
   if(action==='study-rewards'||action==='study-rewards-settings'||action==='study-rewards-claim'){
    this.teacher(user);const course=await this.course(p.classId,user,true),rewards=new StudyRewards(this.store);

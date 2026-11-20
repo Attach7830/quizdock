@@ -5,6 +5,7 @@ import {verifyGoogleCredential} from './google-auth.js';
 import {DataTools,flushPrivacyJobs,runRetentionPolicies} from './data-tools.js';
 import {RELEASE} from './release.js';
 import {StudyRewards} from './study-rewards.js';
+import {LeagueService} from './league-service.js';
 import {compileQuestions,CARD_CATEGORIES} from '../public/js/list-model.js';
 import {AcademyService} from './academy-domain.js';
 import {RoundRepository} from './round-repository.js';
@@ -74,7 +75,17 @@ export class TeacherLibrary extends DurableObject {
     }
     if(action==='record-solo-round'){
       const svc=new AcademyService(this.store,this.config),s=p.solo,r=p.report;ensure(s&&r&&typeof r.id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(r.id),'Invalid solo report.');const course=await this.store.get('class:'+s.classId),profile=await svc.profile(s.accountId),member=await svc.enrollment(s.accountId,s.classId);const erased=await this.store.get(`data:erased-account:${s.accountId}`),erasedMember=await this.store.get(`data:erased-member:${s.classId}:${s.accountId}`);if(!course||course.archived||course.ownerId!==s.ownerId||!member?.active||!profile||profile.disabled||r.startedAt<(profile.createdAt||0)||r.startedAt<=(erased?.at||0)||r.startedAt<=(erasedMember?.at||0))return json({skipped:true});
-      const key=`study-game:${s.classId}:${s.accountId}:${r.id}`,prior=await this.store.get(key),total=r.mode==='word'?r.cards.reduce((n,c)=>n+c.typedAttempts,0):0;ensure(Number.isSafeInteger(total)&&total>=0&&total<=10000,'Invalid solo typed count.');if(!prior||total>prior.total){await new StudyRewards(this.store).credit(course,s.accountId,total-(prior?.total||0));await this.store.put(key,{classId:s.classId,userId:s.accountId,total,updatedAt:Date.now()});}const passports=r.status==='finished'?await new ExpeditionService(this.store,svc).record(p.expedition,s.ownerId,r):{};return json(Object.keys(passports).length?{ok:true,passports}:{ok:true});
+      const key=`study-game:${s.classId}:${s.accountId}:${r.id}`,prior=await this.store.get(key),total=r.mode==='word'?r.cards.reduce((n,c)=>n+c.typedAttempts,0):0;
+      ensure(Number.isSafeInteger(total)&&total>=0&&total<=10000,'Invalid solo typed count.');
+      const activity={...prior,classId:s.classId,userId:s.accountId,total:Math.max(total,prior?.total||0),updatedAt:Date.now()};
+      if(!prior||total>prior.total){await new StudyRewards(this.store).credit(course,s.accountId,total-(prior?.total||0));await this.store.put(key,activity);}
+      if(r.status==='finished'&&!prior?.leagueSettled){
+        const correct=r.cards.reduce((n,c)=>n+c.correct,0);
+        await new LeagueService(this.store).credit(course,s.accountId,correct,r.finishedAt);
+        activity.leagueSettled=true;activity.leagueFinishedAt=r.finishedAt;await this.store.put(key,activity);
+      }
+      const passports=r.status==='finished'?await new ExpeditionService(this.store,svc).record(p.expedition,s.ownerId,r):{};
+      return json(Object.keys(passports).length?{ok:true,passports}:{ok:true});
     }
     if(action==='authorize-class-game'){
       const svc=new AcademyService(this.store,this.config),user=await svc.identity(token);svc.teacher(user);
