@@ -1,3 +1,4 @@
+import {changeContentVisibility} from './content-visibility.js';
 import {reconcileCrosswordDraft,saveCrosswordDraft,checkCrosswordGrid,crosswordDraftAssessment} from './crossword-grid.js';
 import {LeagueService} from './league-service.js';
 import {LEAGUE_TIERS} from '../public/js/league-catalog.js';
@@ -21,7 +22,7 @@ const id=v=>{ensure(/^[a-zA-Z0-9_-]{8,80}$/.test(String(v||'')),'Invalid identif
 const text=(v,max=80)=>String(v??'').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g,' ').trim().slice(0,max);
 const response=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const cookie=value=>`__Host-quizdock-library=${value}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${value?604800:0}`;
-const publicAssignment=a=>{const {cards,ownerId,lastEditMutation,...rest}=a;return {...rest,revision:assignmentRevision(a),cardCount:cards.length};};
+const publicAssignment=a=>{const {cards,ownerId,lastEditMutation,lastVisibilityMutation,...rest}=a;return {...rest,revision:assignmentRevision(a),cardCount:cards.length};};
 
 // Instantiated INSIDE TeacherLibrary's storage transaction. External email delivery remains outside it.
 export class AcademyService {
@@ -71,13 +72,13 @@ export class AcademyService {
   const result={user,classes:classes.map(c=>({...c,semester:assignmentSemester(c,now)})),assignments:[],liveGames:[],sharedLists:[],studyRewards:[],skins:SKINS,avatarItems:AVATAR_ITEMS,now};
   for(const c of result.classes){
    if(user.role==='student'){const course=await this.store.get('class:'+c.id);result.studyRewards.push(await new StudyRewards(this.store).summary(course,user.id,result.now));}
-   for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...submittedAssignment(a,p||{}),className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,inCurrentSemester:inCurrentAssignmentSemester(a,c.semester,c.timezone,result.now),creditAvailablePercent:p?.submittedAt?null:availableAssignmentCredit(a,result.now),progress:p?progressSummary(p,a.rules):null});}
+   for(const a of await this.rows('assignment-index:'+c.id+':')){if(a.archived||user.role==='student'&&a.removedAt)continue;const p=user.role==='student'?await this.store.get(`practice:${a.id}:${user.id}`):null;const week=weekStart(result.now,c.timezone),dueDay=localDay(a.dueAt,c.timezone);result.assignments.push({...submittedAssignment(a,p||{}),className:c.name,dueThisWeek:dueDay>=week&&dueDay<addDays(week,7),overdue:a.dueAt<result.now&&!p?.submittedAt,inCurrentSemester:inCurrentAssignmentSemester(a,c.semester,c.timezone,result.now),creditAvailablePercent:p?.submittedAt?null:availableAssignmentCredit(a,result.now),progress:p?progressSummary(p,a.rules):null});}
    const room=await this.store.get('class-live:'+c.id);if(room&&room.expiresAt>result.now&&!['finished','expired'].includes(room.status))result.liveGames.push({...room,className:c.name});
-   const shared=await this.rows('shared-index:'+c.id+':');result.sharedLists.push(...shared.map(s=>({...s,className:c.name})));
+   const shared=(await this.rows('shared-index:'+c.id+':')).filter(s=>!s.hiddenAt);result.sharedLists.push(...shared.map(s=>({...s,className:c.name})));
   }
   result.assignments.sort((a,b)=>a.dueAt-b.dueAt);return result;
  }
- async assignment(assignmentId,user){const a=await this.store.get('assignment:'+id(assignmentId));ensure(a&&!a.archived,'Assignment is unavailable.',404);await this.course(a.classId,user);return a;}
+ async assignment(assignmentId,user){const a=await this.store.get('assignment:'+id(assignmentId));ensure(a&&!a.archived,'Assignment is unavailable.',404);await this.course(a.classId,user);ensure(user.role==='teacher'||!a.removedAt,'Your teacher removed this assignment from students. Your saved work is kept.',404);return a;}
  async practice(assignmentId,user){ensure(user.role==='student','Practice submissions require a student account.',403);const a=await this.assignment(assignmentId,user),key=`practice:${a.id}:${user.id}`,prior=await this.store.get(key),p=prior||{assignmentId:a.id,userId:user.id,answered:0,correct:0,activeMs:0,cardStats:{},questionKey:uid(),feedback:null,createdAt:Date.now(),lastBeat:0,lastAnswer:Date.now(),lastMutation:null,lease:null};
   // Keep a pre-update active prompt/feedback attached to its original card.
   if(p.cardIndex===undefined){if(prior)p.cardIndex=(p.answered-(p.feedback?1:0))%a.cards.length;else this.nextPracticeCard(a,p);}
@@ -86,6 +87,11 @@ export class AcademyService {
  nextPracticeCard(a,p){const draw=drawShuffledCard(p.cardCycle,a.cards.map((_,i)=>i),p.cardIndex);p.cardIndex=draw.index;p.cardCycle=draw.cycle;}
  practiceWord(a,p){const card=a.cards[p.cardIndex],answers=correctAnswers(card);return {room:{status:'playing',questions:[{text:card.prompt,answers,correct:answers.map((_,i)=>i),image:card.image,imageAlt:card.imageAlt,hint:card.hint,example:card.example,repair:card.repair,parts:card.parts}],expedition:{},settings:{wordActivity:p.wordActivity||'forge'}},player:{current:{key:p.questionKey,index:0},feedback:p.feedback,wordPuzzle:p.wordPuzzle?.key===p.questionKey?p.wordPuzzle:{key:p.questionKey,guesses:[],misses:0}}};}
  viewPractice(a,p){const card=a.cards[p.cardIndex],word=this.practiceWord(a,p);return {assignment:publicAssignment(submittedAssignment(a,p)),progress:progressSummary(p,a.rules),lease:p.lease,question:p.submittedAt?null:{key:p.questionKey,cardId:card.id,number:(p.answered-(p.feedback?1:0))%a.cards.length+1,prompt:card.prompt,image:card.image,imageAlt:card.imageAlt},word:p.submittedAt?null:{...publicWordQuestion(word.room,word.player),...(p.wordCrossword?{crossword:publicCrossword(p.wordCrossword,a.cards.map((c,i)=>p.cardStats[c.id]?.correct?i:-1).filter(i=>i>=0),p.cardIndex)}:{}),chain:p.wordChain||0},feedback:p.feedback,...(a.rules.crosswordWords?{crossword:p.submittedAt?null:publicAssignmentCrossword(a,p)}:{}),clock:{milliseconds:p.activeMs||0,eligible:!!p.focusActive}};}
+ async generateCrossword(a,user,dimension,previous=null){
+  const existing=new Set((await this.rows('practice:'+a.id+':',201)).filter(v=>v.userId!==user.id&&v.assignmentCrossword).map(v=>crosswordLayoutKey(v.assignmentCrossword)));if(previous)existing.add(crosswordLayoutKey(previous));
+  let puzzle;for(let attempt=0;attempt<12;attempt++){puzzle=createAssignmentCrossword(a,(min,max)=>{const n=new Uint32Array(1);crypto.getRandomValues(n);return min+n[0]%(max-min+1);},dimension);if(!existing.has(crosswordLayoutKey(puzzle)))break;}
+  puzzle.week=weekStart(a.dueAt,a.timezone);return puzzle;
+ }
  async practiceAction(action,payload,user){
   const {a,key,p}=await this.practice(payload.assignmentId,user),now=Date.now();
   const syncPuzzle=()=>{const changed=syncAssignmentCrossword(a,p,(min,max)=>{const n=new Uint32Array(1);crypto.getRandomValues(n);return min+n[0]%(max-min+1);});return reconcileCrosswordDraft(a,p,{bump:changed})||changed;};
@@ -102,8 +108,22 @@ export class AcademyService {
   ensure(!p.submittedAt,'This practice has already been submitted.',409);
   if(action==='practice-crossword-open'){
    ensure(a.rules.crosswordWords>0,'Your teacher has not enabled Crossword Mode for this assignment.');
-   if(!p.assignmentCrossword){const existing=new Set((await this.rows('practice:'+a.id+':',201)).filter(v=>v.userId!==user.id&&v.assignmentCrossword).map(v=>crosswordLayoutKey(v.assignmentCrossword)));for(let attempt=0;attempt<12;attempt++){p.assignmentCrossword=createAssignmentCrossword(a,(min,max)=>{const n=new Uint32Array(1);crypto.getRandomValues(n);return min+n[0]%(max-min+1);});if(!existing.has(crosswordLayoutKey(p.assignmentCrossword)))break;}p.assignmentCrossword.week=weekStart(a.dueAt,a.timezone);}
+   const dimension=payload.dimension??(p.assignmentCrossword?p.assignmentCrossword.dimension||2:3);
+   ensure(dimension===2||dimension===3,'Choose a 2D or 3D crossword.');
+   if(!p.assignmentCrossword)p.assignmentCrossword=await this.generateCrossword(a,user,payload.dimension??3);
+   else ensure((p.assignmentCrossword.dimension||2)===dimension,'Your saved crossword uses a different mode. Resume it or confirm starting over.',409);
    if(payload.grid===true)reconcileCrosswordDraft(a,p,{enable:true,now});
+   await this.store.put(key,p);return this.viewPractice(a,p);
+  }
+  if(action==='practice-crossword-reset'){
+   ensure(a.rules.crosswordWords>0,'Your teacher has not enabled Crossword Mode for this assignment.');
+   const mutationId=id(payload.mutationId),dimension=payload.dimension,x=p.assignmentCrossword;
+   ensure(dimension===2||dimension===3,'Choose a 2D or 3D crossword.');ensure(payload.confirm==='CLEAR CROSSWORD PROGRESS','Confirm that starting over clears the current crossword.');
+   if(p.lastCrosswordReset?.id===mutationId){ensure(p.lastCrosswordReset.dimension===dimension&&p.lastCrosswordReset.fromPuzzleId===payload.puzzleId&&p.lastCrosswordReset.toPuzzleId===x?.id,'That restart identifier was already used.',409);return this.viewPractice(a,p);}
+   ensureAssignmentRevision(a,payload);ensure(x&&x.id===payload.puzzleId,'Your crossword changed. Reopen it before starting over.',409);
+   ensure(payload.draftRevision===(x.gridDraft?.revision??0),'More letters were saved. Reopen the warning before clearing your progress.',409);
+   p.assignmentCrossword=await this.generateCrossword(a,user,dimension,x);reconcileCrosswordDraft(a,p,{enable:true,now});
+   p.lastCrosswordReset={id:mutationId,dimension,fromPuzzleId:x.id,toPuzzleId:p.assignmentCrossword.id};p.updatedAt=now;
    await this.store.put(key,p);return this.viewPractice(a,p);
   }
   if(action==='practice-crossword-draft'){
@@ -186,7 +206,7 @@ export class AcademyService {
   if(action==='create-class'){
    this.teacher(user);const existing=await this.rows('class-owner:'+user.id+':',101);ensure(existing.length<100,'Maximum 100 classes.');const name=text(p.name);ensure(name,'Name your class.');const classId=uid(),code=uid().replaceAll('-','').slice(0,10).toUpperCase();const emailDomain=text(p.emailDomain,100).toLowerCase();ensure(!emailDomain||/^[a-z0-9.-]+\.[a-z]{2,}$/.test(emailDomain),'Enter a school domain without @.');const c={id:classId,name,ownerId:user.id,code,timezone:zone(p.timezone||DEFAULT_ZONE),emailDomain,allowCode:p.allowCode!==false,createdAt:Date.now()};c.semester=p.semester?validateSemester(p.semester):assignmentSemester(c);await this.store.put({['class:'+classId]:c,['class-owner:'+user.id+':'+classId]:c,['class-code:'+code]:classId});return response({class:c});
   }
-  if(action==='class-detail'){const c=await this.course(p.classId,user,true),members=await Promise.all((await this.rows('member:'+c.id+':',201)).filter(m=>!m.erased).map(async member=>{const profile=await this.profile(member.userId);return {...member,appearance:{skin:profile?.owned?.includes(profile.skin)?profile.skin:'mint',equipment:ownedEquipment(profile||{})}};}));return response({class:c,members});}
+  if(action==='class-detail'){const c=await this.course(p.classId,user,true),members=await Promise.all((await this.rows('member:'+c.id+':',201)).filter(m=>!m.erased).map(async member=>{const profile=await this.profile(member.userId);return {...member,appearance:{skin:profile?.owned?.includes(profile.skin)?profile.skin:'mint',equipment:ownedEquipment(profile||{})}};}));return response({class:c,members,sharedLists:await this.rows('shared-index:'+c.id+':')});}
   if(action==='set-semester'){
    const c=await this.course(p.classId,user,true);c.semester=validateSemester(p.semester);
    await this.store.put({['class:'+c.id]:c,['class-owner:'+user.id+':'+c.id]:c});return response({class:c});
@@ -200,13 +220,24 @@ export class AcademyService {
   if(action==='class-rotate-code'){const c=await this.course(p.classId,user,true);await this.store.delete('class-code:'+c.code);c.code=uid().replaceAll('-','').slice(0,10).toUpperCase();c.allowCode=true;await this.store.put({['class:'+c.id]:c,['class-owner:'+user.id+':'+c.id]:c,['class-code:'+c.code]:c.id});return response({class:c});}
   if(action==='share-list'||action==='create-assignment'){
    this.teacher(user);const c=await this.course(p.classId,user,true),list=await new ListRepository(this.store,user.id).get(p.listId);ensure(list.cards.length,'This list has no cards.');
-   if(action==='share-list'){const data={classId:c.id,listId:list.id,revision:list.revision,title:list.title,cards:structuredClone(list.cards)},index={classId:c.id,listId:list.id,title:list.title,count:list.cards.length,revision:list.revision};await this.store.put({[`shared:${c.id}:${list.id}`]:data,[`shared-index:${c.id}:${list.id}`]:index});return response({ok:true});}
+   if(action==='share-list'){const previous=await this.store.get(`shared:${c.id}:${list.id}`),sharingVersion=previous?(previous.sharingVersion||1)+1:1;const data={sharingVersion,classId:c.id,listId:list.id,revision:list.revision,title:list.title,cards:structuredClone(list.cards)},index={classId:c.id,listId:list.id,title:list.title,count:list.cards.length,revision:list.revision,sharingVersion};await this.store.put({[`shared:${c.id}:${list.id}`]:data,[`shared-index:${c.id}:${list.id}`]:index});return response({ok:true});}
    const dueAt=dateTimeInZone(p.dueLocal,c.timezone),rules=practiceRules(p.rules),title=text(p.title,100)||list.title;ensure(rules.cardCountMode!=='distinct'||rules.minCards<=list.cards.length,'Distinct-card minimum cannot exceed the number of cards in the list.');ensure(dueAt>Date.now()-365*DAY&&dueAt<Date.now()+730*DAY,'Choose a due date within the supported range.');
    if(rules.crosswordWords)ensure(rules.crosswordWords<=connectedCrosswordCapacity(list.cards),`This deck has ${connectedCrosswordCapacity(list.cards)} answers in its largest connected word group. Choose that many words or fewer (2–32 letters each).`);
    const a={id:uid(),revision:1,classId:c.id,ownerId:user.id,title,listId:list.id,listRevision:list.revision,cards:structuredClone(list.cards),rules,dueAt,timezone:c.timezone,createdAt:Date.now()};await this.store.put({['assignment:'+a.id]:a,[`assignment-index:${c.id}:${a.id}`]:publicAssignment(a)});return response({assignment:publicAssignment(a)});
   }
+  if(action==='assignment-visibility'){
+   this.teacher(user);const a=await this.assignment(p.assignmentId,user);await this.course(a.classId,user,true);ensure(a.ownerId===user.id,'This assignment belongs to another teacher.',403);const before=submissionSnapshot(a),changed=changeContentVisibility(a,p);
+   if(changed){for(const attempt of await this.rows('practice:'+a.id+':',201))if(attempt.submittedAt&&!attempt.submission){attempt.submission=before;await this.store.put(`practice:${a.id}:${attempt.userId}`,attempt);}await this.store.put({['assignment:'+a.id]:a,[`assignment-index:${a.classId}:${a.id}`]:publicAssignment(a)});}
+   return response({assignment:publicAssignment(a)});
+  }
+  if(action==='class-list-visibility'){
+   this.teacher(user);const c=await this.course(p.classId,user,true),listId=id(p.listId),key=`shared:${c.id}:${listId}`,deck=await this.store.get(key);ensure(deck,'Shared list not found.',404);const changed=changeContentVisibility(deck,p,{versionField:'sharingVersion',hiddenField:'hiddenAt'});
+   if(changed){const index={classId:c.id,listId,title:deck.title,count:deck.cards.length,revision:deck.revision,sharingVersion:deck.sharingVersion,...(deck.hiddenAt?{hiddenAt:deck.hiddenAt}:{})};await this.store.put({[key]:deck,[`shared-index:${c.id}:${listId}`]:index});}
+   return response({ok:true,sharingVersion:deck.sharingVersion||1,visible:!deck.hiddenAt});
+  }
   if(action==='assignment-detail'||action==='update-assignment'){
    this.teacher(user);const a=await this.assignment(p.assignmentId,user);await this.course(a.classId,user,true);ensure(a.ownerId===user.id,'This assignment belongs to another teacher.',403);
+   if(action==='update-assignment')ensure(!a.removedAt,'Restore the assignment before editing it.',409);
    if(action==='assignment-detail')return response({assignment:publicAssignment(a),crosswordEligibleCount:connectedCrosswordCapacity(a.cards)});
    const mutationId=id(p.mutationId),changes=assignmentEdits(a,p),digest=await hash(JSON.stringify(changes));
    if(a.lastEditMutation?.id===mutationId){ensure(a.lastEditMutation.digest===digest,'That save identifier was already used for different settings.',409);return response({assignment:publicAssignment(a)});}
@@ -223,19 +254,19 @@ export class AcademyService {
    return response({assignment:publicAssignment(a),students:members.filter(m=>!m.erased).map(m=>({...m,progress:progressSummary(map.get(m.userId)||{},a.rules),liveCrossword:crosswordDraftAssessment(a,map.get(m.userId)||{})})),cards});
   }
   if(action==='solo-open'){
-   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'This list is not shared with your class.',404);
+   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck&&!deck.hiddenAt,'This list is not shared with your class.',404);
    const category=p.category||'all';ensure(category==='all'||CARD_CATEGORIES.includes(category),'Choose Grammar, Vocabulary, Culture, or All categories.');
    const categories=Object.fromEntries(['all',...CARD_CATEGORIES].map(c=>[c,c==='all'?deck.cards.length:deck.cards.filter(card=>card.category===c).length]));
-   const progress=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]},cards=deck.cards.filter(card=>(category==='all'||card.category===category)&&(!p.recovery||(progress.cardStats?.[card.id]?.misses||0)>(progress.cardStats?.[card.id]?.recoveries||0)));return response({deck:{...deck,cards},category,categories,recovery:!!p.recovery,progress});
+   const progress=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`)||{index:0,known:[],again:[]},cards=deck.cards.filter(card=>(category==='all'||card.category===category)&&(!p.recovery||(progress.cardStats?.[card.id]?.misses||0)>(progress.cardStats?.[card.id]?.recoveries||0)));const {lastVisibilityMutation,...visibleDeck}=deck;return response({deck:{...visibleDeck,cards},category,categories,recovery:!!p.recovery,progress});
   }
   if(action==='solo-review'){
-   ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card&&['known','again'].includes(p.mark),'Choose a card and a review result.');const mutationId=id(p.mutationId),receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);
+   ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${course.id}:${id(p.listId)}`);ensure(deck&&!deck.hiddenAt,'This list is not currently shared with your class.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card&&['known','again'].includes(p.mark),'Choose a card and a review result.');const mutationId=id(p.mutationId),receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);
    if(receipt){ensure(receipt.kind==='review'&&receipt.cardId===card.id&&receipt.listId===deck.listId&&receipt.mark===p.mark,'That review identifier was already used.',409);return response({ok:true,duplicate:true});}
    const key=`solo:${user.id}:${course.id}:${deck.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]};ensure(Date.now()-(progress.lastReviewAt||0)>=500,'Take a moment to review the next card.',429);await this.rate('solo-review:'+user.id,120);
    progress.known=(progress.known||[]).filter(v=>v!==card.id);progress.again=(progress.again||[]).filter(v=>v!==card.id);progress[p.mark].push(card.id);progress.lastReviewAt=Date.now();progress.updatedAt=Date.now();await new LeagueService(this.store).award(course,user.id,{reviews:1});await this.store.put({[key]:progress,[receiptKey]:{kind:'review',classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,mark:p.mark,at:Date.now()}});return response({ok:true});
   }
   if(action==='solo-answer'){
-   ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card,'This card is not in the shared list.',404);const key=`solo:${user.id}:${p.classId}:${p.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]},mutationId=id(p.mutationId),answer=String(p.answer??'').trim();ensure(answer&&answer.length<=300,'Type an answer of 1–300 characters.');
+   ensure(user.role==='student','Use a student account for independent practice.',403);const course=await this.course(p.classId,user),deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck&&!deck.hiddenAt,'This list is not currently shared with your class.',404);const card=deck.cards.find(c=>c.id===p.cardId);ensure(card,'This card is not in the shared list.',404);const key=`solo:${user.id}:${p.classId}:${p.listId}`,progress=await this.store.get(key)||{index:0,known:[],again:[]},mutationId=id(p.mutationId),answer=String(p.answer??'').trim();ensure(answer&&answer.length<=300,'Type an answer of 1–300 characters.');
    const receiptKey=`study-attempt:${course.id}:${user.id}:${mutationId}`,receipt=await this.store.get(receiptKey);if(receipt){ensure(receipt.cardId===card.id&&receipt.answer===answer,'That answer identifier was already used.',409);return response({feedback:receipt.feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});}
    ensure(Date.now()-(progress.lastTyped?.at||0)>=500,'Take a moment before checking another answer.',429);
    const checked=p.reverse?{type:'pair',answer:card.prompt,alternatives:[]}:card,feedback={...gradeTyped(checked,answer,{strictAccents:p.strictAccents!==false}),answer};progress.cardStats=progress.cardStats||{};const stat=progress.cardStats[card.id]||{misses:0,recoveries:0};if(!feedback.correct)stat.misses++;else if(stat.recoveries<stat.misses)stat.recoveries++;progress.cardStats[card.id]=stat;progress.lastTyped={id:mutationId,cardId:card.id,answer,feedback,at:Date.now()};await this.store.put({[key]:progress,[receiptKey]:{classId:course.id,userId:user.id,listId:deck.listId,cardId:card.id,answer,feedback,at:Date.now()}});await new StudyRewards(this.store).credit(course,user.id,1);await new LeagueService(this.store).award(course,user.id,{answered:1,correct:Number(feedback.correct)});return response({feedback,studyRewards:await new StudyRewards(this.store).summary(course,user.id)});
@@ -247,7 +278,7 @@ export class AcademyService {
    const members=(await this.rows('member:'+course.id+':',201)).filter(m=>m.active&&!m.erased);return response({class:course,students:await Promise.all(members.map(async m=>({userId:m.userId,name:m.name,email:m.email,...await rewards.summary(course,m.userId)})))});
   }
   if(action==='solo-save'){
-   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck,'Shared list not found.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...prior,...(prior?.cardStats?{cardStats:prior.cardStats}:{}),...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
+   await this.course(p.classId,user);const deck=await this.store.get(`shared:${id(p.classId)}:${id(p.listId)}`);ensure(deck&&!deck.hiddenAt,'This list is not currently shared with your class.',404);const allowed=new Set(deck.cards.map(c=>c.id));const clean=x=>Array.isArray(x)?[...new Set(x)].filter(v=>allowed.has(v)).slice(0,250):[];const prior=await this.store.get(`solo:${user.id}:${p.classId}:${p.listId}`);const progress={...prior,...(prior?.cardStats?{cardStats:prior.cardStats}:{}),...(prior?.lastTyped?{lastTyped:prior.lastTyped}:{}),index:Math.max(0,Math.min(deck.cards.length-1,Math.floor(Number(p.index)||0))),known:clean(p.known),again:clean(p.again),updatedAt:Date.now()};await this.store.put(`solo:${user.id}:${p.classId}:${p.listId}`,progress);return response({ok:true});
   }
   if(['buy-item','equip-item','remove-item'].includes(action)){
    const profile=await this.profile(user.id),owned=Array.isArray(profile.ownedItems)?profile.ownedItems:[],equipment=ownedEquipment(profile);
