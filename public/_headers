@@ -11,3 +11,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/examples/QuizDock-Demo-Unit-Ropa-Gramatica-Cultura.csv
+  Content-Disposition: attachment; filename="QuizDock-Demo-Unit-Ropa-Gramatica-Cultura.csv"

@@ -30,6 +30,7 @@ export function mountCrosswordGrid(root,practice,userId,callbacks={}){
  function repaint({focus=false}={}){
   if(disposed)return;
   for(const [key,input]of inputs){input.parentElement.hidden=view==='layers'&&cells.get(key).depth!==layer;if(compositionTarget!==input)input.value=values[key]||'';input.tabIndex=view==='layers'&&key===active?0:-1;input.disabled=checking;const box=input.parentElement;box.classList.toggle('selected-word',current.keys.includes(key));box.classList.toggle('active-square',key===active);box.setAttribute('aria-selected',String(key===active));}
+  root.style.setProperty('--cw-axis-colour',{across:'#72e4c9',down:'#87c8ff',depth:'#c6a8ff'}[current.direction]);
   const direction=current.direction==='across'?'Across':current.direction==='depth'?'Depth':'Down';const label=root.querySelector('[data-cw-current-label]');label.textContent=`${current.label} ${direction} · ${current.length} letters${puzzle.dimension===3?' · layer '+(cells.get(active).depth+1):''}`;
   root.querySelector('[data-cw-current-clue]').textContent=current.clue;root.querySelector('[data-cw=direction]').textContent=direction;
   if(space){if(compositionTarget!==space.input)space.input.value=values[active]||'';space.input.readOnly=fixed.has(active);space.input.disabled=checking;space.input.setAttribute('aria-label',`${current.label} ${direction}, square ${current.keys.indexOf(active)+1} of ${current.length}`);space.update(values,active,current);}
@@ -129,8 +130,9 @@ export function mountCrosswordGrid(root,practice,userId,callbacks={}){
   else if(action==='clear-word'){for(const key of current.keys)if(!fixed.has(key))values[key]='';changed();choose(current.number);}
   else if(action==='toggle-clues'||action==='close-clues'){const open=action==='toggle-clues'&&!root.classList.contains('show-clues');root.classList.toggle('show-clues',open);root.querySelector('[data-cw=toggle-clues]').setAttribute('aria-expanded',String(open));}
   else if(action==='view-3d'||action==='view-layers'){view=action==='view-3d'?'3d':'layers';root.dataset.cwView=view;layer=cells.get(active).depth;root.querySelector('[data-cw=view-3d]')?.setAttribute('aria-pressed',String(view==='3d'));root.querySelector('[data-cw=view-layers]')?.setAttribute('aria-pressed',String(view==='layers'));root.querySelector('.crossword-layer-picker').hidden=view!=='layers';space?.setVisible(view==='3d');resizeGrid();repaint({focus:true});}
-  else if(action==='focus-word'){button.setAttribute('aria-pressed',String(space?.focus()));}
-  else if(action==='reset-camera')space?.reset();
+  else if(action==='focus-word'){button.setAttribute('aria-pressed',String(space?.focus()));repaint({focus:true});}
+  else if(action==='other-letters'){button.setAttribute('aria-pressed',String(space?.toggleLetters()));repaint({focus:true});}
+  else if(action==='reset-camera'){space?.reset();root.querySelector('[data-cw=focus-word]')?.setAttribute('aria-pressed','false');repaint({focus:true});}
   else if(action==='fit'||action==='zoom-in'||action==='zoom-out'){if(view==='3d'){if(action==='fit')space.fit();else space.zoom(action==='zoom-in'?1:-1);return;}const currentSize=parseFloat(root.querySelector('.crossword-input-grid').style.getPropertyValue('--cw-cell'))||28;zoom=action==='fit'?'fit':Math.max(18,Math.min(64,currentSize+(action==='zoom-in'?6:-6)));resizeGrid(true);}
   else if(action==='fullscreen')enterFullscreen();
   else if(action==='exit-fullscreen')exitFullscreen();
@@ -164,3 +166,4 @@ export function mountCrosswordGrid(root,practice,userId,callbacks={}){
 }
 
 export function clearCrosswordDeviceDrafts(){sessions.clear();try{for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(key.startsWith('qd-crossword:'))localStorage.removeItem(key);}}catch{}}
+export function clearCrosswordPuzzleDraft(userId,assignmentId,puzzleId){const key=`qd-crossword:${userId}:${assignmentId}:${puzzleId}`;for(const id of sessions.keys())if(id.startsWith(key+':'))sessions.delete(id);try{localStorage.removeItem(key);}catch{}}

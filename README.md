@@ -1,5 +1,7 @@
 # QuizDock · classroom beta
 
+Release 0.15.0 lets each student choose a flat 2D or rotatable 3D crossword before generation, resumes their saved puzzle and letters, and requires a large warning and confirmation before changing modes or starting over. The 3D view uses solid blocks, quieter labels, axis colors and an isolated, aligned word view. Teachers can remove or restore assignments and class-shared study lists while retaining grades, personal puzzles and study history. The import dialog includes a downloadable 30-card Spanish demo unit. See [content removal and the demo unit](docs/CONTENT_REMOVAL.md).
+
 Release 0.14.0 adds connected, rotatable 3D Crossword Mode with direct entry and a layer grid, a grid-and-clue fullscreen view, autosaved letters with connection recovery, deferred whole-puzzle checking and private live teacher counts. Flashcard reviews, answer attempts and earned game activity now contribute to weekly leagues during play. My lists uses the shared classroom design. See [crossword entry and autosave](docs/CROSSWORD_GRID.md) and [weekly XP rules](docs/WEEKLY_LEAGUES.md).
 
 Release 0.13.1 resets the league filter to the student's own tier when switching classes, including after viewing an empty higher tier.

@@ -19,3 +19,8 @@ def square_values(page):
 def check_grid(page):
  page.locator('[data-cw-check]').click()
  page.wait_for_selector('[data-cw-result]:not([hidden])')
+
+def start_crossword(page,dimension=3):
+ page.wait_for_selector('.crossword-choice,[data-crossword-3d-input]:visible,[data-crossword-input]:visible')
+ if page.locator('.crossword-choice').count():page.locator(f'[data-act=crossword-start][data-dimension="{dimension}"]').click()
+ page.wait_for_selector('[data-crossword-3d-input]:visible,[data-crossword-input]:visible')
